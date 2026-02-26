@@ -1,0 +1,104 @@
+name: CI
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  detect-project:
+    name: Detect Project Scaffold
+    runs-on: ubuntu-latest
+    outputs:
+      has_package_json: ${{ steps.detect.outputs.has_package_json }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Detect package.json
+        id: detect
+        shell: bash
+        run: |
+          if [[ -f package.json ]]; then
+            echo "has_package_json=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_package_json=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  quality:
+    name: Lint, Typecheck, Test, Build
+    needs: detect-project
+    if: needs.detect-project.outputs.has_package_json == 'true'
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            **/package-lock.json
+
+      - name: Install dependencies
+        shell: bash
+        run: |
+          if [[ -f package-lock.json ]]; then
+            npm ci
+          else
+            npm install
+          fi
+
+      - name: Validate required npm scripts
+        shell: bash
+        run: |
+          node -e "const fs=require('fs'); const pkg=JSON.parse(fs.readFileSync('package.json','utf8')); const required=['lint','typecheck','test','build']; const missing=required.filter((n)=>!pkg.scripts||!pkg.scripts[n]); if(missing.length){console.error('Missing required scripts: '+missing.join(', ')); process.exit(1);} console.log('Required scripts found:', required.join(', '));"
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm run test
+
+      - name: Build
+        run: npm run build
+
+      - name: Upload test artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-artifacts-${{ github.run_id }}
+          path: |
+            coverage/**
+            junit.xml
+            test-results/**
+          if-no-files-found: ignore
+
+  scaffold-pending:
+    name: Scaffold Pending
+    needs: detect-project
+    if: needs.detect-project.outputs.has_package_json != 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: CI scaffold status
+        run: |
+          echo "package.json was not found."
+          echo "CI quality checks are skipped until the project scaffold is committed."
