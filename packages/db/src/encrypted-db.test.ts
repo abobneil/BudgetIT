@@ -4,7 +4,12 @@ import path from "node:path";
 
 import { afterEach, describe, expect, it } from "vitest";
 
-import { bootstrapEncryptedDatabase, openEncryptedDatabase } from "./encrypted-db";
+import {
+  bootstrapEncryptedDatabase,
+  generateDatabaseKeyHex,
+  openEncryptedDatabase,
+  rekeyEncryptedDatabase
+} from "./encrypted-db";
 
 const tempRoots: string[] = [];
 
@@ -39,7 +44,7 @@ describe("encrypted sqlite bootstrap", () => {
     firstOpen.db.prepare("INSERT INTO sample (value) VALUES (?)").run("first");
     firstOpen.db.close();
 
-    const secondOpen = bootstrapEncryptedDatabase(dataDir);
+    const secondOpen = bootstrapEncryptedDatabase(dataDir, firstOpen.keyHex);
     const row = secondOpen.db
       .prepare("SELECT value FROM sample WHERE id = 1")
       .get() as { value: string };
@@ -65,5 +70,23 @@ describe("encrypted sqlite bootstrap", () => {
 
     second.close();
     first.db.close();
+  });
+
+  it("rejects old key after database rekey", () => {
+    const dataDir = createTempDir();
+    const first = bootstrapEncryptedDatabase(dataDir);
+    first.db.close();
+
+    const newKeyHex = generateDatabaseKeyHex();
+    rekeyEncryptedDatabase(first.dbPath, first.keyHex, newKeyHex);
+
+    expect(() => openEncryptedDatabase(first.dbPath, first.keyHex)).toThrow();
+
+    const reopened = openEncryptedDatabase(first.dbPath, newKeyHex);
+    const marker = reopened
+      .prepare("SELECT value FROM budgetit_meta WHERE key = ?")
+      .get("bootstrap_marker") as { value: string };
+    expect(marker.value).toBe("ok");
+    reopened.close();
   });
 });
