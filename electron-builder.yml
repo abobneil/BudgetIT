@@ -1,0 +1,30 @@
+appId: com.budgetit.desktop
+productName: BudgetIT
+artifactName: BudgetIT-${version}-win-${arch}.${ext}
+
+directories:
+  output: dist/release
+
+files:
+  - apps/desktop/dist/**/*
+  - apps/renderer/dist/**/*
+  - packages/core/dist/**/*
+  - package.json
+
+extraMetadata:
+  main: apps/desktop/dist/main.js
+
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  artifactName: BudgetIT-Setup-${version}-${arch}.${ext}
+  createDesktopShortcut: always
+  runAfterFinish: true
+

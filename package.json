@@ -10,12 +10,15 @@
     "lint": "npm run lint --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
-    "build": "npm run build --workspaces --if-present"
+    "build": "npm run build --workspaces --if-present",
+    "dist:win": "npm run build && electron-builder --config electron-builder.yml --win nsis --publish never",
+    "release:win": "npm run dist:win"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
     "@typescript-eslint/eslint-plugin": "^8.26.1",
     "@typescript-eslint/parser": "^8.26.1",
+    "electron-builder": "^26.0.12",
     "eslint": "^9.21.0",
     "typescript": "^5.8.2",
     "vitest": "^3.0.8"
