@@ -4,7 +4,6 @@ import path from "node:path";
 
 import Database from "better-sqlite3-multiple-ciphers";
 
-const DB_KEY_FILE = "budgetit.db.key";
 const DB_FILE_NAME = "budgetit.db";
 const BOOTSTRAP_MARKER_KEY = "bootstrap_marker";
 const BOOTSTRAP_MARKER_VALUE = "ok";
@@ -73,20 +72,30 @@ export function openEncryptedDatabase(dbPath: string, keyHex: string): Database.
   }
 }
 
-export function bootstrapEncryptedDatabase(dataDir: string): BootstrapEncryptedDatabaseResult {
+export function rekeyEncryptedDatabase(
+  dbPath: string,
+  currentKeyHex: string,
+  newKeyHex: string
+): void {
+  const db = openEncryptedDatabase(dbPath, currentKeyHex);
+  try {
+    db.pragma("journal_mode = DELETE");
+    db.pragma(`rekey = \"x'${newKeyHex}'\"`);
+    applyOperationalPragmas(db);
+    verifyBootstrapMarker(db);
+  } finally {
+    db.close();
+  }
+}
+
+export function bootstrapEncryptedDatabase(
+  dataDir: string,
+  keyHex: string = generateDatabaseKeyHex()
+): BootstrapEncryptedDatabaseResult {
   fs.mkdirSync(dataDir, { recursive: true });
 
   const dbPath = path.join(dataDir, DB_FILE_NAME);
-  const keyPath = path.join(dataDir, DB_KEY_FILE);
   const dbAlreadyExists = fs.existsSync(dbPath);
-
-  const keyHex = fs.existsSync(keyPath)
-    ? fs.readFileSync(keyPath, "utf8").trim()
-    : generateDatabaseKeyHex();
-
-  if (!fs.existsSync(keyPath)) {
-    fs.writeFileSync(keyPath, keyHex, { encoding: "utf8", mode: 0o600 });
-  }
 
   const db = openEncryptedDatabase(dbPath, keyHex);
 
