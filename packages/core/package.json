@@ -1,0 +1,17 @@
+{
+  "name": "@budgetit/core",
+  "version": "0.1.0",
+  "private": true,
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "lint": "eslint \"src/**/*.ts\"",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run src/ipc.test.ts",
+    "build": "tsc -p tsconfig.json"
+  }
+}
+

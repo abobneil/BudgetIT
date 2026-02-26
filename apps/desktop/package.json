@@ -1,0 +1,17 @@
+{
+  "name": "@budgetit/desktop",
+  "version": "0.1.0",
+  "private": true,
+  "main": "dist/main.js",
+  "scripts": {
+    "lint": "eslint \"src/**/*.ts\"",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run",
+    "build": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@budgetit/core": "*",
+    "electron": "^35.0.1"
+  }
+}
+
