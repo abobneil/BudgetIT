@@ -1,0 +1,95 @@
+.desktop-shell {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  min-height: 100vh;
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  color: #1f2328;
+}
+
+.desktop-shell__nav {
+  border-right: 1px solid #d1d9e0;
+  padding: 1rem 0.75rem;
+  background: #f6f8fa;
+  display: grid;
+  align-content: start;
+  gap: 0.25rem;
+}
+
+.desktop-shell__brand {
+  font-weight: 700;
+  margin: 0 0 0.75rem;
+  padding: 0 0.5rem;
+}
+
+.desktop-shell__link {
+  text-decoration: none;
+  color: #24292f;
+  padding: 0.55rem 0.5rem;
+  border-radius: 8px;
+  font-size: 0.95rem;
+}
+
+.desktop-shell__link:hover {
+  background: #eaedf1;
+}
+
+.desktop-shell__link--active {
+  background: #dbeafe;
+  color: #0b5fff;
+  font-weight: 600;
+}
+
+.desktop-shell__content {
+  min-width: 0;
+  display: grid;
+  grid-template-rows: auto 1fr;
+}
+
+.desktop-shell__topbar {
+  border-bottom: 1px solid #d1d9e0;
+  padding: 0.75rem 1rem;
+  display: grid;
+  grid-template-columns: 1fr auto auto auto;
+  gap: 0.75rem;
+  align-items: center;
+  background: #ffffff;
+}
+
+.desktop-shell__title {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.desktop-shell__toolbar-input,
+.desktop-shell__toolbar-select {
+  border: 1px solid #c2cad3;
+  border-radius: 6px;
+  padding: 0.4rem 0.5rem;
+  font: inherit;
+}
+
+.desktop-shell__toolbar-button {
+  border: 1px solid #c2cad3;
+  border-radius: 6px;
+  background: #fff;
+  padding: 0.4rem 0.7rem;
+  cursor: pointer;
+}
+
+.desktop-shell__page {
+  overflow: auto;
+  background: #ffffff;
+}
+
+@media (max-width: 900px) {
+  .desktop-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .desktop-shell__nav {
+    border-right: 0;
+    border-bottom: 1px solid #d1d9e0;
+    grid-auto-flow: column;
+    overflow-x: auto;
+  }
+}
