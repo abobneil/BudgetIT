@@ -1,0 +1,53 @@
+.import-page {
+  display: grid;
+  gap: 0.9rem;
+  padding: 1rem 1.25rem;
+}
+
+.import-stepper {
+  margin: 0;
+  padding-left: 1rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.import-stepper__item {
+  opacity: 0.7;
+}
+
+.import-stepper__item--active {
+  font-weight: 700;
+  opacity: 1;
+}
+
+.import-flags {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.import-summary-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.import-error-list,
+.import-suggestion-list,
+.import-unmatched-list {
+  margin: 0.35rem 0 0;
+  padding-left: 1rem;
+  display: grid;
+  gap: 0.2rem;
+}
+
+.import-commit-summary {
+  display: grid;
+  gap: 0.2rem;
+  margin-top: 0.5rem;
+}
+
+.import-nav {
+  display: flex;
+  gap: 0.5rem;
+}
