@@ -49,7 +49,7 @@
   border-bottom: 1px solid #d1d9e0;
   padding: 0.75rem 1rem;
   display: grid;
-  grid-template-columns: 1fr auto auto auto;
+  grid-template-columns: 1fr auto minmax(15rem, 1fr) auto auto;
   gap: 0.75rem;
   align-items: center;
   background: #ffffff;
@@ -76,6 +76,62 @@
   cursor: pointer;
 }
 
+.desktop-shell__feedback {
+  border-bottom: 1px solid #d1d9e0;
+  background: #ecfdf3;
+  color: #166534;
+  padding: 0.4rem 1rem;
+}
+
+.desktop-shell__feedback--error {
+  background: #fef2f2;
+  color: #991b1b;
+}
+
+.desktop-shell__command-list {
+  list-style: none;
+  margin: 0.75rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.desktop-shell__command-row {
+  width: 100%;
+  border: 1px solid #d1d9e0;
+  background: #fff;
+  border-radius: 8px;
+  padding: 0.45rem 0.55rem;
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  align-items: center;
+  cursor: pointer;
+}
+
+.desktop-shell__command-row--active {
+  border-color: #60a5fa;
+  background: #eff6ff;
+}
+
+.desktop-shell__command-shortcut {
+  color: #4b5563;
+  font-size: 0.82rem;
+}
+
+.desktop-shell__command-hint {
+  margin-top: 0.75rem;
+  display: block;
+  color: #57606a;
+}
+
+.desktop-shell__keyboard-map {
+  margin: 0;
+  padding-left: 1rem;
+  display: grid;
+  gap: 0.4rem;
+}
+
 .desktop-shell__page {
   overflow: auto;
   background: #ffffff;
@@ -91,5 +147,9 @@
     border-bottom: 1px solid #d1d9e0;
     grid-auto-flow: column;
     overflow-x: auto;
+  }
+
+  .desktop-shell__topbar {
+    grid-template-columns: 1fr minmax(0, 1fr);
   }
 }

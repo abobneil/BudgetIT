@@ -279,9 +279,9 @@ export function ExpensesPage() {
   const [statusFilter, setStatusFilter] = useState<ExpenseStatus | "all">("all");
   const [sortKey, setSortKey] = useState<SortKey>("name");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
-  const [selectedExpenseId, setSelectedExpenseId] = useState<string | null>(
-    INITIAL_EXPENSES[0]?.id ?? null
-  );
+  const [selectedExpenseId, setSelectedExpenseId] = useState<string | null>(() => {
+    return searchParams.get("expense") ?? INITIAL_EXPENSES[0]?.id ?? null;
+  });
   const [selectedRowIds, setSelectedRowIds] = useState<string[]>([]);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerMode, setDrawerMode] = useState<"create" | "edit">("create");
@@ -331,6 +331,30 @@ export function ExpensesPage() {
       { replace: true }
     );
   }, [setSearchParams, vendorFilter]);
+
+  useEffect(() => {
+    const focusedExpenseId = searchParams.get("expense");
+    if (focusedExpenseId && expenses.some((expense) => expense.id === focusedExpenseId)) {
+      setSelectedExpenseId(focusedExpenseId);
+    }
+
+    const action = searchParams.get("action");
+    if (action === "create" && !drawerOpen) {
+      setDrawerMode("create");
+      setEditingExpenseId(null);
+      setFormState(createDefaultFormState(vendorOptions[0]?.value ?? "vend-aws"));
+      setFormError(null);
+      setDrawerOpen(true);
+      setSearchParams(
+        (current) => {
+          const next = new URLSearchParams(current);
+          next.delete("action");
+          return next;
+        },
+        { replace: true }
+      );
+    }
+  }, [drawerOpen, expenses, searchParams, setSearchParams, vendorOptions]);
 
   const filteredExpenses = useMemo(() => {
     const query = searchText.trim().toLowerCase();
@@ -388,6 +412,22 @@ export function ExpensesPage() {
     }
     setSortKey(nextSortKey);
     setSortDirection("asc");
+  }
+
+  function focusExpense(expenseId: string | null): void {
+    setSelectedExpenseId(expenseId);
+    setSearchParams(
+      (current) => {
+        const next = new URLSearchParams(current);
+        if (expenseId) {
+          next.set("expense", expenseId);
+        } else {
+          next.delete("expense");
+        }
+        return next;
+      },
+      { replace: true }
+    );
   }
 
   function openCreateDrawer(): void {
@@ -468,7 +508,7 @@ export function ExpensesPage() {
         expense.id === nextRecord.id ? nextRecord : expense
       );
     });
-    setSelectedExpenseId(nextRecord.id);
+    focusExpense(nextRecord.id);
     setDrawerOpen(false);
     setFormError(null);
     setPageMessage(
@@ -483,7 +523,7 @@ export function ExpensesPage() {
     setExpenses((current) => current.filter((expense) => expense.id !== deleteExpenseId));
     setSelectedRowIds((current) => current.filter((id) => id !== deleteExpenseId));
     if (selectedExpenseId === deleteExpenseId) {
-      setSelectedExpenseId(null);
+      focusExpense(null);
     }
     setPageMessage(`Expense ${deleteExpenseId} deleted.`);
     setDeleteExpenseId(null);
@@ -750,7 +790,7 @@ export function ExpensesPage() {
                     <TableRow
                       key={expense.id}
                       className={focused ? "expenses-row expenses-row--focused" : "expenses-row"}
-                      onClick={() => setSelectedExpenseId(expense.id)}
+                      onClick={() => focusExpense(expense.id)}
                     >
                       <TableCell>
                         <Checkbox
