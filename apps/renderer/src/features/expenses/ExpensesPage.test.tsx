@@ -109,4 +109,45 @@ describe("ExpensesPage", () => {
     expect(promptSpy).not.toHaveBeenCalled();
     promptSpy.mockRestore();
   });
+
+  it("applies bulk tag assignment and refreshes detail chips for selected rows", async () => {
+    renderExpensesPage();
+
+    const cloudRow = getDataRows().find((row) => within(row).queryByText("Cloud Compute"));
+    const endpointRow = getDataRows().find((row) =>
+      within(row).queryByText("Endpoint Security")
+    );
+    expect(cloudRow).toBeDefined();
+    expect(endpointRow).toBeDefined();
+
+    fireEvent.click(within(cloudRow as HTMLElement).getByRole("checkbox"));
+    fireEvent.click(within(endpointRow as HTMLElement).getByRole("checkbox"));
+
+    fireEvent.change(screen.getByLabelText("Bulk tag dimension"), {
+      target: { value: "dim-cost-center" }
+    });
+    fireEvent.change(screen.getByLabelText("Bulk tag value"), {
+      target: { value: "tag-security" }
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Bulk tag entry" }));
+
+    expect(
+      await screen.findByText("Applied Security in Cost Center to 2 expense(s).")
+    ).toBeInTheDocument();
+    expect(screen.getByText("Security ×")).toBeInTheDocument();
+
+    const refreshedRows = getDataRows();
+    const refreshedEndpointRow = refreshedRows.find((row) =>
+      within(row).queryByText("Endpoint Security")
+    );
+    expect(refreshedEndpointRow).toBeDefined();
+    fireEvent.click(
+      within(refreshedEndpointRow as HTMLElement).getByText("Endpoint Security")
+    );
+    expect(screen.getByText("Vendor: Microsoft")).toBeInTheDocument();
+    expect(
+      within(refreshedEndpointRow as HTMLElement).getByText(/security, Security/i)
+    ).toBeInTheDocument();
+    expect(screen.getByText("Security ×")).toBeInTheDocument();
+  });
 });

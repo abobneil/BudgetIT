@@ -41,6 +41,33 @@
   gap: 0.5rem;
 }
 
+.expenses-detail__tagging {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.expenses-detail__chip-grid {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.expenses-detail__chip-row {
+  display: grid;
+  gap: 0.3rem;
+}
+
+.expenses-detail__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.expenses-detail__tag-entry {
+  display: grid;
+  gap: 0.35rem;
+  grid-template-columns: minmax(0, 10rem) minmax(0, 1fr) auto;
+}
+
 .expenses-detail__occurrences {
   margin: 0.35rem 0 0;
   padding-left: 1rem;
@@ -55,6 +82,12 @@
 
 @media (max-width: 1260px) {
   .expenses-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 760px) {
+  .expenses-detail__tag-entry {
     grid-template-columns: minmax(0, 1fr);
   }
 }
