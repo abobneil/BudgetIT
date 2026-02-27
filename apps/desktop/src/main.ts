@@ -9,8 +9,10 @@ import {
   buildMonthlyVarianceDataset,
   createEncryptedBackup,
   getReplacementPlanDetail,
+  materializeScenarioOccurrences,
   parseNlqToFilterSpec,
   queryExpensesByFilterSpec,
+  rekeyEncryptedDatabase,
   restoreEncryptedBackup,
   runMigrations,
   type AlertEventRecord,
@@ -397,6 +399,24 @@ function parseBackupVerifyPayload(payload: unknown): {
   };
 }
 
+function parseDbRekeyPayload(payload: unknown): {
+  newKeyHex?: string;
+} {
+  if (!payload || typeof payload !== "object") {
+    return {};
+  }
+
+  const value = payload as { newKeyHex?: unknown };
+  if (typeof value.newKeyHex !== "string" || value.newKeyHex.trim().length === 0) {
+    return {};
+  }
+  const normalized = value.newKeyHex.trim().toLowerCase();
+  if (!/^[0-9a-f]{64}$/.test(normalized)) {
+    throw new Error("db.rekey newKeyHex must be a 64-character hex key.");
+  }
+  return { newKeyHex: normalized };
+}
+
 function parseImportPayload(payload: unknown): {
   mode: "expenses" | "actuals";
   filePath: string;
@@ -453,21 +473,34 @@ function parseReportsQueryPayload(payload: unknown): {
   query: string;
   scenarioId: string;
   servicePlanId?: string;
+  horizonMonths?: number;
 } {
   if (!payload || typeof payload !== "object") {
     throw new Error("reports.query requires payload with query.");
   }
-  const value = payload as { query?: unknown; scenarioId?: unknown; servicePlanId?: unknown };
+  const value = payload as {
+    query?: unknown;
+    scenarioId?: unknown;
+    servicePlanId?: unknown;
+    horizonMonths?: unknown;
+  };
   if (typeof value.query !== "string" || value.query.trim().length === 0) {
     throw new Error("reports.query requires a non-empty query.");
   }
+  const parsedHorizon =
+    typeof value.horizonMonths === "number" && Number.isFinite(value.horizonMonths)
+      ? Math.floor(value.horizonMonths)
+      : undefined;
+  const horizonMonths =
+    parsedHorizon && parsedHorizon > 0 && parsedHorizon <= 60 ? parsedHorizon : undefined;
   return {
     query: value.query,
     scenarioId: typeof value.scenarioId === "string" && value.scenarioId.trim().length > 0 ? value.scenarioId : "baseline",
     servicePlanId:
       typeof value.servicePlanId === "string" && value.servicePlanId.trim().length > 0
         ? value.servicePlanId
-        : undefined
+        : undefined,
+    horizonMonths
   };
 }
 
@@ -650,6 +683,39 @@ function setupIpcHandlers(requestExit: () => void): void {
     requestExit();
     return { ok: true };
   });
+  ipcMain.handle("db.open", async () => {
+    const handle = requireDatabaseHandle();
+    const vault = createDatabaseVault(getDatabaseKeyPath());
+    return {
+      databasePath: handle.dbPath,
+      keyPresent: vault.hasSecret(),
+      safeStorageAvailable: safeStorage.isEncryptionAvailable()
+    };
+  });
+  ipcMain.handle("db.rekey", async (_event, payload: unknown) => {
+    const parsed = parseDbRekeyPayload(payload);
+    const handle = requireDatabaseHandle();
+    const currentKeyHex = handle.keyHex;
+    const nextKeyHex = parsed.newKeyHex ?? crypto.randomBytes(32).toString("hex");
+    if (nextKeyHex === currentKeyHex) {
+      throw new Error("db.rekey requires a key different from the current key.");
+    }
+
+    const vault = createDatabaseVault(getDatabaseKeyPath());
+    stopSchedulerAndCloseDatabase();
+    try {
+      rekeyEncryptedDatabase(handle.dbPath, currentKeyHex, nextKeyHex);
+      vault.writeSecret(nextKeyHex);
+    } finally {
+      initializeDatabaseAndAlerts();
+      startAlertScheduler();
+    }
+
+    return {
+      ok: true,
+      rotatedAt: new Date().toISOString()
+    };
+  });
   ipcMain.handle("backup.create", async (_event, payload: unknown) => {
     const parsed = parseBackupCreatePayload(payload);
     const handle = requireDatabaseHandle();
@@ -819,6 +885,72 @@ function setupIpcHandlers(requestExit: () => void): void {
         throw new Error("reports.query replacement.detail requires servicePlanId.");
       }
       return getReplacementPlanDetail(handle.db, parsed.servicePlanId);
+    }
+    if (parsed.query === "maintenance.materialize") {
+      const generatedCount = materializeScenarioOccurrences(
+        handle.db,
+        parsed.scenarioId,
+        parsed.horizonMonths ?? 24
+      );
+      return {
+        ok: true,
+        generatedCount,
+        horizonMonths: parsed.horizonMonths ?? 24,
+        scenarioId: parsed.scenarioId,
+        generatedAt: new Date().toISOString()
+      };
+    }
+    if (parsed.query === "maintenance.diagnostics") {
+      const tableCounts: Record<string, number> = {};
+      const trackedTables = [
+        "vendor",
+        "service",
+        "contract",
+        "expense_line",
+        "occurrence",
+        "transaction",
+        "alert_event"
+      ];
+      for (const tableName of trackedTables) {
+        const row = handle.db
+          .prepare(`SELECT COUNT(*) as count FROM ${tableName}`)
+          .get() as { count: number } | undefined;
+        tableCounts[tableName] = row?.count ?? 0;
+      }
+
+      const metaRow = handle.db
+        .prepare(
+          "SELECT schema_version, forecast_stale, forecast_generated_at, last_mutation_at FROM meta WHERE id = 1"
+        )
+        .get() as
+        | {
+            schema_version: number;
+            forecast_stale: number;
+            forecast_generated_at: string | null;
+            last_mutation_at: string;
+          }
+        | undefined;
+      const integrityResult = handle.db
+        .prepare("PRAGMA integrity_check")
+        .all() as Array<{ integrity_check: string }>;
+
+      return {
+        scenarioId: parsed.scenarioId,
+        generatedAt: new Date().toISOString(),
+        database: {
+          path: handle.dbPath,
+          schemaVersion: metaRow?.schema_version ?? 0,
+          forecastStale: (metaRow?.forecast_stale ?? 0) === 1,
+          forecastGeneratedAt: metaRow?.forecast_generated_at ?? null,
+          lastMutationAt: metaRow?.last_mutation_at ?? null,
+          integrity: integrityResult[0]?.integrity_check ?? "unknown"
+        },
+        backup: {
+          lastBackupAt: backupHealthState.latestBackupCreatedAt,
+          lastVerifiedAt: backupHealthState.lastVerifiedAt
+        },
+        counts: tableCounts
+      };
     }
     throw new Error(`Unsupported reports.query value: ${parsed.query}`);
   });

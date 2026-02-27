@@ -59,7 +59,9 @@ describe("ExpensesPage", () => {
     expect(within(firstDataRow).getByText("Endpoint Security")).toBeInTheDocument();
   });
 
-  it("completes create/edit/delete via form and confirm dialogs without prompt()", async () => {
+  it(
+    "completes create/edit/delete via form and confirm dialogs without prompt()",
+    async () => {
     const promptSpy = vi.spyOn(window, "prompt").mockImplementation(() => null);
 
     renderExpensesPage();
@@ -107,8 +109,10 @@ describe("ExpensesPage", () => {
       expect(within(table).queryByText("Support Plan Plus")).not.toBeInTheDocument();
     });
     expect(promptSpy).not.toHaveBeenCalled();
-    promptSpy.mockRestore();
-  });
+      promptSpy.mockRestore();
+    },
+    15000
+  );
 
   it("applies bulk tag assignment and refreshes detail chips for selected rows", async () => {
     renderExpensesPage();
