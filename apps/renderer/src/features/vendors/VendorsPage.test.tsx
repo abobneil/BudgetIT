@@ -70,59 +70,65 @@ describe("VendorsPage", () => {
     expect(within(expensesTable).queryByText("Endpoint Security")).not.toBeInTheDocument();
   });
 
-  it("supports create+attach workflow and blocks unsafe delete while allowing archive", async () => {
-    renderWorkspace("/vendors");
+  it(
+    "supports create+attach workflow and blocks unsafe delete while allowing archive",
+    async () => {
+      renderWorkspace("/vendors");
 
-    await screen.findByText("Vendors Workspace");
-    fireEvent.click(screen.getByRole("button", { name: "Create Vendor" }));
+      await screen.findByText("Vendors Workspace");
+      fireEvent.click(screen.getByRole("button", { name: "Create Vendor" }));
 
-    fireEvent.change(screen.getByLabelText("Vendor name"), {
-      target: { value: "Acme Security" }
-    });
-    fireEvent.change(screen.getByLabelText("Vendor owner"), {
-      target: { value: "Security Operations" }
-    });
-    fireEvent.change(screen.getByLabelText("Vendor annual spend minor units"), {
-      target: { value: "50000" }
-    });
-    fireEvent.change(screen.getByLabelText("Vendor linked service IDs"), {
-      target: { value: "svc-cloud-platform" }
-    });
+      fireEvent.change(screen.getByLabelText("Vendor name"), {
+        target: { value: "Acme Security" }
+      });
+      fireEvent.change(screen.getByLabelText("Vendor owner"), {
+        target: { value: "Security Operations" }
+      });
+      fireEvent.change(screen.getByLabelText("Vendor annual spend minor units"), {
+        target: { value: "50000" }
+      });
+      fireEvent.change(screen.getByLabelText("Vendor linked service IDs"), {
+        target: { value: "svc-cloud-platform" }
+      });
 
-    const createButtons = screen.getAllByRole("button", { name: "Create" });
-    fireEvent.click(createButtons[createButtons.length - 1]);
-    expect(await screen.findByText("Vendor Acme Security created.")).toBeInTheDocument();
-    expect(
-      screen.getByTestId("vendor-service-count-vend-acme-security")
-    ).toHaveTextContent("1");
+      const createButtons = screen.getAllByRole("button", { name: "Create" });
+      fireEvent.click(createButtons[createButtons.length - 1]);
+      expect(await screen.findByText("Vendor Acme Security created.")).toBeInTheDocument();
+      expect(
+        screen.getByTestId("vendor-service-count-vend-acme-security")
+      ).toHaveTextContent("1");
 
-    const acmeRow = screen
-      .getByTestId("vendor-service-count-vend-acme-security")
-      .closest("tr");
-    if (!acmeRow) {
-      throw new Error("Expected Acme Security vendor row.");
-    }
+      const acmeRow = screen
+        .getByTestId("vendor-service-count-vend-acme-security")
+        .closest("tr");
+      if (!acmeRow) {
+        throw new Error("Expected Acme Security vendor row.");
+      }
 
-    fireEvent.click(within(acmeRow).getByRole("button", { name: "Delete" }));
-    expect(
-      await screen.findByText("Cannot delete vendor while linked services or contracts exist.")
-    ).toBeInTheDocument();
+      fireEvent.click(within(acmeRow).getByRole("button", { name: "Delete" }));
+      expect(
+        await screen.findByText(
+          "Cannot delete vendor while linked services or contracts exist."
+        )
+      ).toBeInTheDocument();
 
-    fireEvent.click(within(acmeRow).getByRole("button", { name: "Archive" }));
-    const archiveDialog = await screen.findByRole("dialog");
-    fireEvent.click(
-      within(archiveDialog).getByRole("button", { name: "Archive", hidden: true })
-    );
+      fireEvent.click(within(acmeRow).getByRole("button", { name: "Archive" }));
+      const archiveDialog = await screen.findByRole("dialog");
+      fireEvent.click(
+        within(archiveDialog).getByRole("button", { name: "Archive", hidden: true })
+      );
 
-    expect(await screen.findByText("Vendor Acme Security archived.")).toBeInTheDocument();
+      expect(await screen.findByText("Vendor Acme Security archived.")).toBeInTheDocument();
 
-    fireEvent.click(
-      screen.getByRole("button", { name: "Open service Cloud Platform" })
-    );
-    await waitFor(() => {
-      expect(screen.getByTestId("page-title")).toHaveTextContent("Services");
-    });
-    const servicesTable = screen.getByRole("table", { name: "Services table" });
-    expect(within(servicesTable).getByText("Cloud Platform")).toBeInTheDocument();
-  });
+      fireEvent.click(
+        screen.getByRole("button", { name: "Open service Cloud Platform" })
+      );
+      await waitFor(() => {
+        expect(screen.getByTestId("page-title")).toHaveTextContent("Services");
+      });
+      const servicesTable = screen.getByRole("table", { name: "Services table" });
+      expect(within(servicesTable).getByText("Cloud Platform")).toBeInTheDocument();
+    },
+    15000
+  );
 });

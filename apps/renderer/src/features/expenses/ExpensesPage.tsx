@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import {
+  Badge,
   Button,
   Card,
   Checkbox,
@@ -24,6 +25,12 @@ import {
   PageHeader,
   StatusChip
 } from "../../ui/primitives";
+import { TAG_DIMENSIONS } from "../tags/tagging-fixtures";
+import {
+  removeTag,
+  type DimensionDefinition,
+  type TagAssignments
+} from "../tags/tagging-model";
 import {
   buildVendorFilterOptions,
   matchesVendorFilter
@@ -48,6 +55,7 @@ type ExpenseRecord = {
   serviceName: string;
   contractNumber: string;
   tags: string[];
+  tagAssignments: TagAssignments;
   recurrenceRule: RecurrencePreviewRule;
 };
 
@@ -70,6 +78,10 @@ const INITIAL_EXPENSES: ExpenseRecord[] = [
     serviceName: "AWS",
     contractNumber: "AWS-2026-BASE",
     tags: ["infra", "production"],
+    tagAssignments: {
+      "dim-cost-center": ["tag-engineering"],
+      "dim-environment": ["tag-prod"]
+    },
     recurrenceRule: {
       frequency: "monthly",
       interval: 1,
@@ -87,6 +99,7 @@ const INITIAL_EXPENSES: ExpenseRecord[] = [
     serviceName: "Defender",
     contractNumber: "MS-SEC-2026",
     tags: ["security"],
+    tagAssignments: {},
     recurrenceRule: {
       frequency: "monthly",
       interval: 1,
@@ -104,6 +117,10 @@ const INITIAL_EXPENSES: ExpenseRecord[] = [
     serviceName: "Looker",
     contractNumber: "LOOK-ANL-01",
     tags: ["bi", "finance"],
+    tagAssignments: {
+      "dim-cost-center": ["tag-finance"],
+      "dim-initiative": ["tag-growth"]
+    },
     recurrenceRule: {
       frequency: "quarterly",
       interval: 1,
@@ -195,9 +212,66 @@ function fromExpense(expense: ExpenseRecord): ExpenseFormState {
   };
 }
 
+function applyTagAssignment(
+  assignments: TagAssignments,
+  dimension: DimensionDefinition,
+  tagId: string
+): TagAssignments {
+  const current = assignments[dimension.id] ?? [];
+  if (dimension.mode === "single_select") {
+    return {
+      ...assignments,
+      [dimension.id]: [tagId]
+    };
+  }
+  if (current.includes(tagId)) {
+    return assignments;
+  }
+  return {
+    ...assignments,
+    [dimension.id]: [...current, tagId]
+  };
+}
+
+function getAssignedTagLabels(
+  assignments: TagAssignments,
+  dimensions: DimensionDefinition[]
+): string[] {
+  return dimensions.flatMap((dimension) =>
+    (assignments[dimension.id] ?? [])
+      .map((tagId) => dimension.tags.find((tag) => tag.id === tagId)?.label ?? null)
+      .filter((value): value is string => value !== null)
+  );
+}
+
+function findTagByLabelOrId(
+  dimension: DimensionDefinition,
+  value: string
+): { id: string; label: string } | null {
+  const normalized = value.trim().toLowerCase();
+  if (!normalized) {
+    return null;
+  }
+  const match = dimension.tags.find(
+    (tag) =>
+      !tag.retired &&
+      (tag.id.toLowerCase() === normalized || tag.label.toLowerCase() === normalized)
+  );
+  if (!match) {
+    return null;
+  }
+  return {
+    id: match.id,
+    label: match.label
+  };
+}
+
 export function ExpensesPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [expenses, setExpenses] = useState<ExpenseRecord[]>(INITIAL_EXPENSES);
+  const [dimensions] = useState<DimensionDefinition[]>(() =>
+    structuredClone(TAG_DIMENSIONS)
+  );
   const [searchText, setSearchText] = useState("");
   const [vendorFilter, setVendorFilter] = useState<string>(() => {
     return searchParams.get("vendor") ?? "all";
@@ -217,6 +291,14 @@ export function ExpensesPage() {
   );
   const [formError, setFormError] = useState<string | null>(null);
   const [deleteExpenseId, setDeleteExpenseId] = useState<string | null>(null);
+  const [bulkTagDimensionId, setBulkTagDimensionId] = useState(
+    TAG_DIMENSIONS[0]?.id ?? ""
+  );
+  const [bulkTagId, setBulkTagId] = useState("");
+  const [detailTagDimensionId, setDetailTagDimensionId] = useState(
+    TAG_DIMENSIONS[0]?.id ?? ""
+  );
+  const [detailTagQuery, setDetailTagQuery] = useState("");
   const [pageMessage, setPageMessage] = useState<string | null>(null);
 
   const vendorOptions = useMemo(
@@ -254,6 +336,7 @@ export function ExpensesPage() {
     const query = searchText.trim().toLowerCase();
     return expenses
       .filter((expense) => {
+        const assignedLabels = getAssignedTagLabels(expense.tagAssignments, dimensions);
         if (!matchesVendorFilter(vendorFilter, expense.vendorId)) {
           return false;
         }
@@ -268,11 +351,20 @@ export function ExpensesPage() {
           expense.vendorName.toLowerCase().includes(query) ||
           expense.serviceName.toLowerCase().includes(query) ||
           expense.contractNumber.toLowerCase().includes(query) ||
-          expense.tags.some((tag) => tag.toLowerCase().includes(query))
+          expense.tags.some((tag) => tag.toLowerCase().includes(query)) ||
+          assignedLabels.some((tag) => tag.toLowerCase().includes(query))
         );
       })
       .sort((left, right) => compareExpense(left, right, sortKey, sortDirection));
-  }, [expenses, searchText, sortDirection, sortKey, statusFilter, vendorFilter]);
+  }, [
+    dimensions,
+    expenses,
+    searchText,
+    sortDirection,
+    sortKey,
+    statusFilter,
+    vendorFilter
+  ]);
 
   const selectedExpense = useMemo(
     () =>
@@ -342,6 +434,10 @@ export function ExpensesPage() {
       return;
     }
 
+    const editingExpense = editingExpenseId
+      ? expenses.find((expense) => expense.id === editingExpenseId)
+      : null;
+
     const nextRecord: ExpenseRecord = {
       id: editingExpenseId ?? `exp-${crypto.randomUUID()}`,
       name: trimmedName,
@@ -355,6 +451,7 @@ export function ExpensesPage() {
         .split(",")
         .map((tag) => tag.trim())
         .filter((tag) => tag.length > 0),
+      tagAssignments: editingExpense?.tagAssignments ?? {},
       recurrenceRule: {
         frequency: formState.recurrenceFrequency,
         interval,
@@ -416,14 +513,104 @@ export function ExpensesPage() {
   }
 
   function openBulkTagEntryPoint(): void {
+    const dimension = dimensions.find((entry) => entry.id === bulkTagDimensionId);
+    if (!dimension) {
+      setPageMessage("Select a valid dimension for bulk tag assignment.");
+      return;
+    }
+    const tag = dimension.tags.find((entry) => entry.id === bulkTagId && !entry.retired);
+    if (!tag) {
+      setPageMessage("Select a valid tag for bulk assignment.");
+      return;
+    }
     if (selectedRowIds.length === 0) {
       setPageMessage("Select at least one expense for bulk tag assignment.");
       return;
     }
+    setExpenses((current) =>
+      current.map((expense) =>
+        selectedRowIds.includes(expense.id)
+          ? {
+              ...expense,
+              tagAssignments: applyTagAssignment(
+                expense.tagAssignments,
+                dimension,
+                tag.id
+              )
+            }
+          : expense
+      )
+    );
     setPageMessage(
-      `Bulk tag assignment entry point prepared for ${selectedRowIds.length} expense(s).`
+      `Applied ${tag.label} in ${dimension.name} to ${selectedRowIds.length} expense(s).`
     );
   }
+
+  function assignDetailTag(): void {
+    if (!selectedExpense) {
+      setPageMessage("Select an expense before assigning tags.");
+      return;
+    }
+    const dimension = dimensions.find((entry) => entry.id === detailTagDimensionId);
+    if (!dimension) {
+      setPageMessage("Choose a valid dimension.");
+      return;
+    }
+    const matchedTag = findTagByLabelOrId(dimension, detailTagQuery);
+    if (!matchedTag) {
+      setPageMessage("Enter a tag that exists for the selected dimension.");
+      return;
+    }
+
+    setExpenses((current) =>
+      current.map((expense) =>
+        expense.id === selectedExpense.id
+          ? {
+              ...expense,
+              tagAssignments: applyTagAssignment(
+                expense.tagAssignments,
+                dimension,
+                matchedTag.id
+              )
+            }
+          : expense
+      )
+    );
+    setDetailTagQuery("");
+    setPageMessage(`Assigned ${matchedTag.label} to ${selectedExpense.name}.`);
+  }
+
+  function removeDetailTag(
+    expenseId: string,
+    dimensionId: string,
+    tagId: string,
+    tagLabel: string
+  ): void {
+    setExpenses((current) =>
+      current.map((expense) =>
+        expense.id === expenseId
+          ? {
+              ...expense,
+              tagAssignments: removeTag(expense.tagAssignments, dimensionId, tagId)
+            }
+          : expense
+      )
+    );
+    setPageMessage(`Removed ${tagLabel}.`);
+  }
+
+  const bulkDimension =
+    dimensions.find((dimension) => dimension.id === bulkTagDimensionId) ?? null;
+  const detailDimension =
+    dimensions.find((dimension) => dimension.id === detailTagDimensionId) ?? null;
+  const selectedExpenseTags = selectedExpense
+    ? Array.from(
+        new Set([
+          ...selectedExpense.tags,
+          ...getAssignedTagLabels(selectedExpense.tagAssignments, dimensions)
+        ])
+      )
+    : [];
 
   return (
     <section className="expenses-page">
@@ -476,6 +663,34 @@ export function ExpensesPage() {
           ))}
         </div>
         <div className="expenses-toolbar__bulk">
+          <Select
+            aria-label="Bulk tag dimension"
+            value={bulkTagDimensionId}
+            onChange={(event) => {
+              setBulkTagDimensionId(event.target.value);
+              setBulkTagId("");
+            }}
+          >
+            {dimensions.map((dimension) => (
+              <option key={dimension.id} value={dimension.id}>
+                {dimension.name}
+              </option>
+            ))}
+          </Select>
+          <Select
+            aria-label="Bulk tag value"
+            value={bulkTagId}
+            onChange={(event) => setBulkTagId(event.target.value)}
+          >
+            <option value="">Select tag</option>
+            {(bulkDimension?.tags ?? [])
+              .filter((tag) => !tag.retired)
+              .map((tag) => (
+                <option key={tag.id} value={tag.id}>
+                  {tag.label}
+                </option>
+              ))}
+          </Select>
           <Button size="small" onClick={() => applyBulkStatus("approved")}>
             Bulk set Approved
           </Button>
@@ -517,6 +732,7 @@ export function ExpensesPage() {
                   <TableHeaderCell>Vendor</TableHeaderCell>
                   <TableHeaderCell>Service</TableHeaderCell>
                   <TableHeaderCell>Contract</TableHeaderCell>
+                  <TableHeaderCell>Tags</TableHeaderCell>
                   <TableHeaderCell>Actions</TableHeaderCell>
                 </TableRow>
               </TableHeader>
@@ -524,6 +740,12 @@ export function ExpensesPage() {
                 {filteredExpenses.map((expense) => {
                   const checked = selectedRowIds.includes(expense.id);
                   const focused = selectedExpense?.id === expense.id;
+                  const tagSummary = Array.from(
+                    new Set([
+                      ...expense.tags,
+                      ...getAssignedTagLabels(expense.tagAssignments, dimensions)
+                    ])
+                  );
                   return (
                     <TableRow
                       key={expense.id}
@@ -550,6 +772,7 @@ export function ExpensesPage() {
                       <TableCell>{expense.vendorName}</TableCell>
                       <TableCell>{expense.serviceName || "Unassigned"}</TableCell>
                       <TableCell>{expense.contractNumber || "Unassigned"}</TableCell>
+                      <TableCell>{tagSummary.join(", ") || "None"}</TableCell>
                       <TableCell>
                         <div className="expenses-row__actions">
                           <Button
@@ -591,7 +814,77 @@ export function ExpensesPage() {
               <Text>{`Vendor: ${selectedExpense.vendorName}`}</Text>
               <Text>{`Service: ${selectedExpense.serviceName || "Unassigned"}`}</Text>
               <Text>{`Contract: ${selectedExpense.contractNumber || "Unassigned"}`}</Text>
-              <Text>{`Tags: ${selectedExpense.tags.join(", ") || "None"}`}</Text>
+              <Text>{`Tags: ${selectedExpenseTags.join(", ") || "None"}`}</Text>
+              <div className="expenses-detail__tagging">
+                <Text weight="semibold">Tag assignments</Text>
+                <div className="expenses-detail__chip-grid">
+                  {dimensions.map((dimension) => {
+                    const assigned = selectedExpense.tagAssignments[dimension.id] ?? [];
+                    return (
+                      <div key={dimension.id} className="expenses-detail__chip-row">
+                        <Text>{dimension.name}</Text>
+                        <div className="expenses-detail__chips">
+                          {assigned.length === 0 ? (
+                            <Badge appearance="tint">None</Badge>
+                          ) : (
+                            assigned.map((tagId) => {
+                              const tagLabel =
+                                dimension.tags.find((tag) => tag.id === tagId)?.label ?? tagId;
+                              return (
+                                <Button
+                                  key={tagId}
+                                  size="small"
+                                  appearance="secondary"
+                                  onClick={() =>
+                                    removeDetailTag(
+                                      selectedExpense.id,
+                                      dimension.id,
+                                      tagId,
+                                      tagLabel
+                                    )
+                                  }
+                                >
+                                  {`${tagLabel} ×`}
+                                </Button>
+                              );
+                            })
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="expenses-detail__tag-entry">
+                  <Select
+                    aria-label="Detail tag dimension"
+                    value={detailTagDimensionId}
+                    onChange={(event) => setDetailTagDimensionId(event.target.value)}
+                  >
+                    {dimensions.map((dimension) => (
+                      <option key={dimension.id} value={dimension.id}>
+                        {dimension.name}
+                      </option>
+                    ))}
+                  </Select>
+                  <Input
+                    aria-label="Detail tag autocomplete"
+                    list="expense-detail-tag-options"
+                    value={detailTagQuery}
+                    onChange={(_event, data) => setDetailTagQuery(data.value)}
+                    placeholder="Type tag name"
+                  />
+                  <datalist id="expense-detail-tag-options">
+                    {(detailDimension?.tags ?? [])
+                      .filter((tag) => !tag.retired)
+                      .map((tag) => (
+                        <option key={tag.id} value={tag.label} />
+                      ))}
+                  </datalist>
+                  <Button size="small" appearance="secondary" onClick={assignDetailTag}>
+                    Assign tag
+                  </Button>
+                </div>
+              </div>
               <div>
                 <Text weight="semibold">Next 12 occurrences</Text>
                 <ul className="expenses-detail__occurrences">
