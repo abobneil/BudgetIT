@@ -18,6 +18,7 @@ export type ServiceExpenseLine = {
 
 export type ServiceRecord = {
   id: string;
+  vendorId: string;
   name: string;
   vendorName: string;
   owner: string;
@@ -31,6 +32,7 @@ export type ServiceRecord = {
 
 export type ContractRecord = {
   id: string;
+  vendorId: string;
   contractNumber: string;
   providerName: string;
   owner: string;
@@ -47,6 +49,7 @@ export type ContractRecord = {
 export const SERVICE_RECORDS: ServiceRecord[] = [
   {
     id: "svc-identity-sso",
+    vendorId: "vend-okta",
     name: "Identity SSO",
     vendorName: "Okta",
     owner: "IT Operations",
@@ -72,6 +75,7 @@ export const SERVICE_RECORDS: ServiceRecord[] = [
   },
   {
     id: "svc-cloud-platform",
+    vendorId: "vend-aws",
     name: "Cloud Platform",
     vendorName: "AWS",
     owner: "Platform Engineering",
@@ -97,6 +101,7 @@ export const SERVICE_RECORDS: ServiceRecord[] = [
   },
   {
     id: "svc-endpoint-security",
+    vendorId: "vend-msft",
     name: "Endpoint Security",
     vendorName: "Microsoft",
     owner: "Security Team",
@@ -125,6 +130,7 @@ export const SERVICE_RECORDS: ServiceRecord[] = [
 export const CONTRACT_RECORDS: ContractRecord[] = [
   {
     id: "ctr-sso-main",
+    vendorId: "vend-okta",
     contractNumber: "CTR-SSO-001",
     providerName: "Okta",
     owner: "IT Operations",
@@ -139,6 +145,7 @@ export const CONTRACT_RECORDS: ContractRecord[] = [
   },
   {
     id: "ctr-sso-addon",
+    vendorId: "vend-okta",
     contractNumber: "CTR-SSO-ADD-02",
     providerName: "Okta",
     owner: "IT Operations",
@@ -153,6 +160,7 @@ export const CONTRACT_RECORDS: ContractRecord[] = [
   },
   {
     id: "ctr-cloud-ops",
+    vendorId: "vend-aws",
     contractNumber: "CTR-CLOUD-OPS-07",
     providerName: "AWS",
     owner: "Platform Engineering",
@@ -167,6 +175,7 @@ export const CONTRACT_RECORDS: ContractRecord[] = [
   },
   {
     id: "ctr-observability",
+    vendorId: "vend-datadog",
     contractNumber: "CTR-OBS-004",
     providerName: "Datadog",
     owner: "Platform Engineering",

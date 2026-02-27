@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Button,
   Card,
@@ -14,6 +14,7 @@ import {
   Text,
   Title3
 } from "@fluentui/react-components";
+import { useSearchParams } from "react-router-dom";
 
 import {
   ConfirmDialog,
@@ -23,6 +24,10 @@ import {
   PageHeader,
   StatusChip
 } from "../../ui/primitives";
+import {
+  buildVendorFilterOptions,
+  matchesVendorFilter
+} from "../vendors/vendor-filter-model";
 import {
   generateRecurrencePreview,
   type RecurrencePreviewRule
@@ -38,6 +43,8 @@ type ExpenseRecord = {
   name: string;
   amountMinor: number;
   status: ExpenseStatus;
+  vendorId: string;
+  vendorName: string;
   serviceName: string;
   contractNumber: string;
   tags: string[];
@@ -58,6 +65,8 @@ const INITIAL_EXPENSES: ExpenseRecord[] = [
     name: "Cloud Compute",
     amountMinor: 240000,
     status: "approved",
+    vendorId: "vend-aws",
+    vendorName: "AWS",
     serviceName: "AWS",
     contractNumber: "AWS-2026-BASE",
     tags: ["infra", "production"],
@@ -73,6 +82,8 @@ const INITIAL_EXPENSES: ExpenseRecord[] = [
     name: "Endpoint Security",
     amountMinor: 84000,
     status: "planned",
+    vendorId: "vend-msft",
+    vendorName: "Microsoft",
     serviceName: "Defender",
     contractNumber: "MS-SEC-2026",
     tags: ["security"],
@@ -88,6 +99,8 @@ const INITIAL_EXPENSES: ExpenseRecord[] = [
     name: "Analytics Suite",
     amountMinor: 125000,
     status: "committed",
+    vendorId: "vend-datadog",
+    vendorName: "Datadog",
     serviceName: "Looker",
     contractNumber: "LOOK-ANL-01",
     tags: ["bi", "finance"],
@@ -104,6 +117,7 @@ type ExpenseFormState = {
   name: string;
   amountMinor: string;
   status: ExpenseStatus;
+  vendorId: string;
   serviceName: string;
   contractNumber: string;
   tagsCsv: string;
@@ -113,11 +127,12 @@ type ExpenseFormState = {
   recurrenceAnchorDate: string;
 };
 
-function createDefaultFormState(): ExpenseFormState {
+function createDefaultFormState(vendorId = "vend-aws"): ExpenseFormState {
   return {
     name: "",
     amountMinor: "0",
     status: "planned",
+    vendorId,
     serviceName: "",
     contractNumber: "",
     tagsCsv: "",
@@ -169,6 +184,7 @@ function fromExpense(expense: ExpenseRecord): ExpenseFormState {
     name: expense.name,
     amountMinor: String(expense.amountMinor),
     status: expense.status,
+    vendorId: expense.vendorId,
     serviceName: expense.serviceName,
     contractNumber: expense.contractNumber,
     tagsCsv: expense.tags.join(", "),
@@ -180,25 +196,67 @@ function fromExpense(expense: ExpenseRecord): ExpenseFormState {
 }
 
 export function ExpensesPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [expenses, setExpenses] = useState<ExpenseRecord[]>(INITIAL_EXPENSES);
   const [searchText, setSearchText] = useState("");
+  const [vendorFilter, setVendorFilter] = useState<string>(() => {
+    return searchParams.get("vendor") ?? "all";
+  });
   const [statusFilter, setStatusFilter] = useState<ExpenseStatus | "all">("all");
   const [sortKey, setSortKey] = useState<SortKey>("name");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
-  const [selectedExpenseId, setSelectedExpenseId] = useState<string | null>(INITIAL_EXPENSES[0]?.id ?? null);
+  const [selectedExpenseId, setSelectedExpenseId] = useState<string | null>(
+    INITIAL_EXPENSES[0]?.id ?? null
+  );
   const [selectedRowIds, setSelectedRowIds] = useState<string[]>([]);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerMode, setDrawerMode] = useState<"create" | "edit">("create");
   const [editingExpenseId, setEditingExpenseId] = useState<string | null>(null);
-  const [formState, setFormState] = useState<ExpenseFormState>(createDefaultFormState());
+  const [formState, setFormState] = useState<ExpenseFormState>(() =>
+    createDefaultFormState(INITIAL_EXPENSES[0]?.vendorId ?? "vend-aws")
+  );
   const [formError, setFormError] = useState<string | null>(null);
   const [deleteExpenseId, setDeleteExpenseId] = useState<string | null>(null);
   const [pageMessage, setPageMessage] = useState<string | null>(null);
+
+  const vendorOptions = useMemo(
+    () =>
+      buildVendorFilterOptions(
+        expenses.map((expense) => ({
+          vendorId: expense.vendorId,
+          vendorName: expense.vendorName
+        }))
+      ),
+    [expenses]
+  );
+  const vendorNamesById = useMemo(
+    () =>
+      Object.fromEntries(vendorOptions.map((option) => [option.value, option.label])),
+    [vendorOptions]
+  );
+
+  useEffect(() => {
+    setSearchParams(
+      (current) => {
+        const next = new URLSearchParams(current);
+        if (vendorFilter === "all") {
+          next.delete("vendor");
+        } else {
+          next.set("vendor", vendorFilter);
+        }
+        return next;
+      },
+      { replace: true }
+    );
+  }, [setSearchParams, vendorFilter]);
 
   const filteredExpenses = useMemo(() => {
     const query = searchText.trim().toLowerCase();
     return expenses
       .filter((expense) => {
+        if (!matchesVendorFilter(vendorFilter, expense.vendorId)) {
+          return false;
+        }
         if (statusFilter !== "all" && expense.status !== statusFilter) {
           return false;
         }
@@ -207,13 +265,14 @@ export function ExpensesPage() {
         }
         return (
           expense.name.toLowerCase().includes(query) ||
+          expense.vendorName.toLowerCase().includes(query) ||
           expense.serviceName.toLowerCase().includes(query) ||
           expense.contractNumber.toLowerCase().includes(query) ||
           expense.tags.some((tag) => tag.toLowerCase().includes(query))
         );
       })
       .sort((left, right) => compareExpense(left, right, sortKey, sortDirection));
-  }, [expenses, searchText, sortDirection, sortKey, statusFilter]);
+  }, [expenses, searchText, sortDirection, sortKey, statusFilter, vendorFilter]);
 
   const selectedExpense = useMemo(
     () =>
@@ -242,7 +301,7 @@ export function ExpensesPage() {
   function openCreateDrawer(): void {
     setDrawerMode("create");
     setEditingExpenseId(null);
-    setFormState(createDefaultFormState());
+    setFormState(createDefaultFormState(vendorOptions[0]?.value ?? "vend-aws"));
     setFormError(null);
     setDrawerOpen(true);
   }
@@ -260,6 +319,7 @@ export function ExpensesPage() {
     const amountMinor = Number.parseInt(formState.amountMinor, 10);
     const interval = Number.parseInt(formState.recurrenceInterval, 10);
     const dayOfMonth = Number.parseInt(formState.recurrenceDayOfMonth, 10);
+    const vendorName = vendorNamesById[formState.vendorId];
 
     if (!trimmedName) {
       setFormError("Name is required.");
@@ -277,12 +337,18 @@ export function ExpensesPage() {
       setFormError("Day of month must be between 1 and 31.");
       return;
     }
+    if (!vendorName) {
+      setFormError("Select a valid vendor.");
+      return;
+    }
 
     const nextRecord: ExpenseRecord = {
       id: editingExpenseId ?? `exp-${crypto.randomUUID()}`,
       name: trimmedName,
       amountMinor,
       status: formState.status,
+      vendorId: formState.vendorId,
+      vendorName,
       serviceName: formState.serviceName.trim(),
       contractNumber: formState.contractNumber.trim(),
       tags: formState.tagsCsv
@@ -374,10 +440,22 @@ export function ExpensesPage() {
       <div className="expenses-toolbar">
         <Input
           aria-label="Search expenses"
-          placeholder="Search by name, service, contract, or tag"
+          placeholder="Search by name, vendor, service, contract, or tag"
           value={searchText}
           onChange={(_event, data) => setSearchText(data.value)}
         />
+        <Select
+          aria-label="Filter by vendor"
+          value={vendorFilter}
+          onChange={(event) => setVendorFilter(event.target.value)}
+        >
+          <option value="all">All vendors</option>
+          {vendorOptions.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </Select>
         <div className="expenses-toolbar__filters">
           <Button
             appearance={statusFilter === "all" ? "primary" : "secondary"}
@@ -414,7 +492,7 @@ export function ExpensesPage() {
           {filteredExpenses.length === 0 ? (
             <EmptyState
               title="No expenses match filters"
-              description="Adjust search or quick filters to find matching expenses."
+              description="Adjust search, vendor, or quick filters to find matching expenses."
             />
           ) : (
             <Table aria-label="Expenses table">
@@ -436,6 +514,7 @@ export function ExpensesPage() {
                       Status
                     </Button>
                   </TableHeaderCell>
+                  <TableHeaderCell>Vendor</TableHeaderCell>
                   <TableHeaderCell>Service</TableHeaderCell>
                   <TableHeaderCell>Contract</TableHeaderCell>
                   <TableHeaderCell>Actions</TableHeaderCell>
@@ -463,8 +542,12 @@ export function ExpensesPage() {
                       <TableCell>{expense.name}</TableCell>
                       <TableCell>{formatUsd(expense.amountMinor)}</TableCell>
                       <TableCell>
-                        <StatusChip label={expense.status.toUpperCase()} tone={statusToTone(expense.status)} />
+                        <StatusChip
+                          label={expense.status.toUpperCase()}
+                          tone={statusToTone(expense.status)}
+                        />
                       </TableCell>
+                      <TableCell>{expense.vendorName}</TableCell>
                       <TableCell>{expense.serviceName || "Unassigned"}</TableCell>
                       <TableCell>{expense.contractNumber || "Unassigned"}</TableCell>
                       <TableCell>
@@ -505,6 +588,7 @@ export function ExpensesPage() {
               <Title3>Expense Detail</Title3>
               <Text>{selectedExpense.name}</Text>
               <Text>{`Amount: ${formatUsd(selectedExpense.amountMinor)}`}</Text>
+              <Text>{`Vendor: ${selectedExpense.vendorName}`}</Text>
               <Text>{`Service: ${selectedExpense.serviceName || "Unassigned"}`}</Text>
               <Text>{`Contract: ${selectedExpense.contractNumber || "Unassigned"}`}</Text>
               <Text>{`Tags: ${selectedExpense.tags.join(", ") || "None"}`}</Text>
@@ -565,6 +649,22 @@ export function ExpensesPage() {
             {STATUS_OPTIONS.map((status) => (
               <option key={status} value={status}>
                 {status}
+              </option>
+            ))}
+          </Select>
+          <Select
+            aria-label="Expense vendor"
+            value={formState.vendorId}
+            onChange={(event) =>
+              setFormState((current) => ({
+                ...current,
+                vendorId: event.target.value
+              }))
+            }
+          >
+            {vendorOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
               </option>
             ))}
           </Select>
