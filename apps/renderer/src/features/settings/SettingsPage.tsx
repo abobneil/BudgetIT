@@ -4,7 +4,6 @@ import {
   Button,
   Card,
   Input,
-  Spinner,
   Switch,
   Text,
   Title3
@@ -28,19 +27,21 @@ import {
   type MaintenanceDiagnosticsResult,
   type RuntimeSettings
 } from "../../lib/ipcClient";
-import { ConfirmDialog, InlineError, PageHeader } from "../../ui/primitives";
+import { ConfirmDialog, InlineError, LoadingState, PageHeader } from "../../ui/primitives";
 import { useScenarioContext } from "../scenarios/ScenarioContext";
 import {
   computeSettingsSectionDirtyState,
   hasDirtySections,
   validateSettingsDraft
 } from "./settings-model";
+import { useFeedback, type FeedbackTone } from "../../ui/feedback";
 import "./SettingsPage.css";
 
 const DEFAULT_BACKUP_DESTINATION = "C:\\Backups\\BudgetIT";
 
 export function SettingsPage() {
   const { selectedScenarioId } = useScenarioContext();
+  const { notify } = useFeedback();
   const [baselineSettings, setBaselineSettings] = useState<RuntimeSettings>(defaultSettings);
   const [draftSettings, setDraftSettings] = useState<RuntimeSettings>(defaultSettings);
   const [loading, setLoading] = useState(true);
@@ -82,6 +83,16 @@ export function SettingsPage() {
     [backupPathInput, draftSettings, manifestPathInput]
   );
 
+  function pushError(message: string): void {
+    setError(message);
+    notify({ tone: "error", message });
+  }
+
+  function pushStatus(message: string, tone: FeedbackTone = "success"): void {
+    setStatus(message);
+    notify({ tone, message });
+  }
+
   async function loadSettingsCenter(): Promise<void> {
     setLoading(true);
     setError(null);
@@ -101,10 +112,10 @@ export function SettingsPage() {
       setDraftSettings(runtime);
       setRestoreSummary(settingsResponse.lastRestoreSummary ?? null);
       setSecurityStatus(nextSecurityStatus);
-      setStatus("Settings loaded.");
+      pushStatus("Settings loaded.", "info");
     } catch (loadError) {
       const detail = loadError instanceof Error ? loadError.message : String(loadError);
-      setError(`Failed to load settings center: ${detail}`);
+      pushError(`Failed to load settings center: ${detail}`);
     } finally {
       setLoading(false);
     }
@@ -122,10 +133,10 @@ export function SettingsPage() {
       const saved = await saveSettings(draftSettings);
       setDraftSettings(saved);
       setBaselineSettings(saved);
-      setStatus("Runtime settings saved.");
+      pushStatus("Runtime settings saved.");
     } catch (saveError) {
       const detail = saveError instanceof Error ? saveError.message : String(saveError);
-      setError(`Failed to save runtime settings: ${detail}`);
+      pushError(`Failed to save runtime settings: ${detail}`);
     } finally {
       setSavingRuntime(false);
     }
@@ -133,7 +144,7 @@ export function SettingsPage() {
 
   async function applyNotificationSettings(): Promise<void> {
     if (validation.notifications.length > 0) {
-      setError(validation.notifications[0]);
+      pushError(validation.notifications[0]);
       return;
     }
 
@@ -144,10 +155,10 @@ export function SettingsPage() {
       const saved = await saveSettings(draftSettings);
       setDraftSettings(saved);
       setBaselineSettings(saved);
-      setStatus("Notification settings saved.");
+      pushStatus("Notification settings saved.");
     } catch (saveError) {
       const detail = saveError instanceof Error ? saveError.message : String(saveError);
-      setError(`Failed to save notification settings: ${detail}`);
+      pushError(`Failed to save notification settings: ${detail}`);
     } finally {
       setSavingNotifications(false);
     }
@@ -155,7 +166,7 @@ export function SettingsPage() {
 
   async function handleSendTeamsTest(): Promise<void> {
     if (sectionDirty.notifications) {
-      setError("Save notification settings before sending a Teams test.");
+      pushError("Save notification settings before sending a Teams test.");
       return;
     }
 
@@ -165,13 +176,13 @@ export function SettingsPage() {
     try {
       const result = await sendTeamsTestAlert();
       if (result.ok) {
-        setStatus("Teams test notification sent.");
+        pushStatus("Teams test notification sent.");
       } else {
-        setStatus(`Teams test failed (${result.health.status}).`);
+        pushStatus(`Teams test failed (${result.health.status}).`, "warning");
       }
     } catch (sendError) {
       const detail = sendError instanceof Error ? sendError.message : String(sendError);
-      setError(`Teams test failed: ${detail}`);
+      pushError(`Teams test failed: ${detail}`);
     } finally {
       setSendingTeamsTest(false);
     }
@@ -180,7 +191,7 @@ export function SettingsPage() {
   async function handleCreateBackup(): Promise<void> {
     const destination = backupDestination.trim();
     if (!destination) {
-      setError("Backup destination is required.");
+      pushError("Backup destination is required.");
       return;
     }
 
@@ -193,10 +204,10 @@ export function SettingsPage() {
       setManifestPathInput(created.manifestPath);
       setVerifyBackupPathInput(created.backupPath);
       setVerifyManifestPathInput(created.manifestPath);
-      setStatus(`Backup created: ${created.backupPath}`);
+      pushStatus(`Backup created: ${created.backupPath}`);
     } catch (backupError) {
       const detail = backupError instanceof Error ? backupError.message : String(backupError);
-      setError(`Backup creation failed: ${detail}`);
+      pushError(`Backup creation failed: ${detail}`);
     } finally {
       setBackupBusy(false);
     }
@@ -212,10 +223,13 @@ export function SettingsPage() {
         manifestPath: verifyManifestPathInput.trim() || undefined
       });
       setBackupVerifyResult(result);
-      setStatus(result.ok ? "Backup verification passed." : "Backup verification failed.");
+      pushStatus(
+        result.ok ? "Backup verification passed." : "Backup verification failed.",
+        result.ok ? "success" : "warning"
+      );
     } catch (verifyError) {
       const detail = verifyError instanceof Error ? verifyError.message : String(verifyError);
-      setError(`Backup verification failed: ${detail}`);
+      pushError(`Backup verification failed: ${detail}`);
     } finally {
       setBackupBusy(false);
     }
@@ -223,13 +237,13 @@ export function SettingsPage() {
 
   async function handleRestoreBackup(): Promise<void> {
     if (validation.backupRestore.length > 0) {
-      setError(validation.backupRestore[0]);
+      pushError(validation.backupRestore[0]);
       return;
     }
     const backupPath = backupPathInput.trim();
     const manifestPath = manifestPathInput.trim();
     if (!backupPath || !manifestPath) {
-      setError("Provide both backup and manifest paths before restoring.");
+      pushError("Provide both backup and manifest paths before restoring.");
       return;
     }
 
@@ -239,10 +253,10 @@ export function SettingsPage() {
     try {
       const restored = await restoreBackup(backupPath, manifestPath);
       setRestoreSummary(restored);
-      setStatus("Backup restore completed.");
+      pushStatus("Backup restore completed.");
     } catch (restoreError) {
       const detail = restoreError instanceof Error ? restoreError.message : String(restoreError);
-      setError(`Backup restore failed: ${detail}`);
+      pushError(`Backup restore failed: ${detail}`);
     } finally {
       setRestoringBackup(false);
     }
@@ -257,10 +271,10 @@ export function SettingsPage() {
       const result = await rekeyDatabase();
       const nextSecurity = await getDatabaseSecurityStatus();
       setSecurityStatus(nextSecurity);
-      setStatus(`Database key rotated at ${result.rotatedAt}.`);
+      pushStatus(`Database key rotated at ${result.rotatedAt}.`);
     } catch (rekeyError) {
       const detail = rekeyError instanceof Error ? rekeyError.message : String(rekeyError);
-      setError(`Database re-key failed: ${detail}`);
+      pushError(`Database re-key failed: ${detail}`);
     } finally {
       setRekeyBusy(false);
     }
@@ -276,12 +290,12 @@ export function SettingsPage() {
         scenarioId: selectedScenarioId,
         horizonMonths: 24
       });
-      setStatus(
+      pushStatus(
         `Forecast materialized: ${result.generatedCount} occurrences generated for ${result.scenarioId}.`
       );
     } catch (materializeError) {
       const detail = materializeError instanceof Error ? materializeError.message : String(materializeError);
-      setError(`Forecast materialization failed: ${detail}`);
+      pushError(`Forecast materialization failed: ${detail}`);
     } finally {
       setMaintenanceBusy(null);
     }
@@ -295,10 +309,10 @@ export function SettingsPage() {
     try {
       const result = await runDiagnostics({ scenarioId: selectedScenarioId });
       setDiagnostics(result);
-      setStatus("Diagnostics captured.");
+      pushStatus("Diagnostics captured.");
     } catch (diagnosticsError) {
       const detail = diagnosticsError instanceof Error ? diagnosticsError.message : String(diagnosticsError);
-      setError(`Diagnostics failed: ${detail}`);
+      pushError(`Diagnostics failed: ${detail}`);
     } finally {
       setMaintenanceBusy(null);
     }
@@ -307,7 +321,7 @@ export function SettingsPage() {
   if (loading) {
     return (
       <section className="settings-page settings-page--loading">
-        <Spinner label="Loading settings..." />
+        <LoadingState label="Loading settings..." />
       </section>
     );
   }

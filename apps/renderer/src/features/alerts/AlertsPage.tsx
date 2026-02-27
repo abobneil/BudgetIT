@@ -16,7 +16,14 @@ import {
   snoozeAlert,
   type AlertRecord
 } from "../../lib/ipcClient";
-import { EmptyState, InlineError, PageHeader, StatusChip } from "../../ui/primitives";
+import { useFeedback } from "../../ui/feedback";
+import {
+  EmptyState,
+  InlineError,
+  PageHeader,
+  PanelState,
+  StatusChip
+} from "../../ui/primitives";
 import {
   deriveAlertSeverity,
   extractAlertReason,
@@ -89,10 +96,11 @@ function buildNextQuery(searchParams: URLSearchParams, updates: Record<string, s
 export function AlertsPage() {
   const [alerts, setAlerts] = useState<AlertRecord[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [actionStatus, setActionStatus] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [busyAlertId, setBusyAlertId] = useState<string | null>(null);
   const [searchParams, setSearchParams] = useSearchParams();
+  const { notify } = useFeedback();
 
   const activeTab = resolveAlertTab(searchParams.get("tab"));
   const focusedAlertId = searchParams.get("alert");
@@ -102,7 +110,7 @@ export function AlertsPage() {
 
     void (async () => {
       setLoading(true);
-      setError(null);
+      setLoadError(null);
       try {
         const nextAlerts = await listAlerts();
         if (cancelled) {
@@ -111,7 +119,9 @@ export function AlertsPage() {
         setAlerts(nextAlerts);
       } catch (loadError) {
         const detail = loadError instanceof Error ? loadError.message : String(loadError);
-        setError(`Failed to load alerts: ${detail}`);
+        const message = `Failed to load alerts: ${detail}`;
+        setLoadError(message);
+        notify({ tone: "error", message });
       } finally {
         if (!cancelled) {
           setLoading(false);
@@ -122,11 +132,14 @@ export function AlertsPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [notify]);
 
   useEffect(() => {
     const unsubscribe = onAlertNavigate((payload) => {
-      setActionStatus(`Focused alert ${payload.alertEventId} for ${payload.entityType}:${payload.entityId}.`);
+      notify({
+        tone: "info",
+        message: `Focused alert ${payload.alertEventId} for ${payload.entityType}:${payload.entityId}.`
+      });
       setSearchParams(
         (current) =>
           buildNextQuery(current, {
@@ -141,7 +154,7 @@ export function AlertsPage() {
         unsubscribe();
       }
     };
-  }, [setSearchParams]);
+  }, [notify, setSearchParams]);
 
   const tabCounts = useMemo(
     () => ({
@@ -177,16 +190,19 @@ export function AlertsPage() {
   }
 
   async function handleAck(alertId: string): Promise<void> {
+    setActionError(null);
     setBusyAlertId(alertId);
     try {
       const updated = await acknowledgeAlert(alertId);
       setAlerts((current) =>
         current.map((alert) => (alert.id === alertId ? updated : alert))
       );
-      setActionStatus(`Alert ${alertId} acknowledged.`);
+      notify({ tone: "success", message: `Alert ${alertId} acknowledged.` });
     } catch (actionError) {
       const detail = actionError instanceof Error ? actionError.message : String(actionError);
-      setError(`Failed to acknowledge alert: ${detail}`);
+      const message = `Failed to acknowledge alert: ${detail}`;
+      setActionError(message);
+      notify({ tone: "error", message });
     } finally {
       setBusyAlertId(null);
     }
@@ -194,16 +210,22 @@ export function AlertsPage() {
 
   async function handleSnooze(alertId: string, days: number): Promise<void> {
     const snoozedUntil = addDaysToIsoDate(days);
+    setActionError(null);
     setBusyAlertId(alertId);
     try {
       const updated = await snoozeAlert(alertId, snoozedUntil);
       setAlerts((current) =>
         current.map((alert) => (alert.id === alertId ? updated : alert))
       );
-      setActionStatus(`Alert ${alertId} snoozed until ${snoozedUntil}.`);
+      notify({
+        tone: "success",
+        message: `Alert ${alertId} snoozed until ${snoozedUntil}.`
+      });
     } catch (actionError) {
       const detail = actionError instanceof Error ? actionError.message : String(actionError);
-      setError(`Failed to snooze alert: ${detail}`);
+      const message = `Failed to snooze alert: ${detail}`;
+      setActionError(message);
+      notify({ tone: "error", message });
     } finally {
       setBusyAlertId(null);
     }
@@ -211,7 +233,10 @@ export function AlertsPage() {
 
   function handleOpenEntity(alert: AlertRecord): void {
     focusAlert(alert.id);
-    setActionStatus(`Open entity ${alert.entityType}:${alert.entityId}.`);
+    notify({
+      tone: "info",
+      message: `Open entity ${alert.entityType}:${alert.entityId}.`
+    });
   }
 
   return (
@@ -222,6 +247,7 @@ export function AlertsPage() {
       />
 
       <TabList
+        aria-label="Alert inbox tabs"
         selectedValue={activeTab}
         onTabSelect={(_event, data) => {
           setSearchParams(
@@ -237,22 +263,20 @@ export function AlertsPage() {
         <Tab value="all">{`${TAB_LABELS.all} (${tabCounts.all})`}</Tab>
       </TabList>
 
-      {error ? <InlineError message={error} /> : null}
-      {actionStatus ? <Text>{actionStatus}</Text> : null}
+      {actionError ? <InlineError message={actionError} /> : null}
 
       <div className="alerts-layout">
         <section className="alerts-list">
-          {loading ? (
-            <Card>
-              <Text>Loading alerts...</Text>
-            </Card>
-          ) : groupedAlerts.length === 0 ? (
-            <EmptyState
-              title="No alerts in this tab"
-              description="You're clear for the selected triage view."
-            />
-          ) : (
-            groupedAlerts.map((group) => (
+          <PanelState
+            loading={loading}
+            error={loadError}
+            isEmpty={groupedAlerts.length === 0}
+            loadingLabel="Loading alerts..."
+            emptyTitle="No alerts in this tab"
+            emptyDescription="You're clear for the selected triage view."
+            onRetry={() => window.location.reload()}
+          >
+            {groupedAlerts.map((group) => (
               <section className="alerts-group" key={group.bucket}>
                 <Title3>{group.label}</Title3>
                 <ul className="alerts-group__items">
@@ -314,8 +338,8 @@ export function AlertsPage() {
                   })}
                 </ul>
               </section>
-            ))
-          )}
+            ))}
+          </PanelState>
         </section>
 
         <aside className="alerts-detail">

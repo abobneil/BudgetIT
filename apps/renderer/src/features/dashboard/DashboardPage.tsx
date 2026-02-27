@@ -8,7 +8,6 @@ import {
   MenuList,
   MenuPopover,
   MenuTrigger,
-  Spinner,
   Text,
   Title3
 } from "@fluentui/react-components";
@@ -17,7 +16,14 @@ import { useNavigate } from "react-router-dom";
 import type { DashboardDataset } from "../../reporting";
 import { useScenarioContext } from "../scenarios/ScenarioContext";
 import { exportReport, queryReport } from "../../lib/ipcClient";
-import { EmptyState, InlineError, PageHeader } from "../../ui/primitives";
+import { useFeedback } from "../../ui/feedback";
+import {
+  EmptyState,
+  ErrorBoundary,
+  InlineError,
+  LoadingState,
+  PageHeader
+} from "../../ui/primitives";
 import {
   buildDashboardKpiMetrics,
   mapDashboardStaleState
@@ -56,12 +62,11 @@ function barWidth(value: number, max: number): string {
 export function DashboardPage() {
   const { selectedScenarioId, selectedScenario } = useScenarioContext();
   const navigate = useNavigate();
+  const { notify } = useFeedback();
   const [dataset, setDataset] = useState<DashboardDataset | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [refreshMessage, setRefreshMessage] = useState<string | null>(null);
   const [exportingFormat, setExportingFormat] = useState<ExportFormat | null>(null);
-  const [exportError, setExportError] = useState<string | null>(null);
   const [exportFiles, setExportFiles] = useState<
     Partial<Record<ExportFormat, string>>
   >({});
@@ -93,7 +98,10 @@ export function DashboardPage() {
     return Math.max(...dataset.variance.map((row) => Math.abs(row.varianceMinor)));
   }, [dataset]);
 
-  async function loadDashboard(scenarioId: string): Promise<void> {
+  async function loadDashboard(
+    scenarioId: string,
+    options: { silent?: boolean } = {}
+  ): Promise<void> {
     setLoading(true);
     setError(null);
     try {
@@ -102,42 +110,50 @@ export function DashboardPage() {
         scenarioId
       })) as DashboardDataset;
       setDataset(next);
-      setRefreshMessage("Dashboard data refreshed.");
+      if (!options.silent) {
+        notify({
+          tone: "success",
+          message: "Dashboard data refreshed."
+        });
+      }
     } catch (nextError) {
       const detail = nextError instanceof Error ? nextError.message : String(nextError);
-      setError(`Failed to load dashboard: ${detail}`);
+      const message = `Failed to load dashboard: ${detail}`;
+      setError(message);
+      notify({
+        tone: "error",
+        message
+      });
     } finally {
       setLoading(false);
     }
   }
 
   useEffect(() => {
-    void loadDashboard(selectedScenarioId);
-  }, [selectedScenarioId]);
+    void loadDashboard(selectedScenarioId, { silent: true });
+  }, [notify, selectedScenarioId]);
 
   async function handleExport(format: ExportFormat): Promise<void> {
     setExportingFormat(format);
-    setExportError(null);
     try {
       const result = await exportReport({
         scenarioId: selectedScenarioId,
         formats: [format]
       });
       setExportFiles(result.files);
+      notify({
+        tone: "success",
+        message: `Exported ${format.toUpperCase()} report.`
+      });
     } catch (nextError) {
       const detail = nextError instanceof Error ? nextError.message : String(nextError);
-      setExportError(`Export failed for ${format.toUpperCase()}: ${detail}`);
+      notify({
+        tone: "error",
+        message: `Export failed for ${format.toUpperCase()}: ${detail}`
+      });
     } finally {
       setExportingFormat(null);
     }
-  }
-
-  if (loading && !dataset) {
-    return (
-      <section className="dashboard-page dashboard-page--loading" aria-live="polite">
-        <Spinner label="Loading dashboard..." />
-      </section>
-    );
   }
 
   return (
@@ -194,12 +210,9 @@ export function DashboardPage() {
         </Card>
       ) : null}
 
-      {error ? <InlineError message={error} /> : null}
       <Text data-testid="dashboard-scenario-context">{`Scenario: ${
         selectedScenario?.name ?? selectedScenarioId
       }`}</Text>
-      {refreshMessage ? <Text>{refreshMessage}</Text> : null}
-      {exportError ? <InlineError message={exportError} /> : null}
 
       {Object.keys(exportFiles).length > 0 ? (
         <Card data-testid="export-result-card">
@@ -216,7 +229,22 @@ export function DashboardPage() {
         </Card>
       ) : null}
 
-      {!dataset || !kpis ? (
+      {loading && !dataset ? (
+        <LoadingState label="Loading dashboard..." />
+      ) : error ? (
+        <InlineError
+          message={error}
+          action={
+            <Button
+              appearance="secondary"
+              onClick={() => void loadDashboard(selectedScenarioId)}
+              size="small"
+            >
+              Retry
+            </Button>
+          }
+        />
+      ) : !dataset || !kpis ? (
         <EmptyState
           title="No dashboard data available"
           description="Import or create records to populate dashboard insights."
@@ -256,92 +284,96 @@ export function DashboardPage() {
             </Card>
           </section>
 
-          <section className="dashboard-grid">
-            <Card className="dashboard-chart-card">
-              <Title3>Spend Trend</Title3>
-              <div className="dashboard-chart">
-                {dataset.spendTrend.map((row) => (
-                  <div className="dashboard-chart__row" key={row.month}>
-                    <Text className="dashboard-chart__label">{row.month}</Text>
-                    <div className="dashboard-chart__bar-group">
-                      <div className="dashboard-chart__bar-track">
-                        <div
-                          className="dashboard-chart__bar dashboard-chart__bar--forecast"
-                          style={{ width: barWidth(row.forecastMinor, maxSpendMinor) }}
-                          title={`Forecast ${formatUsd(row.forecastMinor)}`}
-                        />
+          <ErrorBoundary label="Dashboard chart widgets failed">
+            <section className="dashboard-grid">
+              <Card className="dashboard-chart-card">
+                <Title3>Spend Trend</Title3>
+                <div className="dashboard-chart">
+                  {dataset.spendTrend.map((row) => (
+                    <div className="dashboard-chart__row" key={row.month}>
+                      <Text className="dashboard-chart__label">{row.month}</Text>
+                      <div className="dashboard-chart__bar-group">
+                        <div className="dashboard-chart__bar-track">
+                          <div
+                            className="dashboard-chart__bar dashboard-chart__bar--forecast"
+                            style={{ width: barWidth(row.forecastMinor, maxSpendMinor) }}
+                            title={`Forecast ${formatUsd(row.forecastMinor)}`}
+                          />
+                        </div>
+                        <div className="dashboard-chart__bar-track">
+                          <div
+                            className="dashboard-chart__bar dashboard-chart__bar--actual"
+                            style={{ width: barWidth(row.actualMinor, maxSpendMinor) }}
+                            title={`Actual ${formatUsd(row.actualMinor)}`}
+                          />
+                        </div>
                       </div>
-                      <div className="dashboard-chart__bar-track">
-                        <div
-                          className="dashboard-chart__bar dashboard-chart__bar--actual"
-                          style={{ width: barWidth(row.actualMinor, maxSpendMinor) }}
-                          title={`Actual ${formatUsd(row.actualMinor)}`}
-                        />
-                      </div>
+                      <Text className="dashboard-chart__value">{formatUsd(row.actualMinor)}</Text>
                     </div>
-                    <Text className="dashboard-chart__value">{formatUsd(row.actualMinor)}</Text>
-                  </div>
-                ))}
-              </div>
-            </Card>
+                  ))}
+                </div>
+              </Card>
 
-            <Card className="dashboard-chart-card">
-              <Title3>Variance</Title3>
-              <div className="dashboard-chart">
-                {dataset.variance.map((row) => (
-                  <div className="dashboard-chart__row" key={row.month}>
-                    <Text className="dashboard-chart__label">{row.month}</Text>
-                    <div className="dashboard-chart__bar-track">
-                      <div
-                        className={
-                          row.varianceMinor >= 0
-                            ? "dashboard-chart__bar dashboard-chart__bar--variance-up"
-                            : "dashboard-chart__bar dashboard-chart__bar--variance-down"
-                        }
-                        style={{
-                          width: barWidth(Math.abs(row.varianceMinor), maxVarianceMinor)
-                        }}
-                        title={`Variance ${formatUsd(row.varianceMinor)}`}
-                      />
-                    </div>
-                    <Text className="dashboard-chart__value">{formatUsd(row.varianceMinor)}</Text>
-                  </div>
-                ))}
-              </div>
-            </Card>
-
-            <Card className="dashboard-chart-card">
-              <Title3>Renewals Timeline</Title3>
-              <div className="dashboard-chart">
-                {dataset.renewals.length === 0 ? (
-                  <Text>No renewals scheduled.</Text>
-                ) : (
-                  dataset.renewals.map((row) => (
+              <Card className="dashboard-chart-card">
+                <Title3>Variance</Title3>
+                <div className="dashboard-chart">
+                  {dataset.variance.map((row) => (
                     <div className="dashboard-chart__row" key={row.month}>
                       <Text className="dashboard-chart__label">{row.month}</Text>
                       <div className="dashboard-chart__bar-track">
                         <div
-                          className="dashboard-chart__bar dashboard-chart__bar--renewal"
-                          style={{ width: barWidth(row.count, maxRenewalCount) }}
-                          title={`Renewals ${row.count}`}
+                          className={
+                            row.varianceMinor >= 0
+                              ? "dashboard-chart__bar dashboard-chart__bar--variance-up"
+                              : "dashboard-chart__bar dashboard-chart__bar--variance-down"
+                          }
+                          style={{
+                            width: barWidth(Math.abs(row.varianceMinor), maxVarianceMinor)
+                          }}
+                          title={`Variance ${formatUsd(row.varianceMinor)}`}
                         />
                       </div>
-                      <Text className="dashboard-chart__value">{row.count}</Text>
+                      <Text className="dashboard-chart__value">{formatUsd(row.varianceMinor)}</Text>
                     </div>
-                  ))
-                )}
-              </div>
-            </Card>
-          </section>
-
-          <section className="dashboard-narratives">
-            {dataset.narrativeBlocks.map((block) => (
-              <Card key={block.id}>
-                <Text weight="semibold">{block.title}</Text>
-                <Text>{block.body}</Text>
+                  ))}
+                </div>
               </Card>
-            ))}
-          </section>
+
+              <Card className="dashboard-chart-card">
+                <Title3>Renewals Timeline</Title3>
+                <div className="dashboard-chart">
+                  {dataset.renewals.length === 0 ? (
+                    <Text>No renewals scheduled.</Text>
+                  ) : (
+                    dataset.renewals.map((row) => (
+                      <div className="dashboard-chart__row" key={row.month}>
+                        <Text className="dashboard-chart__label">{row.month}</Text>
+                        <div className="dashboard-chart__bar-track">
+                          <div
+                            className="dashboard-chart__bar dashboard-chart__bar--renewal"
+                            style={{ width: barWidth(row.count, maxRenewalCount) }}
+                            title={`Renewals ${row.count}`}
+                          />
+                        </div>
+                        <Text className="dashboard-chart__value">{row.count}</Text>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </Card>
+            </section>
+          </ErrorBoundary>
+
+          <ErrorBoundary label="Dashboard narrative widget failed">
+            <section className="dashboard-narratives">
+              {dataset.narrativeBlocks.map((block) => (
+                <Card key={block.id}>
+                  <Text weight="semibold">{block.title}</Text>
+                  <Text>{block.body}</Text>
+                </Card>
+              ))}
+            </section>
+          </ErrorBoundary>
         </>
       )}
     </section>

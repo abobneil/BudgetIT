@@ -75,3 +75,12 @@ p {
   align-items: center;
 }
 
+@keyframes budgetit-loading-wave {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+

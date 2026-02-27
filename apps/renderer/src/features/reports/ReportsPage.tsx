@@ -17,7 +17,14 @@ import {
 
 import type { DashboardDataset } from "../../reporting";
 import { exportReport, queryReport } from "../../lib/ipcClient";
-import { EmptyState, InlineError, PageHeader } from "../../ui/primitives";
+import { useFeedback } from "../../ui/feedback";
+import {
+  EmptyState,
+  ErrorBoundary,
+  InlineError,
+  LoadingState,
+  PageHeader
+} from "../../ui/primitives";
 import { useScenarioContext } from "../scenarios/ScenarioContext";
 import {
   DEFAULT_REPORT_PRESETS,
@@ -41,6 +48,7 @@ const EXPORT_FORMATS: ReportFormat[] = ["html", "pdf", "excel", "csv", "png"];
 
 export function ReportsPage() {
   const { selectedScenarioId, selectedScenario } = useScenarioContext();
+  const { notify } = useFeedback();
   const [savedPresets, setSavedPresets] = useState(() => loadSavedReportPresets());
   const [selectedPresetId, setSelectedPresetId] = useState(
     DEFAULT_REPORT_PRESETS[0]?.id ?? ""
@@ -65,7 +73,6 @@ export function ReportsPage() {
   const [exportJobs, setExportJobs] = useState<ExportJob[]>([]);
   const [exportError, setExportError] = useState<string | null>(null);
   const [savePresetName, setSavePresetName] = useState("");
-  const [pageMessage, setPageMessage] = useState<string | null>(null);
 
   const presets = useMemo(() => {
     const byId = new Map<string, ReportPreset>();
@@ -79,7 +86,11 @@ export function ReportsPage() {
   }, [savedPresets]);
   const selectedPreset = presets.find((preset) => preset.id === selectedPresetId) ?? presets[0];
 
-  async function loadWorkspaceData(preset: ReportPreset, scenarioId: string): Promise<void> {
+  async function loadWorkspaceData(
+    preset: ReportPreset,
+    scenarioId: string,
+    options: { silent?: boolean } = {}
+  ): Promise<void> {
     setLoading(true);
     setError(null);
     try {
@@ -93,10 +104,15 @@ export function ReportsPage() {
         }
       })) as DashboardDataset;
       setDataset(next);
+      if (!options.silent) {
+        notify({ tone: "success", message: "Report dataset refreshed." });
+      }
     } catch (nextError) {
       const detail = nextError instanceof Error ? nextError.message : String(nextError);
-      setError(`Failed to load report dataset: ${detail}`);
+      const message = `Failed to load report dataset: ${detail}`;
+      setError(message);
       setDataset(null);
+      notify({ tone: "error", message });
     } finally {
       setLoading(false);
     }
@@ -106,19 +122,22 @@ export function ReportsPage() {
     if (!selectedPreset) {
       return;
     }
-    void loadWorkspaceData(selectedPreset, selectedScenarioId);
-  }, [selectedPreset, selectedScenarioId, dateFrom, dateTo, tagFilter]);
+    void loadWorkspaceData(selectedPreset, selectedScenarioId, { silent: true });
+  }, [dateFrom, dateTo, notify, selectedPreset, selectedScenarioId, tagFilter]);
 
   function openPreset(preset: ReportPreset): void {
     setSelectedPresetId(preset.id);
     setVisualizations(preset.visualizations);
-    setPageMessage(`Opened report preset: ${preset.title}.`);
+    notify({
+      tone: "info",
+      message: `Opened report preset: ${preset.title}.`
+    });
   }
 
   function saveCurrentPreset(): void {
     const trimmed = savePresetName.trim();
     if (!trimmed || !selectedPreset) {
-      setPageMessage("Enter a preset name before saving.");
+      notify({ tone: "warning", message: "Enter a preset name before saving." });
       return;
     }
     const id = trimmed
@@ -136,7 +155,10 @@ export function ReportsPage() {
       window.localStorage
     );
     setSavedPresets(saved);
-    setPageMessage(`Saved report preset: ${trimmed}.`);
+    notify({
+      tone: "success",
+      message: `Saved report preset: ${trimmed}.`
+    });
   }
 
   async function queueExportJob(): Promise<void> {
@@ -144,7 +166,9 @@ export function ReportsPage() {
       return;
     }
     if (!destinationConfirmed || !destinationPath.trim()) {
-      setExportError("Confirm destination path before queueing export.");
+      const message = "Confirm destination path before queueing export.";
+      setExportError(message);
+      notify({ tone: "warning", message });
       return;
     }
     setExportError(null);
@@ -178,6 +202,10 @@ export function ReportsPage() {
             : entry
         )
       );
+      notify({
+        tone: "success",
+        message: `Export job ${jobId} completed (${exportFormat.toUpperCase()}).`
+      });
     } catch (nextError) {
       const detail = nextError instanceof Error ? nextError.message : String(nextError);
       setExportJobs((current) =>
@@ -187,6 +215,10 @@ export function ReportsPage() {
             : entry
         )
       );
+      notify({
+        tone: "error",
+        message: `Export job ${jobId} failed: ${detail}`
+      });
     }
   }
 
@@ -327,12 +359,17 @@ export function ReportsPage() {
             appearance="secondary"
             onClick={() => {
               if (!destinationPath.trim()) {
-                setExportError("Destination path is required.");
+                const message = "Destination path is required.";
+                setExportError(message);
+                notify({ tone: "warning", message });
                 return;
               }
               setExportError(null);
               setDestinationConfirmed(true);
-              setPageMessage(`Export destination confirmed: ${destinationPath}.`);
+              notify({
+                tone: "success",
+                message: `Export destination confirmed: ${destinationPath}.`
+              });
             }}
           >
             Confirm destination
@@ -358,9 +395,7 @@ export function ReportsPage() {
         </div>
       </Card>
 
-      {error ? <InlineError message={error} /> : null}
       {exportError ? <InlineError message={exportError} /> : null}
-      {pageMessage ? <Text>{pageMessage}</Text> : null}
 
       <Card data-testid="reports-export-metadata">
         <Text weight="semibold">{`Export metadata: scenario ${selectedScenarioId}`}</Text>
@@ -391,79 +426,94 @@ export function ReportsPage() {
       </Card>
 
       {loading ? (
-        <Card>
-          <Text>Loading report dataset...</Text>
-        </Card>
+        <LoadingState label="Loading report dataset..." />
+      ) : error ? (
+        <InlineError
+          message={error}
+          action={
+            selectedPreset ? (
+              <Button
+                appearance="secondary"
+                onClick={() => void loadWorkspaceData(selectedPreset, selectedScenarioId)}
+                size="small"
+              >
+                Retry
+              </Button>
+            ) : undefined
+          }
+        />
       ) : !dataset ? (
         <EmptyState
           title="No report dataset available"
           description="Adjust filters or choose another gallery report."
         />
       ) : (
-        <section className="reports-blocks">
-          {visualizations.table ? (
-            <Card>
-              <Title3>Table Block</Title3>
-              <Table aria-label="Report spend table">
-                <TableHeader>
-                  <TableRow>
-                    <TableHeaderCell>Month</TableHeaderCell>
-                    <TableHeaderCell>Forecast</TableHeaderCell>
-                    <TableHeaderCell>Actual</TableHeaderCell>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {dataset.spendTrend.map((row) => (
-                    <TableRow key={row.month}>
-                      <TableCell>{row.month}</TableCell>
-                      <TableCell>{row.forecastMinor}</TableCell>
-                      <TableCell>{row.actualMinor}</TableCell>
+        <ErrorBoundary label="Report widgets failed">
+          <section className="reports-blocks">
+            {visualizations.table ? (
+              <Card>
+                <Title3>Table Block</Title3>
+                <Table aria-label="Report spend table">
+                  <TableHeader>
+                    <TableRow>
+                      <TableHeaderCell>Month</TableHeaderCell>
+                      <TableHeaderCell>Forecast</TableHeaderCell>
+                      <TableHeaderCell>Actual</TableHeaderCell>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </Card>
-          ) : null}
-          {visualizations.chart ? (
-            <Card>
-              <Title3>Chart Block</Title3>
-              <div className="reports-chart">
-                {dataset.renewals.map((row) => (
-                  <div key={row.month} className="reports-chart__row">
-                    <Text>{row.month}</Text>
-                    <div className="reports-chart__bar-track">
-                      <div
-                        className="reports-chart__bar"
-                        style={{ width: `${Math.max(row.count * 15, 5)}%` }}
-                      />
+                  </TableHeader>
+                  <TableBody>
+                    {dataset.spendTrend.map((row) => (
+                      <TableRow key={row.month}>
+                        <TableCell>{row.month}</TableCell>
+                        <TableCell>{row.forecastMinor}</TableCell>
+                        <TableCell>{row.actualMinor}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </Card>
+            ) : null}
+            {visualizations.chart ? (
+              <Card>
+                <Title3>Chart Block</Title3>
+                <div className="reports-chart">
+                  {dataset.renewals.map((row) => (
+                    <div key={row.month} className="reports-chart__row">
+                      <Text>{row.month}</Text>
+                      <div className="reports-chart__bar-track">
+                        <div
+                          className="reports-chart__bar"
+                          style={{ width: `${Math.max(row.count * 15, 5)}%` }}
+                        />
+                      </div>
+                      <Text>{row.count}</Text>
                     </div>
-                    <Text>{row.count}</Text>
-                  </div>
-                ))}
-              </div>
-            </Card>
-          ) : null}
-          {visualizations.gauge ? (
-            <Card>
-              <Title3>Gauge Block</Title3>
-              <Text>{`Tag completeness ${(dataset.taggingCompleteness.completenessRatio * 100).toFixed(1)}%`}</Text>
-              <Text>{`Replacement required ${dataset.replacementStatus.replacementRequiredOpen}`}</Text>
-            </Card>
-          ) : null}
-          {visualizations.narrative ? (
-            <Card>
-              <Title3>Narrative Block</Title3>
-              <ul className="reports-narrative">
-                {dataset.narrativeBlocks.map((block) => (
-                  <li key={block.id}>
-                    <Text weight="semibold">{block.title}</Text>
-                    <Text>{block.body}</Text>
-                  </li>
-                ))}
-              </ul>
-            </Card>
-          ) : null}
-        </section>
+                  ))}
+                </div>
+              </Card>
+            ) : null}
+            {visualizations.gauge ? (
+              <Card>
+                <Title3>Gauge Block</Title3>
+                <Text>{`Tag completeness ${(dataset.taggingCompleteness.completenessRatio * 100).toFixed(1)}%`}</Text>
+                <Text>{`Replacement required ${dataset.replacementStatus.replacementRequiredOpen}`}</Text>
+              </Card>
+            ) : null}
+            {visualizations.narrative ? (
+              <Card>
+                <Title3>Narrative Block</Title3>
+                <ul className="reports-narrative">
+                  {dataset.narrativeBlocks.map((block) => (
+                    <li key={block.id}>
+                      <Text weight="semibold">{block.title}</Text>
+                      <Text>{block.body}</Text>
+                    </li>
+                  ))}
+                </ul>
+              </Card>
+            ) : null}
+          </section>
+        </ErrorBoundary>
       )}
     </section>
   );

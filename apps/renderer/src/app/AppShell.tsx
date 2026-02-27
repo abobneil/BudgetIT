@@ -16,6 +16,7 @@ import { CONTRACT_RECORDS, SERVICE_RECORDS } from "../features/services/service-
 import { INITIAL_VENDOR_RECORDS } from "../features/vendors/vendor-data";
 import { useScenarioContext } from "../features/scenarios/ScenarioContext";
 import { createBackup } from "../lib/ipcClient";
+import { useFeedback } from "../ui/feedback";
 import {
   COMMAND_REGISTRY,
   KEYBOARD_SHORTCUT_MAP,
@@ -25,12 +26,6 @@ import {
 } from "./command-palette-model";
 import { NAV_ROUTES, resolveRouteLabel } from "./routes";
 import "./AppShell.css";
-
-type FeedbackTone = "success" | "error" | "info";
-type ShellFeedback = {
-  tone: FeedbackTone;
-  message: string;
-};
 
 type GlobalSearchEntry = {
   id: string;
@@ -101,6 +96,7 @@ function findCommandByActionId(actionId: CommandActionId): CommandEntry | undefi
 export function AppShell({ children }: PropsWithChildren) {
   const location = useLocation();
   const navigate = useNavigate();
+  const { notify } = useFeedback();
   const pageTitle = resolveRouteLabel(location.pathname);
   const { scenarios, selectedScenarioId, selectScenario } = useScenarioContext();
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
@@ -108,7 +104,6 @@ export function AppShell({ children }: PropsWithChildren) {
   const [commandQuery, setCommandQuery] = useState("");
   const [commandCursor, setCommandCursor] = useState(0);
   const [globalSearchValue, setGlobalSearchValue] = useState("");
-  const [feedback, setFeedback] = useState<ShellFeedback | null>(null);
   const [commandBusy, setCommandBusy] = useState(false);
   const paletteInputRef = useRef<HTMLInputElement | null>(null);
   const globalSearchRef = useRef<HTMLInputElement | null>(null);
@@ -171,12 +166,11 @@ export function AppShell({ children }: PropsWithChildren) {
 
   async function executeCommand(command: CommandEntry): Promise<void> {
     setCommandPaletteOpen(false);
-    setFeedback(null);
 
     try {
       if (command.intent.kind === "route") {
         navigate(command.intent.to);
-        setFeedback({
+        notify({
           tone: "success",
           message: `Opened ${command.label.replace(/^Go to /, "")}.`
         });
@@ -187,19 +181,19 @@ export function AppShell({ children }: PropsWithChildren) {
       switch (command.intent.actionId) {
         case "new-expense":
           navigate("/expenses?action=create");
-          setFeedback({ tone: "success", message: "Create Expense command executed." });
+          notify({ tone: "success", message: "Create Expense command executed." });
           break;
         case "run-import":
           navigate("/import");
-          setFeedback({ tone: "success", message: "Import workspace opened." });
+          notify({ tone: "success", message: "Import workspace opened." });
           break;
         case "open-alerts":
           navigate("/alerts?tab=dueSoon");
-          setFeedback({ tone: "success", message: "Alerts inbox opened." });
+          notify({ tone: "success", message: "Alerts inbox opened." });
           break;
         case "backup-now": {
           const created = await createBackup();
-          setFeedback({
+          notify({
             tone: "success",
             message: `Backup created: ${created.backupPath}`
           });
@@ -207,14 +201,14 @@ export function AppShell({ children }: PropsWithChildren) {
         }
         case "open-shortcuts":
           setKeyboardHelpOpen(true);
-          setFeedback({ tone: "info", message: "Keyboard shortcut help opened." });
+          notify({ tone: "info", message: "Keyboard shortcut help opened." });
           break;
         default:
-          setFeedback({ tone: "error", message: "Unknown command action." });
+          notify({ tone: "error", message: "Unknown command action." });
       }
     } catch (error) {
       const detail = error instanceof Error ? error.message : String(error);
-      setFeedback({ tone: "error", message: `Command failed: ${detail}` });
+      notify({ tone: "error", message: `Command failed: ${detail}` });
     } finally {
       setCommandBusy(false);
     }
@@ -249,11 +243,11 @@ export function AppShell({ children }: PropsWithChildren) {
       globalSearchEntries.find((entry) => entry.label.toLowerCase() === normalized) ??
       globalSearchEntries[0];
     if (!selected) {
-      setFeedback({ tone: "error", message: "No matching entity was found." });
+      notify({ tone: "error", message: "No matching entity was found." });
       return;
     }
     navigate(selected.route);
-    setFeedback({ tone: "success", message: `Opened ${selected.label}.` });
+    notify({ tone: "success", message: `Opened ${selected.label}.` });
   }
 
   return (
@@ -341,18 +335,6 @@ export function AppShell({ children }: PropsWithChildren) {
             Create
           </Button>
         </header>
-        {feedback ? (
-          <div
-            className={
-              feedback.tone === "error"
-                ? "desktop-shell__feedback desktop-shell__feedback--error"
-                : "desktop-shell__feedback"
-            }
-            role="status"
-          >
-            <Text>{feedback.message}</Text>
-          </div>
-        ) : null}
         <main className="desktop-shell__page">{children}</main>
       </div>
 

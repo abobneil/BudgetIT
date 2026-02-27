@@ -14,6 +14,7 @@ import { ServicesPage } from "../features/services/ServicesPage";
 import { SettingsPage } from "../features/settings/SettingsPage";
 import { TagsPage } from "../features/tags/TagsPage";
 import { VendorsPage } from "../features/vendors/VendorsPage";
+import { ErrorBoundary } from "../ui/primitives";
 
 export type AppRouteConfig = {
   key: string;
@@ -136,7 +137,18 @@ export function AppRoutes() {
     <Routes>
       <Route path="/" element={<Navigate replace to="/dashboard" />} />
       {APP_ROUTES.map((route) => (
-        <Route key={route.key} path={route.path} element={route.element} />
+        <Route
+          key={route.key}
+          path={route.path}
+          element={
+            <ErrorBoundary
+              label={`${route.label} failed to render`}
+              resetKey={route.path}
+            >
+              {route.element}
+            </ErrorBoundary>
+          }
+        />
       ))}
       <Route path="*" element={<Navigate replace to="/dashboard" />} />
     </Routes>

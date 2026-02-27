@@ -8,6 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AppShell } from "./AppShell";
 import { AppRoutes } from "./routes";
+import { FeedbackProvider } from "../ui/feedback";
 import { budgetItLightTheme } from "../ui/theme";
 import { createBackup } from "../lib/ipcClient";
 import { ScenarioProvider } from "../features/scenarios/ScenarioContext";
@@ -26,11 +27,13 @@ function renderWorkspace(initialPath = "/dashboard") {
   return render(
     <ScenarioProvider>
       <FluentProvider theme={budgetItLightTheme}>
-        <MemoryRouter initialEntries={[initialPath]}>
-          <AppShell>
-            <AppRoutes />
-          </AppShell>
-        </MemoryRouter>
+        <FeedbackProvider>
+          <MemoryRouter initialEntries={[initialPath]}>
+            <AppShell>
+              <AppRoutes />
+            </AppShell>
+          </MemoryRouter>
+        </FeedbackProvider>
       </FluentProvider>
     </ScenarioProvider>
   );
@@ -67,9 +70,9 @@ describe("command palette and keyboard navigation", () => {
     await waitFor(() => {
       expect(createBackupMock).toHaveBeenCalledTimes(1);
     });
-    expect(screen.getByRole("status")).toHaveTextContent(
-      "Backup created: C:\\Backups\\BudgetIT\\backup.db"
-    );
+    expect(
+      await screen.findByText("Backup created: C:\\Backups\\BudgetIT\\backup.db")
+    ).toBeInTheDocument();
 
     fireEvent.keyDown(window, { key: "k", ctrlKey: true });
     const routeInput = screen.getByLabelText("Command palette input");
@@ -106,8 +109,27 @@ describe("command palette and keyboard navigation", () => {
     await waitFor(() => {
       expect(screen.getByTestId("page-title")).toHaveTextContent("Expenses");
     });
-    expect(screen.getByRole("status")).toHaveTextContent(
-      "Opened Expense: Endpoint Security."
-    );
+    expect(await screen.findByText("Opened Expense: Endpoint Security.")).toBeInTheDocument();
+  });
+
+  it("shows recoverable error feedback when command execution fails", async () => {
+    createBackupMock.mockRejectedValueOnce(new Error("disk full"));
+    renderWorkspace("/expenses");
+
+    fireEvent.keyDown(window, { key: "k", ctrlKey: true });
+    const paletteInput = screen.getByLabelText("Command palette input");
+    fireEvent.change(paletteInput, { target: { value: "backup now" } });
+    fireEvent.keyDown(paletteInput, { key: "Enter" });
+
+    expect(await screen.findByText("Command failed: disk full")).toBeInTheDocument();
+
+    fireEvent.keyDown(window, { key: "k", ctrlKey: true });
+    const routeInput = screen.getByLabelText("Command palette input");
+    fireEvent.change(routeInput, { target: { value: "go to alerts" } });
+    fireEvent.keyDown(routeInput, { key: "Enter" });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("page-title")).toHaveTextContent("Alerts");
+    });
   });
 });
