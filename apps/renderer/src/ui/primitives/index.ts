@@ -1,7 +1,10 @@
 export { ConfirmDialog } from "./ConfirmDialog";
+export { ErrorBoundary } from "./ErrorBoundary";
 export { EmptyState } from "./EmptyState";
 export { EntityTable } from "./EntityTable";
 export { FormDrawer } from "./FormDrawer";
 export { InlineError } from "./InlineError";
+export { LoadingState } from "./LoadingState";
 export { PageHeader } from "./PageHeader";
+export { PanelState } from "./PanelState";
 export { StatusChip } from "./StatusChip";

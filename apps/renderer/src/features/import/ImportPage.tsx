@@ -29,6 +29,7 @@ import {
   type ImportErrorFilter,
   type ImportWizardStep
 } from "./import-wizard-model";
+import { useFeedback } from "../../ui/feedback";
 import "./ImportPage.css";
 
 type PreviewRow = {
@@ -80,12 +81,12 @@ function stepLabel(step: ImportWizardStep): string {
 }
 
 export function ImportPage() {
+  const { notify } = useFeedback();
   const [draft, setDraft] = useState(() => createInitialImportWizardDraft());
   const [currentStep, setCurrentStep] = useState<ImportWizardStep>("mode");
   const [errorFilter, setErrorFilter] = useState<ImportErrorFilter>("all");
   const [busy, setBusy] = useState(false);
   const [pageError, setPageError] = useState<string | null>(null);
-  const [pageMessage, setPageMessage] = useState<string | null>(null);
   const [tagSuggestions, setTagSuggestions] = useState<TagSuggestion[]>(
     DEFAULT_TAG_SUGGESTIONS
   );
@@ -102,11 +103,17 @@ export function ImportPage() {
   function onNext(): void {
     if (!canAdvanceStep(currentStep, draft)) {
       if (currentStep === "file") {
-        setPageError("Choose a file path before moving to mapping.");
+        const message = "Choose a file path before moving to mapping.";
+        setPageError(message);
+        notify({ tone: "warning", message });
       } else if (currentStep === "preview") {
-        setPageError("Run preview before moving to commit.");
+        const message = "Run preview before moving to commit.";
+        setPageError(message);
+        notify({ tone: "warning", message });
       } else {
-        setPageError("Complete required fields before moving to next step.");
+        const message = "Complete required fields before moving to next step.";
+        setPageError(message);
+        notify({ tone: "warning", message });
       }
       return;
     }
@@ -122,16 +129,18 @@ export function ImportPage() {
   async function onRunPreview(): Promise<void> {
     setBusy(true);
     setPageError(null);
-    setPageMessage(null);
     try {
       const result = await previewImport(buildImportPayload(draft));
       setDraft((current) => ({ ...current, previewResult: result, commitResult: null }));
-      setPageMessage(
-        `Preview loaded: ${result.acceptedCount} accepted, ${result.rejectedCount} rejected, ${result.duplicateCount} duplicates.`
-      );
+      notify({
+        tone: "success",
+        message: `Preview loaded: ${result.acceptedCount} accepted, ${result.rejectedCount} rejected, ${result.duplicateCount} duplicates.`
+      });
     } catch (error) {
       const detail = error instanceof Error ? error.message : String(error);
-      setPageError(`Preview failed: ${detail}`);
+      const message = `Preview failed: ${detail}`;
+      setPageError(message);
+      notify({ tone: "error", message });
     } finally {
       setBusy(false);
     }
@@ -140,16 +149,18 @@ export function ImportPage() {
   async function onRunCommit(): Promise<void> {
     setBusy(true);
     setPageError(null);
-    setPageMessage(null);
     try {
       const result = await commitImport(buildImportPayload(draft));
       setDraft((current) => ({ ...current, commitResult: result }));
-      setPageMessage(
-        `Commit completed: ${result.insertedCount} inserted, ${result.rejectedCount} rejected, ${result.duplicateCount} duplicates.`
-      );
+      notify({
+        tone: "success",
+        message: `Commit completed: ${result.insertedCount} inserted, ${result.rejectedCount} rejected, ${result.duplicateCount} duplicates.`
+      });
     } catch (error) {
       const detail = error instanceof Error ? error.message : String(error);
-      setPageError(`Commit failed: ${detail}`);
+      const message = `Commit failed: ${detail}`;
+      setPageError(message);
+      notify({ tone: "error", message });
     } finally {
       setBusy(false);
     }
@@ -397,7 +408,6 @@ export function ImportPage() {
       ) : null}
 
       {pageError ? <InlineError message={pageError} /> : null}
-      {pageMessage ? <Text>{pageMessage}</Text> : null}
 
       <div className="import-nav">
         <Button

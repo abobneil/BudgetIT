@@ -130,7 +130,7 @@ describe("AlertsPage", () => {
         expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/)
       );
     });
-    expect(await screen.findByText(/snoozed until/i)).toBeInTheDocument();
+    expect(await screen.findByText("No alerts in this tab")).toBeInTheDocument();
   });
 
   it("focuses the correct alert after notification deep-link callback", async () => {
