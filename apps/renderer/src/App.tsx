@@ -6,250 +6,29 @@ import {
   getForecastStaleIndicator,
   type DashboardDataset
 } from "./reporting";
-
-type RuntimeSettings = {
-  startWithWindows: boolean;
-  minimizeToTray: boolean;
-  teamsEnabled: boolean;
-  teamsWebhookUrl: string;
-};
-
-type RuntimeSettingsResponse = RuntimeSettings & {
-  lastRestoreSummary?: RestoreSummary | null;
-};
-
-type AlertRecord = {
-  id: string;
-  entityType: string;
-  entityId: string;
-  fireAt: string;
-  status: "pending" | "snoozed" | "acked";
-  snoozedUntil: string | null;
-  message: string;
-};
-
-type ImportField =
-  | "scenarioId"
-  | "serviceId"
-  | "contractId"
-  | "name"
-  | "expenseType"
-  | "status"
-  | "amount"
-  | "currency"
-  | "startDate"
-  | "endDate"
-  | "frequency"
-  | "interval"
-  | "dayOfMonth"
-  | "monthOfYear"
-  | "anchorDate";
-
-type ImportRowError = {
-  rowNumber: number;
-  code: "validation" | "duplicate";
-  field: ImportField | "row";
-  message: string;
-};
-
-type ImportPreviewResult = {
-  totalRows: number;
-  acceptedCount: number;
-  rejectedCount: number;
-  duplicateCount: number;
-  templateApplied: string | null;
-  templateSaved: string | null;
-  errors: ImportRowError[];
-};
-
-type ImportCommitResult = {
-  totalRows: number;
-  acceptedCount: number;
-  rejectedCount: number;
-  duplicateCount: number;
-  insertedCount: number;
-  skippedDuplicateCount: number;
-  matchedCount?: number;
-  unmatchedCount?: number;
-  matchRate?: number;
-  unmatchedForReview?: Array<{
-    id: string;
-    transactionDate: string;
-    amountMinor: number;
-    description: string | null;
-  }>;
-  errors: ImportRowError[];
-};
-
-type ReplacementDetail = {
-  servicePlan: {
-    id: string;
-    decisionStatus: string;
-    reasonCode: string | null;
-  };
-  aggregation: {
-    candidateCount: number;
-    averageWeightedScore: number;
-    bestCandidateId: string | null;
-    bestWeightedScore: number | null;
-  };
-};
-
-type NlqParseResult = {
-  filterSpec: Record<string, unknown>;
-  explanation: string;
-  rows: Array<{
-    id: string;
-    name: string;
-    amount_minor: number;
-  }>;
-};
-
-const defaultSettings: RuntimeSettings = {
-  startWithWindows: true,
-  minimizeToTray: true,
-  teamsEnabled: false,
-  teamsWebhookUrl: ""
-};
-
-async function getSettings(): Promise<RuntimeSettingsResponse> {
-  if (!window.budgetit) {
-    return defaultSettings;
-  }
-
-  return (await window.budgetit.invoke("settings.get")) as RuntimeSettingsResponse;
-}
-
-async function saveSettings(settings: RuntimeSettings): Promise<RuntimeSettings> {
-  if (!window.budgetit) {
-    return settings;
-  }
-
-  return (await window.budgetit.invoke("settings.update", settings)) as RuntimeSettings;
-}
-
-async function listAlerts(): Promise<AlertRecord[]> {
-  if (!window.budgetit) {
-    return [];
-  }
-
-  return (await window.budgetit.invoke("alerts.list")) as AlertRecord[];
-}
-
-async function acknowledgeAlert(alertEventId: string): Promise<AlertRecord> {
-  if (!window.budgetit) {
-    throw new Error("IPC bridge is unavailable.");
-  }
-
-  return (await window.budgetit.invoke("alerts.ack", { alertEventId })) as AlertRecord;
-}
-
-async function snoozeAlert(alertEventId: string, snoozedUntil: string): Promise<AlertRecord> {
-  if (!window.budgetit) {
-    throw new Error("IPC bridge is unavailable.");
-  }
-
-  return (await window.budgetit.invoke("alerts.snooze", {
-    alertEventId,
-    snoozedUntil
-  })) as AlertRecord;
-}
-
-async function unsnoozeAlert(alertEventId: string): Promise<AlertRecord> {
-  if (!window.budgetit) {
-    throw new Error("IPC bridge is unavailable.");
-  }
-
-  return (await window.budgetit.invoke("alerts.snooze", {
-    alertEventId,
-    snoozedUntil: null
-  })) as AlertRecord;
-}
-
-async function sendTeamsTestAlert(): Promise<{
-  ok: boolean;
-  attempts: number;
-  statusCode: number | null;
-  health: { status: string };
-}> {
-  if (!window.budgetit) {
-    throw new Error("IPC bridge is unavailable.");
-  }
-
-  return (await window.budgetit.invoke("alerts.sendTest")) as {
-    ok: boolean;
-    attempts: number;
-    statusCode: number | null;
-    health: { status: string };
-  };
-}
-
-async function restoreBackup(
-  backupPath: string,
-  manifestPath: string
-): Promise<RestoreSummary> {
-  if (!window.budgetit) {
-    throw new Error("IPC bridge is unavailable.");
-  }
-
-  return (await window.budgetit.invoke("backup.restore", {
-    backupPath,
-    manifestPath
-  })) as RestoreSummary;
-}
-
-async function previewImport(input: {
-  mode: "expenses" | "actuals";
-  filePath: string;
-  templateName?: string;
-  useSavedTemplate?: boolean;
-  saveTemplate?: boolean;
-}): Promise<ImportPreviewResult> {
-  if (!window.budgetit) {
-    throw new Error("IPC bridge is unavailable.");
-  }
-
-  return (await window.budgetit.invoke("import.preview", input)) as ImportPreviewResult;
-}
-
-async function commitImport(input: {
-  mode: "expenses" | "actuals";
-  filePath: string;
-  templateName?: string;
-  useSavedTemplate?: boolean;
-  saveTemplate?: boolean;
-}): Promise<ImportCommitResult> {
-  if (!window.budgetit) {
-    throw new Error("IPC bridge is unavailable.");
-  }
-
-  return (await window.budgetit.invoke("import.commit", input)) as ImportCommitResult;
-}
-
-async function queryReport(payload: unknown): Promise<unknown> {
-  if (!window.budgetit) {
-    throw new Error("IPC bridge is unavailable.");
-  }
-  return window.budgetit.invoke("reports.query", payload);
-}
-
-async function exportReport(payload: unknown): Promise<{
-  files: Partial<Record<"html" | "pdf" | "excel" | "csv" | "png", string>>;
-}> {
-  if (!window.budgetit) {
-    throw new Error("IPC bridge is unavailable.");
-  }
-  return (await window.budgetit.invoke("export.report", payload)) as {
-    files: Partial<Record<"html" | "pdf" | "excel" | "csv" | "png", string>>;
-  };
-}
-
-async function parseNlq(payload: { query: string; referenceDate?: string }): Promise<NlqParseResult> {
-  if (!window.budgetit) {
-    throw new Error("IPC bridge is unavailable.");
-  }
-  return (await window.budgetit.invoke("nlq.parse", payload)) as NlqParseResult;
-}
+import {
+  acknowledgeAlert,
+  commitImport,
+  defaultSettings,
+  exportReport,
+  getSettings,
+  listAlerts,
+  onAlertNavigate,
+  parseNlq,
+  previewImport,
+  queryReport,
+  restoreBackup,
+  saveSettings,
+  sendTeamsTestAlert,
+  snoozeAlert,
+  unsnoozeAlert,
+  type AlertRecord,
+  type ImportCommitResult,
+  type ImportPreviewResult,
+  type NlqParseResult,
+  type ReplacementDetail,
+  type RuntimeSettings
+} from "./lib/ipcClient";
 
 export function App() {
   const [settings, setSettings] = useState<RuntimeSettings>(defaultSettings);
@@ -333,7 +112,7 @@ export function App() {
       setStatus("Runtime settings loaded");
     };
 
-    const unsubscribe = window.budgetit?.onAlertNavigate?.((payload) => {
+    const unsubscribe = onAlertNavigate((payload) => {
       setActiveAlertEntity(payload);
       setStatus(`Navigated to ${payload.entityType}:${payload.entityId}`);
     });
