@@ -12,7 +12,8 @@
     "test": "npm run test --workspaces --if-present",
     "build": "npm run build --workspace @budgetit/db && npm run build --workspaces --if-present",
     "dist:win": "npm run build && electron-builder --config electron-builder.yml --win nsis --publish never",
-    "release:win": "npm run dist:win"
+    "release:win": "npm run dist:win",
+    "smoke:packaged": "powershell -ExecutionPolicy Bypass -File scripts/release-smoke.ps1"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",

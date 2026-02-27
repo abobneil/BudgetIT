@@ -22,6 +22,7 @@ Behavior:
   - `test`
   - `build`
 - Runs on `windows-latest` and uploads optional test artifacts (`coverage`, `junit.xml`, `test-results`).
+- Builds Windows NSIS artifact in a follow-up smoke job and runs `npm run smoke:packaged`.
 
 ## Release workflow (CD)
 
@@ -35,6 +36,7 @@ Behavior:
 - Validates tag and project scaffold.
 - Ensures pushed tag commit is contained in `origin/main`.
 - Runs quality gates (`lint`, `typecheck`, `test`, `build`) before packaging.
+- Runs packaged smoke checks (`npm run smoke:packaged`) after artifact creation.
 - Resolves packaging script from the first existing script in:
   - `release:win`
   - `dist:win`
@@ -70,7 +72,8 @@ At minimum:
     "typecheck": "...",
     "test": "...",
     "build": "...",
-    "release:win": "..."
+    "release:win": "...",
+    "smoke:packaged": "..."
   }
 }
 ```

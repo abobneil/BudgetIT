@@ -101,6 +101,9 @@ jobs:
       - name: Build release artifacts
         run: npm run release:win
 
+      - name: Run packaged smoke checks
+        run: npm run smoke:packaged
+
       - name: Validate artifacts and create checksum
         shell: powershell
         run: |
