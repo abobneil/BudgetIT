@@ -1,10 +1,16 @@
 import { useEffect, useState } from "react";
 
+import { formatRestoreBanner, type RestoreSummary } from "./restore-banner";
+
 type RuntimeSettings = {
   startWithWindows: boolean;
   minimizeToTray: boolean;
   teamsEnabled: boolean;
   teamsWebhookUrl: string;
+};
+
+type RuntimeSettingsResponse = RuntimeSettings & {
+  lastRestoreSummary?: RestoreSummary | null;
 };
 
 type AlertRecord = {
@@ -24,12 +30,12 @@ const defaultSettings: RuntimeSettings = {
   teamsWebhookUrl: ""
 };
 
-async function getSettings(): Promise<RuntimeSettings> {
+async function getSettings(): Promise<RuntimeSettingsResponse> {
   if (!window.budgetit) {
     return defaultSettings;
   }
 
-  return (await window.budgetit.invoke("settings.get")) as RuntimeSettings;
+  return (await window.budgetit.invoke("settings.get")) as RuntimeSettingsResponse;
 }
 
 async function saveSettings(settings: RuntimeSettings): Promise<RuntimeSettings> {
@@ -96,6 +102,20 @@ async function sendTeamsTestAlert(): Promise<{
   };
 }
 
+async function restoreBackup(
+  backupPath: string,
+  manifestPath: string
+): Promise<RestoreSummary> {
+  if (!window.budgetit) {
+    throw new Error("IPC bridge is unavailable.");
+  }
+
+  return (await window.budgetit.invoke("backup.restore", {
+    backupPath,
+    manifestPath
+  })) as RestoreSummary;
+}
+
 export function App() {
   const [settings, setSettings] = useState<RuntimeSettings>(defaultSettings);
   const [saving, setSaving] = useState(false);
@@ -134,6 +154,10 @@ export function App() {
   const [alerts, setAlerts] = useState<AlertRecord[]>([]);
   const [alertLoading, setAlertLoading] = useState(false);
   const [sendingTeamsTest, setSendingTeamsTest] = useState(false);
+  const [restoringBackup, setRestoringBackup] = useState(false);
+  const [backupPathInput, setBackupPathInput] = useState("");
+  const [manifestPathInput, setManifestPathInput] = useState("");
+  const [restoreSummary, setRestoreSummary] = useState<RestoreSummary | null>(null);
   const [activeAlertEntity, setActiveAlertEntity] = useState<{
     alertEventId: string;
     entityType: string;
@@ -144,12 +168,18 @@ export function App() {
     let cancelled = false;
 
     const load = async () => {
-      const [nextSettings, nextAlerts] = await Promise.all([getSettings(), listAlerts()]);
+      const [nextSettingsResponse, nextAlerts] = await Promise.all([getSettings(), listAlerts()]);
       if (cancelled) {
         return;
       }
-      setSettings(nextSettings);
+      setSettings({
+        startWithWindows: nextSettingsResponse.startWithWindows,
+        minimizeToTray: nextSettingsResponse.minimizeToTray,
+        teamsEnabled: nextSettingsResponse.teamsEnabled,
+        teamsWebhookUrl: nextSettingsResponse.teamsWebhookUrl
+      });
       setAlerts(nextAlerts);
+      setRestoreSummary(nextSettingsResponse.lastRestoreSummary ?? null);
       setStatus("Runtime settings loaded");
     };
 
@@ -192,6 +222,21 @@ export function App() {
       setStatus(`Teams test failed (${message})`);
     } finally {
       setSendingTeamsTest(false);
+    }
+  }
+
+  async function onRestoreBackup(): Promise<void> {
+    setRestoringBackup(true);
+    try {
+      const summary = await restoreBackup(backupPathInput, manifestPathInput);
+      setRestoreSummary(summary);
+      setStatus("Backup restore completed");
+      await refreshAlerts();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      setStatus(`Backup restore failed (${message})`);
+    } finally {
+      setRestoringBackup(false);
     }
   }
 
@@ -290,6 +335,25 @@ export function App() {
         <button type="button" disabled={sendingTeamsTest} onClick={() => void onSendTeamsTest()}>
           {sendingTeamsTest ? "Sending..." : "Send Teams test"}
         </button>
+
+        <div className="crud-form">
+          <input
+            type="text"
+            value={backupPathInput}
+            onChange={(event) => setBackupPathInput(event.target.value)}
+            placeholder="Backup file path"
+          />
+          <input
+            type="text"
+            value={manifestPathInput}
+            onChange={(event) => setManifestPathInput(event.target.value)}
+            placeholder="Manifest file path"
+          />
+          <button type="button" disabled={restoringBackup} onClick={() => void onRestoreBackup()}>
+            {restoringBackup ? "Restoring..." : "Restore backup"}
+          </button>
+        </div>
+        {restoreSummary ? <p className="status">{formatRestoreBanner(restoreSummary)}</p> : null}
         <p className="status">{status}</p>
       </section>
 

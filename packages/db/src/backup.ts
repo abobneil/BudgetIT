@@ -32,6 +32,29 @@ export type CreateEncryptedBackupResult = {
   manifest: BackupManifest;
 };
 
+export type BackupIntegrityResult = {
+  schemaVersion: number;
+  sourceLastMutationAt: string;
+};
+
+export type RestoreEncryptedBackupInput = {
+  backupPath: string;
+  manifestPath: string;
+  targetDbPath: string;
+  dbKeyHex: string;
+  currentSchemaVersion?: number;
+  restoredAt?: Date;
+};
+
+export type RestoreEncryptedBackupResult = {
+  backupPath: string;
+  manifestPath: string;
+  targetDbPath: string;
+  restoredAt: string;
+  sourceLastMutationAt: string;
+  schemaVersion: number;
+};
+
 function toTimestampToken(now: Date): string {
   const iso = now.toISOString().replace(/\.\d{3}Z$/, "Z");
   return iso.replace(/[:-]/g, "").replace("T", "-").replace("Z", "");
@@ -86,6 +109,89 @@ export function preflightBackupDestination(destinationDir: string): BackupDestin
     throw new Error(
       `Backup destination preflight failed for ${resolved}. Ensure local/network/external target is mounted and writable. ${detail}`
     );
+  }
+}
+
+export function readBackupManifest(manifestPath: string): BackupManifest {
+  assertNonEmptyPath(manifestPath, "Manifest path");
+  const parsed = JSON.parse(fs.readFileSync(manifestPath, "utf8")) as Partial<BackupManifest>;
+  if (
+    parsed.manifestVersion !== 1 ||
+    typeof parsed.backupFile !== "string" ||
+    typeof parsed.sourceLastMutationAt !== "string" ||
+    typeof parsed.schemaVersion !== "number" ||
+    typeof parsed.checksumSha256 !== "string"
+  ) {
+    throw new Error(`Invalid backup manifest: ${manifestPath}`);
+  }
+
+  return parsed as BackupManifest;
+}
+
+export function verifyEncryptedBackup(
+  backupPath: string,
+  dbKeyHex: string,
+  expectedChecksumSha256?: string
+): BackupIntegrityResult {
+  assertNonEmptyPath(backupPath, "Backup path");
+  assertNonEmptyPath(dbKeyHex, "Database key");
+
+  if (expectedChecksumSha256) {
+    const actual = computeFileSha256(backupPath);
+    if (actual !== expectedChecksumSha256) {
+      throw new Error("Backup checksum mismatch; restore is blocked.");
+    }
+  }
+
+  let backupDb;
+  try {
+    backupDb = openEncryptedDatabase(backupPath, dbKeyHex);
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
+    throw new Error(`Backup open failed during verification. ${detail}`);
+  }
+
+  try {
+    const integrity = backupDb.pragma("integrity_check", { simple: true }) as string;
+    if (integrity.toLowerCase() !== "ok") {
+      throw new Error(`Backup integrity check failed: ${integrity}`);
+    }
+
+    const meta = backupDb
+      .prepare("SELECT schema_version, last_mutation_at FROM meta WHERE id = 1")
+      .get() as { schema_version: number; last_mutation_at: string } | undefined;
+    if (!meta) {
+      throw new Error("Backup meta row missing.");
+    }
+
+    return {
+      schemaVersion: meta.schema_version,
+      sourceLastMutationAt: meta.last_mutation_at
+    };
+  } finally {
+    backupDb.close();
+  }
+}
+
+function readCurrentSchemaVersion(targetDbPath: string, dbKeyHex: string): number {
+  if (!fs.existsSync(targetDbPath)) {
+    return 0;
+  }
+
+  let currentDb;
+  try {
+    currentDb = openEncryptedDatabase(targetDbPath, dbKeyHex);
+  } catch {
+    return 0;
+  }
+
+  try {
+    const row = currentDb
+      .prepare("SELECT schema_version FROM meta WHERE id = 1")
+      .get() as { schema_version: number } | undefined;
+    return row?.schema_version ?? 0;
+  } finally {
+    currentDb.close();
   }
 }
 
@@ -144,4 +250,53 @@ export async function createEncryptedBackup(
   } finally {
     source.close();
   }
+}
+
+export async function restoreEncryptedBackup(
+  input: RestoreEncryptedBackupInput
+): Promise<RestoreEncryptedBackupResult> {
+  assertNonEmptyPath(input.backupPath, "Backup path");
+  assertNonEmptyPath(input.manifestPath, "Manifest path");
+  assertNonEmptyPath(input.targetDbPath, "Target database path");
+  assertNonEmptyPath(input.dbKeyHex, "Database key");
+
+  const manifest = readBackupManifest(input.manifestPath);
+  const integrity = verifyEncryptedBackup(
+    input.backupPath,
+    input.dbKeyHex,
+    manifest.checksumSha256
+  );
+
+  if (integrity.schemaVersion !== manifest.schemaVersion) {
+    throw new Error(
+      `Backup schema mismatch: manifest=${manifest.schemaVersion}, backup=${integrity.schemaVersion}`
+    );
+  }
+
+  const currentSchemaVersion =
+    typeof input.currentSchemaVersion === "number"
+      ? input.currentSchemaVersion
+      : readCurrentSchemaVersion(input.targetDbPath, input.dbKeyHex);
+
+  if (currentSchemaVersion > 0 && integrity.schemaVersion > currentSchemaVersion) {
+    throw new Error(
+      `Backup schema ${integrity.schemaVersion} is newer than app schema ${currentSchemaVersion}. Restore blocked.`
+    );
+  }
+
+  const tempRestorePath = `${input.targetDbPath}.restore-${crypto.randomUUID()}.tmp`;
+  fs.copyFileSync(input.backupPath, tempRestorePath);
+  fs.rmSync(input.targetDbPath, { force: true });
+  fs.renameSync(tempRestorePath, input.targetDbPath);
+  fs.rmSync(`${input.targetDbPath}-wal`, { force: true });
+  fs.rmSync(`${input.targetDbPath}-shm`, { force: true });
+
+  return {
+    backupPath: input.backupPath,
+    manifestPath: input.manifestPath,
+    targetDbPath: input.targetDbPath,
+    restoredAt: (input.restoredAt ?? new Date()).toISOString(),
+    sourceLastMutationAt: manifest.sourceLastMutationAt,
+    schemaVersion: integrity.schemaVersion
+  };
 }

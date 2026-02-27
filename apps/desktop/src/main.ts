@@ -3,8 +3,10 @@ import path from "node:path";
 import {
   bootstrapEncryptedDatabase,
   createEncryptedBackup,
+  restoreEncryptedBackup,
   runMigrations,
-  type AlertEventRecord
+  type AlertEventRecord,
+  type RestoreEncryptedBackupResult
 } from "@budgetit/db";
 import {
   app,
@@ -133,6 +135,7 @@ let runtimeSettingsPath = "";
 let databaseHandle: ReturnType<typeof bootstrapEncryptedDatabase> | null = null;
 let alertStore: AlertStore | null = null;
 let schedulerTimer: NodeJS.Timeout | null = null;
+let lastRestoreSummary: RestoreEncryptedBackupResult | null = null;
 const teamsChannel = createTeamsWorkflowChannel();
 
 function toIsoDate(value: Date): string {
@@ -272,8 +275,33 @@ function parseBackupCreatePayload(payload: unknown): { destinationDir: string } 
   return { destinationDir: value.destinationDir };
 }
 
+function parseBackupRestorePayload(payload: unknown): {
+  backupPath: string;
+  manifestPath: string;
+} {
+  if (!payload || typeof payload !== "object") {
+    throw new Error("backup.restore requires backupPath and manifestPath.");
+  }
+
+  const value = payload as { backupPath?: unknown; manifestPath?: unknown };
+  if (typeof value.backupPath !== "string" || value.backupPath.trim().length === 0) {
+    throw new Error("backup.restore requires a non-empty backupPath.");
+  }
+  if (typeof value.manifestPath !== "string" || value.manifestPath.trim().length === 0) {
+    throw new Error("backup.restore requires a non-empty manifestPath.");
+  }
+
+  return {
+    backupPath: value.backupPath,
+    manifestPath: value.manifestPath
+  };
+}
+
 function setupIpcHandlers(requestExit: () => void): void {
-  ipcMain.handle("settings.get", async () => runtimeSettings);
+  ipcMain.handle("settings.get", async () => ({
+    ...runtimeSettings,
+    lastRestoreSummary
+  }));
   ipcMain.handle("settings.update", async (_event, payload: Partial<RuntimeSettings>) => {
     const nextSettings = mergeRuntimeSettings(runtimeSettings, payload ?? {});
     return persistRuntimeSettings(nextSettings);
@@ -290,6 +318,26 @@ function setupIpcHandlers(requestExit: () => void): void {
       dbKeyHex: handle.keyHex,
       destinationDir: parsed.destinationDir
     });
+  });
+  ipcMain.handle("backup.restore", async (_event, payload: unknown) => {
+    const parsed = parseBackupRestorePayload(payload);
+    const handle = requireDatabaseHandle();
+    const restoreInput = {
+      backupPath: parsed.backupPath,
+      manifestPath: parsed.manifestPath,
+      targetDbPath: handle.dbPath,
+      dbKeyHex: handle.keyHex
+    };
+
+    stopSchedulerAndCloseDatabase();
+    try {
+      const restored = await restoreEncryptedBackup(restoreInput);
+      lastRestoreSummary = restored;
+      return restored;
+    } finally {
+      initializeDatabaseAndAlerts();
+      startAlertScheduler();
+    }
   });
   ipcMain.handle("alerts.list", async () => requireAlertStore().list());
   ipcMain.handle("alerts.ack", async (_event, payload: unknown) => {
