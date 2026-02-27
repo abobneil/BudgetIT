@@ -1,16 +1,30 @@
 import path from "node:path";
 
 import {
+  bootstrapEncryptedDatabase,
+  runMigrations,
+  type AlertEventRecord
+} from "@budgetit/db";
+import {
   app,
   BrowserWindow,
   ipcMain,
   Menu,
+  Notification,
   Tray,
   nativeImage,
+  safeStorage,
   type BrowserWindowConstructorOptions,
   type MenuItemConstructorOptions
 } from "electron";
 
+import {
+  createDatabaseAlertStore,
+  processAlertNotifications,
+  type AlertNavigatePayload,
+  type AlertStore
+} from "./alert-center";
+import { FileSecretVault, resolveDatabaseKey } from "./key-vault";
 import {
   createExitHandler,
   DEFAULT_RUNTIME_SETTINGS,
@@ -31,6 +45,8 @@ export interface DesktopRuntime {
 }
 
 const SETTINGS_FILE_NAME = "runtime-settings.json";
+const DATABASE_KEY_FILE_NAME = "database-key.json";
+const ALERT_TICK_INTERVAL_MS = 60_000;
 
 export function getMainWindowOptions(preloadPath: string): BrowserWindowConstructorOptions {
   return {
@@ -107,10 +123,61 @@ let mainWindow: BrowserWindow | null = null;
 let isQuitting = false;
 let runtimeSettings: RuntimeSettings = DEFAULT_RUNTIME_SETTINGS;
 let runtimeSettingsPath = "";
+let databaseHandle: ReturnType<typeof bootstrapEncryptedDatabase> | null = null;
+let alertStore: AlertStore | null = null;
+let schedulerTimer: NodeJS.Timeout | null = null;
 
-const scheduler = {
-  stop: () => undefined
-};
+function toIsoDate(value: Date): string {
+  return value.toISOString().slice(0, 10);
+}
+
+function addDays(value: Date, days: number): Date {
+  const next = new Date(value);
+  next.setUTCDate(next.getUTCDate() + days);
+  return next;
+}
+
+function currentIsoDate(): string {
+  return toIsoDate(new Date());
+}
+
+function getDatabaseKeyPath(): string {
+  return path.join(app.getPath("userData"), "secrets", DATABASE_KEY_FILE_NAME);
+}
+
+function getDatabaseDataDirectory(): string {
+  return path.join(app.getPath("userData"), "data");
+}
+
+function createDatabaseVault(secretPath: string): FileSecretVault {
+  return new FileSecretVault(secretPath, {
+    isAvailable: () => safeStorage.isEncryptionAvailable(),
+    encrypt: (value) => safeStorage.encryptString(value),
+    decrypt: (value) => safeStorage.decryptString(value)
+  });
+}
+
+function initializeDatabaseAndAlerts(): void {
+  const vault = createDatabaseVault(getDatabaseKeyPath());
+  const keyHex = resolveDatabaseKey(vault);
+  databaseHandle = bootstrapEncryptedDatabase(getDatabaseDataDirectory(), keyHex);
+  runMigrations(databaseHandle.db);
+  alertStore = createDatabaseAlertStore(databaseHandle.db);
+}
+
+function stopSchedulerAndCloseDatabase(): void {
+  if (schedulerTimer) {
+    clearInterval(schedulerTimer);
+    schedulerTimer = null;
+  }
+
+  if (databaseHandle) {
+    databaseHandle.db.close();
+    databaseHandle = null;
+  }
+
+  alertStore = null;
+}
 
 function getRuntimeSettingsPath(): string {
   if (runtimeSettingsPath) {
@@ -128,6 +195,47 @@ function persistRuntimeSettings(nextSettings: RuntimeSettings): RuntimeSettings 
   return runtimeSettings;
 }
 
+function requireAlertStore(): AlertStore {
+  if (!alertStore) {
+    throw new Error("Alert store is not initialized.");
+  }
+  return alertStore;
+}
+
+function parseAckPayload(payload: unknown): { alertEventId: string } {
+  if (!payload || typeof payload !== "object") {
+    throw new Error("alerts.ack requires { alertEventId } payload.");
+  }
+  const value = payload as { alertEventId?: unknown };
+  if (typeof value.alertEventId !== "string" || value.alertEventId.trim().length === 0) {
+    throw new Error("alerts.ack requires a non-empty alertEventId.");
+  }
+  return { alertEventId: value.alertEventId };
+}
+
+function parseSnoozePayload(payload: unknown): {
+  alertEventId: string;
+  snoozedUntil: string | null;
+} {
+  if (!payload || typeof payload !== "object") {
+    throw new Error("alerts.snooze requires payload.");
+  }
+  const value = payload as { alertEventId?: unknown; snoozedUntil?: unknown };
+  if (typeof value.alertEventId !== "string" || value.alertEventId.trim().length === 0) {
+    throw new Error("alerts.snooze requires a non-empty alertEventId.");
+  }
+
+  if (value.snoozedUntil === null || typeof value.snoozedUntil === "undefined") {
+    return { alertEventId: value.alertEventId, snoozedUntil: null };
+  }
+
+  if (typeof value.snoozedUntil !== "string" || value.snoozedUntil.trim().length === 0) {
+    throw new Error("alerts.snooze requires snoozedUntil to be an ISO date string or null.");
+  }
+
+  return { alertEventId: value.alertEventId, snoozedUntil: value.snoozedUntil };
+}
+
 function setupIpcHandlers(requestExit: () => void): void {
   ipcMain.handle("settings.get", async () => runtimeSettings);
   ipcMain.handle("settings.update", async (_event, payload: Partial<RuntimeSettings>) => {
@@ -138,6 +246,72 @@ function setupIpcHandlers(requestExit: () => void): void {
     requestExit();
     return { ok: true };
   });
+  ipcMain.handle("alerts.list", async () => requireAlertStore().list());
+  ipcMain.handle("alerts.ack", async (_event, payload: unknown) => {
+    const parsed = parseAckPayload(payload);
+    return requireAlertStore().acknowledge(parsed.alertEventId, currentIsoDate());
+  });
+  ipcMain.handle("alerts.snooze", async (_event, payload: unknown) => {
+    const parsed = parseSnoozePayload(payload);
+    if (!parsed.snoozedUntil) {
+      return requireAlertStore().unsnooze(parsed.alertEventId);
+    }
+    return requireAlertStore().snooze(parsed.alertEventId, parsed.snoozedUntil);
+  });
+}
+
+function publishDesktopAlert(event: AlertEventRecord, onClick: () => void): void {
+  if (!Notification.isSupported()) {
+    return;
+  }
+
+  const notification = new Notification({
+    title: "BudgetIT Alert",
+    body: event.message
+  });
+  notification.on("click", onClick);
+  notification.show();
+}
+
+function navigateToAlert(payload: AlertNavigatePayload): void {
+  mainWindow?.show();
+  mainWindow?.webContents.send("alerts.navigate", payload);
+}
+
+function runAlertSchedulerTick(): void {
+  const store = alertStore;
+  if (!store) {
+    return;
+  }
+
+  const now = currentIsoDate();
+  processAlertNotifications(store, now, publishDesktopAlert, navigateToAlert);
+}
+
+function startAlertScheduler(): void {
+  runAlertSchedulerTick();
+  schedulerTimer = setInterval(() => {
+    try {
+      runAlertSchedulerTick();
+    } catch (error) {
+      console.error("Alert scheduler tick failed", error);
+    }
+  }, ALERT_TICK_INTERVAL_MS);
+}
+
+function snoozeAllPendingAlertsForOneDay(): void {
+  const store = alertStore;
+  if (!store) {
+    return;
+  }
+
+  const snoozeUntil = toIsoDate(addDays(new Date(), 1));
+  for (const event of store.list()) {
+    if (event.status === "acked") {
+      continue;
+    }
+    store.snooze(event.id, snoozeUntil);
+  }
 }
 
 function getTrayMenuTemplate(requestExit: () => void): MenuItemConstructorOptions[] {
@@ -151,7 +325,7 @@ function getTrayMenuTemplate(requestExit: () => void): MenuItemConstructorOption
     {
       label: "Snooze alerts",
       click: () => {
-        // Placeholder: alert scheduler will be added in issue C1.
+        snoozeAllPendingAlertsForOneDay();
       }
     },
     { type: "separator" },
@@ -204,7 +378,7 @@ function createMainWindow(): BrowserWindow {
 
 export async function startDesktopApp(): Promise<void> {
   const requestExit = createExitHandler(
-    () => scheduler.stop(),
+    () => stopSchedulerAndCloseDatabase(),
     () => {
       isQuitting = true;
       app.quit();
@@ -216,10 +390,12 @@ export async function startDesktopApp(): Promise<void> {
   runtimeSettings = readRuntimeSettings(getRuntimeSettingsPath());
   app.setLoginItemSettings({ openAtLogin: runtimeSettings.startWithWindows });
 
+  initializeDatabaseAndAlerts();
   setupIpcHandlers(requestExit);
 
   mainWindow = createMainWindow();
   ensureTray(requestExit);
+  startAlertScheduler();
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) {
@@ -229,9 +405,13 @@ export async function startDesktopApp(): Promise<void> {
     }
   });
 
+  app.on("before-quit", () => {
+    stopSchedulerAndCloseDatabase();
+  });
+
   app.on("window-all-closed", () => {
     if (process.platform !== "darwin") {
-      app.quit();
+      requestExit();
     }
   });
 }

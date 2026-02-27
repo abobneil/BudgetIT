@@ -11,5 +11,15 @@ export { updateExpenseLineAmountWithAudit, type UpdateExpenseAmountInput } from 
 export { BudgetCrudRepository, toUsdMinorUnits } from "./repositories";
 export { materializeScenarioOccurrences, markForecastStale } from "./forecast-engine";
 export { runAlertSchedulerTick } from "./alert-engine";
+export {
+  acknowledgeAlertEvent,
+  listActionableAlertEventsForNotification,
+  listAlertEvents,
+  markAlertEventNotified,
+  snoozeAlertEvent,
+  unsnoozeAlertEvent,
+  type AlertEventRecord,
+  type AlertEventStatus
+} from "./alerts-repository";
 export * as schema from "./schema";
 
