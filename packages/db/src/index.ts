@@ -46,5 +46,21 @@ export {
   type MonthlyVarianceRow,
   type UnmatchedActualTransaction
 } from "./variance";
+export {
+  computeWeightedScore,
+  createAttachmentReference,
+  createServicePlan,
+  getReplacementPlanDetail,
+  listAttachmentReferences,
+  setReplacementSelection,
+  transitionServicePlan,
+  upsertReplacementCandidate,
+  type ReplacementCandidateDetail,
+  type ReplacementPlanDetail,
+  type ReplacementScorecardInput,
+  type ServicePlanAction,
+  type ServicePlanDecisionStatus,
+  type ServicePlanReasonCode
+} from "./replacement-planning";
 export * as schema from "./schema";
 
