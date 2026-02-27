@@ -44,7 +44,7 @@ describe("AppShell", () => {
 
     expect(screen.getByTestId("page-title")).toHaveTextContent("Alerts");
     expect(
-      screen.getByText("Alerts workspace is being upgraded")
+      screen.getByText("Actionable inbox for due, snoozed, and acknowledged alerts.")
     ).toBeInTheDocument();
   });
 });
