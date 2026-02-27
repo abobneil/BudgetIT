@@ -72,5 +72,14 @@ export {
   type SpendTrendRow,
   type TaggingCompleteness
 } from "./reporting";
+export {
+  compileFilterSpecToExpenseQuery,
+  parseNlqToFilterSpec,
+  queryExpensesByFilterSpec,
+  type CompiledFilterQuery,
+  type ExpenseFilterRow,
+  type FilterSpec,
+  type ParsedNlqResult
+} from "./nlq";
 export * as schema from "./schema";
 
