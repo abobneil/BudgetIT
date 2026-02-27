@@ -73,6 +73,11 @@ import {
   previewActualsImport,
   type ActualImportMapping
 } from "./actuals-import";
+import {
+  exportDashboardReport,
+  type ExportFormat,
+  type ReportRenderers
+} from "./report-export";
 
 export interface DesktopRuntime {
   whenReady: () => Promise<void>;
@@ -88,6 +93,7 @@ const SETTINGS_FILE_NAME = "runtime-settings.json";
 const DATABASE_KEY_FILE_NAME = "database-key.json";
 const ALERT_TICK_INTERVAL_MS = 60_000;
 const DEFAULT_BACKUP_SUBDIR = path.join("BudgetIT", "backups");
+const DEFAULT_EXPORT_SUBDIR = path.join("BudgetIT", "exports");
 const BACKUP_HEALTH_FILE_NAME = "backup-health.json";
 const BACKUP_STALE_THRESHOLD_DAYS = 7;
 const IMPORT_TEMPLATE_FILE_NAME = "import-mappings.json";
@@ -463,6 +469,92 @@ function parseReportsQueryPayload(payload: unknown): {
   };
 }
 
+function parseExportReportPayload(payload: unknown): {
+  scenarioId: string;
+  outputDir: string;
+  baseFileName?: string;
+  formats?: ExportFormat[];
+} {
+  const defaultOutputDir = path.join(app.getPath("documents"), DEFAULT_EXPORT_SUBDIR);
+  if (!payload || typeof payload !== "object") {
+    return {
+      scenarioId: "baseline",
+      outputDir: defaultOutputDir
+    };
+  }
+
+  const value = payload as {
+    scenarioId?: unknown;
+    outputDir?: unknown;
+    baseFileName?: unknown;
+    formats?: unknown;
+  };
+
+  const scenarioId =
+    typeof value.scenarioId === "string" && value.scenarioId.trim().length > 0
+      ? value.scenarioId
+      : "baseline";
+  const outputDir =
+    typeof value.outputDir === "string" && value.outputDir.trim().length > 0
+      ? value.outputDir
+      : defaultOutputDir;
+  const baseFileName =
+    typeof value.baseFileName === "string" && value.baseFileName.trim().length > 0
+      ? value.baseFileName
+      : undefined;
+
+  const allowedFormats = new Set<ExportFormat>(["html", "pdf", "excel", "csv", "png"]);
+  const formats =
+    Array.isArray(value.formats) && value.formats.every((entry) => typeof entry === "string")
+      ? (value.formats.filter((entry): entry is ExportFormat => allowedFormats.has(entry as ExportFormat)) as ExportFormat[])
+      : undefined;
+
+  return {
+    scenarioId,
+    outputDir,
+    baseFileName,
+    formats
+  };
+}
+
+async function withHiddenReportWindow<T>(html: string, run: (window: BrowserWindow) => Promise<T>): Promise<T> {
+  const window = new BrowserWindow({
+    width: 1280,
+    height: 800,
+    show: false,
+    webPreferences: {
+      sandbox: true,
+      contextIsolation: true
+    }
+  });
+
+  try {
+    await window.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
+    await new Promise<void>((resolve) => setTimeout(resolve, 50));
+    return await run(window);
+  } finally {
+    window.destroy();
+  }
+}
+
+function createElectronReportRenderers(): ReportRenderers {
+  return {
+    renderPdf: async (html: string) =>
+      withHiddenReportWindow(html, async (window) =>
+        Buffer.from(
+          await window.webContents.printToPDF({
+            printBackground: true
+          })
+        )
+      ),
+    renderPng: async (html: string) =>
+      withHiddenReportWindow(html, async (window) => {
+        const image = await window.webContents.capturePage();
+        return image.toPNG();
+      })
+  };
+}
+
 function insertBackupReliabilityAlert(kind: string, message: string, severity: "info" | "high"): void {
   const handle = databaseHandle;
   if (!handle) {
@@ -706,6 +798,20 @@ function setupIpcHandlers(requestExit: () => void): void {
       return getReplacementPlanDetail(handle.db, parsed.servicePlanId);
     }
     throw new Error(`Unsupported reports.query value: ${parsed.query}`);
+  });
+  ipcMain.handle("export.report", async (_event, payload: unknown) => {
+    const parsed = parseExportReportPayload(payload);
+    const handle = requireDatabaseHandle();
+    const dataset = buildDashboardDataset(handle.db, parsed.scenarioId);
+    return exportDashboardReport(
+      {
+        dataset,
+        outputDir: parsed.outputDir,
+        baseFileName: parsed.baseFileName,
+        formats: parsed.formats
+      },
+      createElectronReportRenderers()
+    );
   });
 }
 
