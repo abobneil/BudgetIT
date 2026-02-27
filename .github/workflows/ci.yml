@@ -71,6 +71,9 @@ jobs:
       - name: Build NSIS artifact
         run: npm run dist:win
 
+      - name: Run packaged smoke checks
+        run: npm run smoke:packaged
+
       - name: Validate artifact exists
         shell: powershell
         run: |
