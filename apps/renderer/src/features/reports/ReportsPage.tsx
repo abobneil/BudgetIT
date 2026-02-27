@@ -1,13 +1,16 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Button,
   Card,
-  Menu,
-  MenuItem,
-  MenuList,
-  MenuPopover,
-  MenuTrigger,
+  Checkbox,
+  Input,
   Select,
+  Table,
+  TableBody,
+  TableCell,
+  TableHeader,
+  TableHeaderCell,
+  TableRow,
   Text,
   Title3
 } from "@fluentui/react-components";
@@ -16,44 +19,78 @@ import type { DashboardDataset } from "../../reporting";
 import { exportReport, queryReport } from "../../lib/ipcClient";
 import { EmptyState, InlineError, PageHeader } from "../../ui/primitives";
 import { useScenarioContext } from "../scenarios/ScenarioContext";
+import {
+  DEFAULT_REPORT_PRESETS,
+  loadSavedReportPresets,
+  saveReportPreset,
+  type ReportPreset
+} from "./reports-config-model";
 import "./ReportsPage.css";
 
 type ReportFormat = "html" | "pdf" | "excel" | "csv" | "png";
-type ReportType = "dashboard.summary" | "renewals.timeline" | "variance.monthly";
+type ExportJob = {
+  id: string;
+  format: ReportFormat;
+  destination: string;
+  status: "running" | "succeeded" | "failed";
+  outputPath: string | null;
+  error: string | null;
+};
 
-const REPORT_TYPES: Array<{ value: ReportType; label: string }> = [
-  { value: "dashboard.summary", label: "Dashboard Summary" },
-  { value: "renewals.timeline", label: "Renewals Timeline" },
-  { value: "variance.monthly", label: "Monthly Variance" }
-];
-
-const EXPORT_FORMATS: Array<{ value: ReportFormat; label: string }> = [
-  { value: "html", label: "Export HTML" },
-  { value: "pdf", label: "Export PDF" },
-  { value: "excel", label: "Export Excel" },
-  { value: "csv", label: "Export CSV" },
-  { value: "png", label: "Export PNG" }
-];
+const EXPORT_FORMATS: ReportFormat[] = ["html", "pdf", "excel", "csv", "png"];
 
 export function ReportsPage() {
   const { selectedScenarioId, selectedScenario } = useScenarioContext();
-  const [reportType, setReportType] = useState<ReportType>("dashboard.summary");
+  const [savedPresets, setSavedPresets] = useState(() => loadSavedReportPresets());
+  const [selectedPresetId, setSelectedPresetId] = useState(
+    DEFAULT_REPORT_PRESETS[0]?.id ?? ""
+  );
+  const [dateFrom, setDateFrom] = useState("2026-01-01");
+  const [dateTo, setDateTo] = useState("2026-12-31");
+  const [tagFilter, setTagFilter] = useState("all");
+  const [visualizations, setVisualizations] = useState(
+    DEFAULT_REPORT_PRESETS[0]?.visualizations ?? {
+      table: true,
+      chart: true,
+      gauge: true,
+      narrative: true
+    }
+  );
+  const [dataset, setDataset] = useState<DashboardDataset | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [dataset, setDataset] = useState<DashboardDataset | null>(null);
-  const [exporting, setExporting] = useState<ReportFormat | null>(null);
-  const [exportFiles, setExportFiles] = useState<
-    Partial<Record<ReportFormat, string>>
-  >({});
+  const [exportFormat, setExportFormat] = useState<ReportFormat>("pdf");
+  const [destinationPath, setDestinationPath] = useState("C:\\exports");
+  const [destinationConfirmed, setDestinationConfirmed] = useState(false);
+  const [exportJobs, setExportJobs] = useState<ExportJob[]>([]);
   const [exportError, setExportError] = useState<string | null>(null);
+  const [savePresetName, setSavePresetName] = useState("");
+  const [pageMessage, setPageMessage] = useState<string | null>(null);
 
-  async function loadReport(nextType: ReportType, scenarioId: string): Promise<void> {
+  const presets = useMemo(() => {
+    const byId = new Map<string, ReportPreset>();
+    for (const preset of DEFAULT_REPORT_PRESETS) {
+      byId.set(preset.id, preset);
+    }
+    for (const preset of savedPresets) {
+      byId.set(preset.id, preset);
+    }
+    return Array.from(byId.values());
+  }, [savedPresets]);
+  const selectedPreset = presets.find((preset) => preset.id === selectedPresetId) ?? presets[0];
+
+  async function loadWorkspaceData(preset: ReportPreset, scenarioId: string): Promise<void> {
     setLoading(true);
     setError(null);
     try {
       const next = (await queryReport({
-        query: nextType,
-        scenarioId
+        query: preset.query,
+        scenarioId,
+        filters: {
+          dateFrom,
+          dateTo,
+          tag: tagFilter
+        }
       })) as DashboardDataset;
       setDataset(next);
     } catch (nextError) {
@@ -66,24 +103,90 @@ export function ReportsPage() {
   }
 
   useEffect(() => {
-    void loadReport(reportType, selectedScenarioId);
-  }, [reportType, selectedScenarioId]);
+    if (!selectedPreset) {
+      return;
+    }
+    void loadWorkspaceData(selectedPreset, selectedScenarioId);
+  }, [selectedPreset, selectedScenarioId, dateFrom, dateTo, tagFilter]);
 
-  async function handleExport(format: ReportFormat): Promise<void> {
-    setExporting(format);
+  function openPreset(preset: ReportPreset): void {
+    setSelectedPresetId(preset.id);
+    setVisualizations(preset.visualizations);
+    setPageMessage(`Opened report preset: ${preset.title}.`);
+  }
+
+  function saveCurrentPreset(): void {
+    const trimmed = savePresetName.trim();
+    if (!trimmed || !selectedPreset) {
+      setPageMessage("Enter a preset name before saving.");
+      return;
+    }
+    const id = trimmed
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "");
+    const saved = saveReportPreset(
+      {
+        id,
+        title: trimmed,
+        description: `Saved from ${selectedPreset.title}`,
+        query: selectedPreset.query,
+        visualizations
+      },
+      window.localStorage
+    );
+    setSavedPresets(saved);
+    setPageMessage(`Saved report preset: ${trimmed}.`);
+  }
+
+  async function queueExportJob(): Promise<void> {
+    if (!selectedPreset) {
+      return;
+    }
+    if (!destinationConfirmed || !destinationPath.trim()) {
+      setExportError("Confirm destination path before queueing export.");
+      return;
+    }
     setExportError(null);
+    const jobId = `job-${crypto.randomUUID()}`;
+    const job: ExportJob = {
+      id: jobId,
+      format: exportFormat,
+      destination: destinationPath,
+      status: "running",
+      outputPath: null,
+      error: null
+    };
+    setExportJobs((current) => [job, ...current]);
     try {
       const result = await exportReport({
         scenarioId: selectedScenarioId,
-        formats: [format],
-        reportType
+        formats: [exportFormat],
+        reportType: selectedPreset.query,
+        destinationPath: destinationPath.trim(),
+        filters: {
+          dateFrom,
+          dateTo,
+          tag: tagFilter
+        }
       });
-      setExportFiles(result.files);
+      const outputPath = result.files[exportFormat] ?? null;
+      setExportJobs((current) =>
+        current.map((entry) =>
+          entry.id === jobId
+            ? { ...entry, status: "succeeded", outputPath }
+            : entry
+        )
+      );
     } catch (nextError) {
       const detail = nextError instanceof Error ? nextError.message : String(nextError);
-      setExportError(`Export failed: ${detail}`);
-    } finally {
-      setExporting(null);
+      setExportJobs((current) =>
+        current.map((entry) =>
+          entry.id === jobId
+            ? { ...entry, status: "failed", error: detail }
+            : entry
+        )
+      );
     }
   }
 
@@ -91,42 +194,9 @@ export function ReportsPage() {
     <section className="reports-page">
       <PageHeader
         title="Reports Workspace"
-        subtitle={`Gallery and workspace controls with active scenario context: ${
+        subtitle={`Report gallery and configurable workspace. Active scenario: ${
           selectedScenario?.name ?? selectedScenarioId
         }.`}
-        actions={
-          <div className="reports-page__actions">
-            <Button
-              appearance="secondary"
-              onClick={() => void loadReport(reportType, selectedScenarioId)}
-              disabled={loading}
-            >
-              Refresh
-            </Button>
-            <Menu>
-              <MenuTrigger disableButtonEnhancement>
-                <Button appearance="primary" disabled={exporting !== null}>
-                  {exporting ? `Exporting ${exporting.toUpperCase()}...` : "Export"}
-                </Button>
-              </MenuTrigger>
-              <MenuPopover>
-                <MenuList>
-                  {EXPORT_FORMATS.map((entry) => (
-                    <MenuItem
-                      key={entry.value}
-                      disabled={exporting !== null}
-                      onClick={() => {
-                        void handleExport(entry.value);
-                      }}
-                    >
-                      {entry.label}
-                    </MenuItem>
-                  ))}
-                </MenuList>
-              </MenuPopover>
-            </Menu>
-          </div>
-        }
       />
 
       <Card data-testid="reports-scenario-context">
@@ -135,35 +205,190 @@ export function ReportsPage() {
       </Card>
 
       <Card>
-        <Title3>Report Type</Title3>
-        <Select
-          aria-label="Report type"
-          value={reportType}
-          onChange={(event) => setReportType(event.target.value as ReportType)}
-        >
-          {REPORT_TYPES.map((entry) => (
-            <option key={entry.value} value={entry.value}>
-              {entry.label}
-            </option>
+        <Title3>Report Gallery</Title3>
+        <div className="reports-gallery">
+          {presets.map((preset) => (
+            <article
+              key={preset.id}
+              className={
+                preset.id === selectedPresetId
+                  ? "reports-gallery__card reports-gallery__card--active"
+                  : "reports-gallery__card"
+              }
+            >
+              <Text weight="semibold">{preset.title}</Text>
+              <Text>{preset.description}</Text>
+              <Button
+                size="small"
+                appearance="secondary"
+                onClick={() => openPreset(preset)}
+              >
+                {`Open ${preset.title}`}
+              </Button>
+            </article>
           ))}
-        </Select>
+        </div>
+      </Card>
+
+      <Card>
+        <Title3>Workspace Filters</Title3>
+        <div className="reports-filters">
+          <Input
+            aria-label="Filter start date"
+            type="date"
+            value={dateFrom}
+            onChange={(_event, data) => setDateFrom(data.value)}
+          />
+          <Input
+            aria-label="Filter end date"
+            type="date"
+            value={dateTo}
+            onChange={(_event, data) => setDateTo(data.value)}
+          />
+          <Select
+            aria-label="Filter tag"
+            value={tagFilter}
+            onChange={(event) => setTagFilter(event.target.value)}
+          >
+            <option value="all">All tags</option>
+            <option value="engineering">Engineering</option>
+            <option value="security">Security</option>
+            <option value="finance">Finance</option>
+          </Select>
+        </div>
+        <div className="reports-visualizations">
+          <Checkbox
+            label="Show table block"
+            checked={visualizations.table}
+            onChange={(_event, data) =>
+              setVisualizations((current) => ({
+                ...current,
+                table: data.checked === true
+              }))
+            }
+          />
+          <Checkbox
+            label="Show chart block"
+            checked={visualizations.chart}
+            onChange={(_event, data) =>
+              setVisualizations((current) => ({
+                ...current,
+                chart: data.checked === true
+              }))
+            }
+          />
+          <Checkbox
+            label="Show gauge block"
+            checked={visualizations.gauge}
+            onChange={(_event, data) =>
+              setVisualizations((current) => ({
+                ...current,
+                gauge: data.checked === true
+              }))
+            }
+          />
+          <Checkbox
+            label="Show narrative block"
+            checked={visualizations.narrative}
+            onChange={(_event, data) =>
+              setVisualizations((current) => ({
+                ...current,
+                narrative: data.checked === true
+              }))
+            }
+          />
+        </div>
+      </Card>
+
+      <Card>
+        <Title3>Export Orchestration</Title3>
+        <div className="reports-export-controls">
+          <Select
+            aria-label="Export format"
+            value={exportFormat}
+            onChange={(event) => setExportFormat(event.target.value as ReportFormat)}
+          >
+            {EXPORT_FORMATS.map((format) => (
+              <option key={format} value={format}>
+                {format.toUpperCase()}
+              </option>
+            ))}
+          </Select>
+          <Input
+            aria-label="Export destination"
+            value={destinationPath}
+            onChange={(_event, data) => {
+              setDestinationPath(data.value);
+              setDestinationConfirmed(false);
+            }}
+            placeholder="C:\\exports"
+          />
+          <Button
+            appearance="secondary"
+            onClick={() => {
+              if (!destinationPath.trim()) {
+                setExportError("Destination path is required.");
+                return;
+              }
+              setExportError(null);
+              setDestinationConfirmed(true);
+              setPageMessage(`Export destination confirmed: ${destinationPath}.`);
+            }}
+          >
+            Confirm destination
+          </Button>
+          <Button appearance="primary" onClick={() => void queueExportJob()}>
+            Queue export
+          </Button>
+        </div>
+      </Card>
+
+      <Card>
+        <Title3>Save Report Preset</Title3>
+        <div className="reports-save-preset">
+          <Input
+            aria-label="Save preset name"
+            value={savePresetName}
+            onChange={(_event, data) => setSavePresetName(data.value)}
+            placeholder="My saved preset"
+          />
+          <Button appearance="secondary" onClick={saveCurrentPreset}>
+            Save preset
+          </Button>
+        </div>
       </Card>
 
       {error ? <InlineError message={error} /> : null}
       {exportError ? <InlineError message={exportError} /> : null}
+      {pageMessage ? <Text>{pageMessage}</Text> : null}
 
-      {Object.keys(exportFiles).length > 0 ? (
-        <Card data-testid="reports-export-metadata">
-          <Text weight="semibold">{`Export metadata: scenario ${selectedScenarioId}`}</Text>
-          <ul className="reports-page__export-list">
-            {Object.entries(exportFiles).map(([format, path]) => (
-              <li key={format}>
-                <Text>{`${format.toUpperCase()}: ${path}`}</Text>
-              </li>
-            ))}
-          </ul>
-        </Card>
-      ) : null}
+      <Card data-testid="reports-export-metadata">
+        <Text weight="semibold">{`Export metadata: scenario ${selectedScenarioId}`}</Text>
+        {exportJobs.length === 0 ? (
+          <Text>No export jobs queued.</Text>
+        ) : (
+          <Table aria-label="Export jobs table">
+            <TableHeader>
+              <TableRow>
+                <TableHeaderCell>Format</TableHeaderCell>
+                <TableHeaderCell>Status</TableHeaderCell>
+                <TableHeaderCell>Destination</TableHeaderCell>
+                <TableHeaderCell>Output</TableHeaderCell>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {exportJobs.map((job) => (
+                <TableRow key={job.id}>
+                  <TableCell>{job.format.toUpperCase()}</TableCell>
+                  <TableCell>{job.status}</TableCell>
+                  <TableCell>{job.destination}</TableCell>
+                  <TableCell>{job.outputPath ?? job.error ?? "Pending..."}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </Card>
 
       {loading ? (
         <Card>
@@ -172,15 +397,73 @@ export function ReportsPage() {
       ) : !dataset ? (
         <EmptyState
           title="No report dataset available"
-          description="Select another report type or refresh this scenario context."
+          description="Adjust filters or choose another gallery report."
         />
       ) : (
-        <Card>
-          <Title3>{`Dataset snapshot (${dataset.scenarioId})`}</Title3>
-          <Text>{`Spend trend rows: ${dataset.spendTrend.length}`}</Text>
-          <Text>{`Variance rows: ${dataset.variance.length}`}</Text>
-          <Text>{`Renewal rows: ${dataset.renewals.length}`}</Text>
-        </Card>
+        <section className="reports-blocks">
+          {visualizations.table ? (
+            <Card>
+              <Title3>Table Block</Title3>
+              <Table aria-label="Report spend table">
+                <TableHeader>
+                  <TableRow>
+                    <TableHeaderCell>Month</TableHeaderCell>
+                    <TableHeaderCell>Forecast</TableHeaderCell>
+                    <TableHeaderCell>Actual</TableHeaderCell>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {dataset.spendTrend.map((row) => (
+                    <TableRow key={row.month}>
+                      <TableCell>{row.month}</TableCell>
+                      <TableCell>{row.forecastMinor}</TableCell>
+                      <TableCell>{row.actualMinor}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </Card>
+          ) : null}
+          {visualizations.chart ? (
+            <Card>
+              <Title3>Chart Block</Title3>
+              <div className="reports-chart">
+                {dataset.renewals.map((row) => (
+                  <div key={row.month} className="reports-chart__row">
+                    <Text>{row.month}</Text>
+                    <div className="reports-chart__bar-track">
+                      <div
+                        className="reports-chart__bar"
+                        style={{ width: `${Math.max(row.count * 15, 5)}%` }}
+                      />
+                    </div>
+                    <Text>{row.count}</Text>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          ) : null}
+          {visualizations.gauge ? (
+            <Card>
+              <Title3>Gauge Block</Title3>
+              <Text>{`Tag completeness ${(dataset.taggingCompleteness.completenessRatio * 100).toFixed(1)}%`}</Text>
+              <Text>{`Replacement required ${dataset.replacementStatus.replacementRequiredOpen}`}</Text>
+            </Card>
+          ) : null}
+          {visualizations.narrative ? (
+            <Card>
+              <Title3>Narrative Block</Title3>
+              <ul className="reports-narrative">
+                {dataset.narrativeBlocks.map((block) => (
+                  <li key={block.id}>
+                    <Text weight="semibold">{block.title}</Text>
+                    <Text>{block.body}</Text>
+                  </li>
+                ))}
+              </ul>
+            </Card>
+          ) : null}
+        </section>
       )}
     </section>
   );
