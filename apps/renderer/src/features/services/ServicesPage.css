@@ -1,0 +1,72 @@
+.services-page {
+  display: grid;
+  gap: 1rem;
+}
+
+.services-toolbar {
+  align-items: center;
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: 1fr minmax(160px, 220px);
+}
+
+.services-layout {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: minmax(0, 1.75fr) minmax(260px, 1fr);
+}
+
+.services-row--selected {
+  background: color-mix(in srgb, var(--colorNeutralBackground1) 70%, var(--colorBrandBackground) 30%);
+}
+
+.services-row__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.services-renewal {
+  display: block;
+  margin-bottom: 0.35rem;
+}
+
+.services-renewal--highlight {
+  color: var(--colorPaletteRedForeground1);
+  font-weight: 700;
+}
+
+.services-detail {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.services-detail__section {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.services-detail__list {
+  display: grid;
+  gap: 0.5rem;
+  list-style: disc;
+  margin: 0;
+  padding-left: 1rem;
+}
+
+.services-linked-contract {
+  align-items: center;
+  display: flex;
+  gap: 0.5rem;
+  justify-content: space-between;
+}
+
+@media (max-width: 980px) {
+  .services-toolbar {
+    grid-template-columns: 1fr;
+  }
+
+  .services-layout {
+    grid-template-columns: 1fr;
+  }
+}
