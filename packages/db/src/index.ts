@@ -8,5 +8,6 @@ export {
 
 export { runMigrations, resolveDefaultMigrationsDir } from "./migrations";
 export { updateExpenseLineAmountWithAudit, type UpdateExpenseAmountInput } from "./audit-service";
+export { BudgetCrudRepository, toUsdMinorUnits } from "./repositories";
 export * as schema from "./schema";
 
