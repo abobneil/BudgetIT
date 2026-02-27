@@ -92,10 +92,6 @@ describe("service and contract workspaces", () => {
     await waitFor(() => {
       expect(screen.getByTestId("page-title")).toHaveTextContent("Reports");
     });
-    expect(
-      screen.getByText(
-        "Report gallery and configurable reporting workspace with export orchestration are planned in U11."
-      )
-    ).toBeInTheDocument();
+    expect(screen.getByTestId("reports-scenario-context")).toHaveTextContent("Baseline");
   });
 });
