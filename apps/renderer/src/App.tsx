@@ -39,12 +39,24 @@ export function App() {
   const [recurrences, setRecurrences] = useState<
     Array<{ id: string; expenseId: string; frequency: "monthly" | "quarterly" | "yearly"; dayOfMonth: number }>
   >([]);
+  const [dimensions, setDimensions] = useState<
+    Array<{ id: string; name: string; mode: "single_select" | "multi_select"; required: boolean }>
+  >([]);
+  const [tags, setTags] = useState<Array<{ id: string; dimensionId: string; name: string }>>([]);
+  const [assignments, setAssignments] = useState<
+    Array<{ entityType: "expense_line"; entityId: string; dimensionId: string; tagId: string }>
+  >([]);
   const [vendorName, setVendorName] = useState("");
   const [serviceName, setServiceName] = useState("");
   const [contractNumber, setContractNumber] = useState("");
   const [expenseName, setExpenseName] = useState("");
   const [expenseAmountMinor, setExpenseAmountMinor] = useState("0");
   const [recurrenceDay, setRecurrenceDay] = useState("1");
+  const [dimensionName, setDimensionName] = useState("");
+  const [dimensionMode, setDimensionMode] = useState<"single_select" | "multi_select">("single_select");
+  const [dimensionRequired, setDimensionRequired] = useState(false);
+  const [tagName, setTagName] = useState("");
+  const [selectedFilterTagId, setSelectedFilterTagId] = useState("");
 
   useEffect(() => {
     void (async () => {
@@ -65,6 +77,13 @@ export function App() {
   function nextId(prefix: string): string {
     return `${prefix}-${crypto.randomUUID()}`;
   }
+
+  const filteredExpenseIds =
+    selectedFilterTagId.length > 0
+      ? assignments
+          .filter((entry) => entry.tagId === selectedFilterTagId && entry.entityType === "expense_line")
+          .map((entry) => entry.entityId)
+      : expenses.map((entry) => entry.id);
 
   return (
     <main className="app-shell">
@@ -342,6 +361,130 @@ export function App() {
                 </button>
               </li>
             ))}
+          </ul>
+        </article>
+
+        <article className="crud-card">
+          <h2>Dimensions & Tags</h2>
+          <div className="crud-form">
+            <input
+              value={dimensionName}
+              onChange={(event) => setDimensionName(event.target.value)}
+              placeholder="Dimension name"
+            />
+            <select value={dimensionMode} onChange={(event) => setDimensionMode(event.target.value as "single_select" | "multi_select")}>
+              <option value="single_select">single_select</option>
+              <option value="multi_select">multi_select</option>
+            </select>
+            <label>
+              <input
+                type="checkbox"
+                checked={dimensionRequired}
+                onChange={(event) => setDimensionRequired(event.target.checked)}
+              />
+              Required
+            </label>
+            <button
+              type="button"
+              onClick={() => {
+                if (!dimensionName.trim()) return;
+                setDimensions((current) => [
+                  ...current,
+                  {
+                    id: nextId("dimension"),
+                    name: dimensionName.trim(),
+                    mode: dimensionMode,
+                    required: dimensionRequired
+                  }
+                ]);
+                setDimensionName("");
+                setDimensionRequired(false);
+              }}
+            >
+              Add dimension
+            </button>
+          </div>
+
+          <div className="crud-form">
+            <input value={tagName} onChange={(event) => setTagName(event.target.value)} placeholder="Tag name" />
+            <button
+              type="button"
+              onClick={() => {
+                const dimensionId = dimensions[0]?.id;
+                if (!dimensionId || !tagName.trim()) return;
+                setTags((current) => [...current, { id: nextId("tag"), dimensionId, name: tagName.trim() }]);
+                setTagName("");
+              }}
+            >
+              Add tag
+            </button>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => {
+              const expenseId = expenses[0]?.id;
+              const tag = tags[0];
+              if (!expenseId || !tag) return;
+
+              const dimension = dimensions.find((entry) => entry.id === tag.dimensionId);
+              if (!dimension) return;
+
+              setAssignments((current) => {
+                const sameDimensionAssignments = current.filter(
+                  (entry) =>
+                    entry.entityType === "expense_line" &&
+                    entry.entityId === expenseId &&
+                    entry.dimensionId === tag.dimensionId
+                );
+
+                if (dimension.mode === "single_select" && sameDimensionAssignments.length > 0) {
+                  return current;
+                }
+
+                const exists = current.some(
+                  (entry) =>
+                    entry.entityType === "expense_line" &&
+                    entry.entityId === expenseId &&
+                    entry.tagId === tag.id
+                );
+
+                if (exists) {
+                  return current;
+                }
+
+                return [
+                  ...current,
+                  {
+                    entityType: "expense_line",
+                    entityId: expenseId,
+                    dimensionId: tag.dimensionId,
+                    tagId: tag.id
+                  }
+                ];
+              });
+            }}
+          >
+            Assign first tag to first expense
+          </button>
+
+          <select value={selectedFilterTagId} onChange={(event) => setSelectedFilterTagId(event.target.value)}>
+            <option value="">No filter</option>
+            {tags.map((tag) => (
+              <option key={tag.id} value={tag.id}>
+                {tag.name}
+              </option>
+            ))}
+          </select>
+
+          <ul>
+            {expenses
+              .filter((expense) => filteredExpenseIds.includes(expense.id))
+              .map((expense) => (
+                <li key={expense.id}>
+                  <span>{expense.name}</span>
+                </li>
+              ))}
           </ul>
         </article>
       </section>

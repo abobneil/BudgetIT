@@ -48,6 +48,25 @@ const recurrenceRuleInputSchema = z.object({
   anchorDate: z.string().optional()
 });
 
+const dimensionInputSchema = z.object({
+  name: z.string().min(1),
+  mode: z.enum(["single_select", "multi_select"]),
+  required: z.boolean()
+});
+
+const tagInputSchema = z.object({
+  dimensionId: z.string().min(1),
+  name: z.string().min(1),
+  parentTagId: z.string().nullable().optional()
+});
+
+const tagAssignmentInputSchema = z.object({
+  entityType: z.string().min(1),
+  entityId: z.string().min(1),
+  dimensionId: z.string().min(1),
+  tagId: z.string().min(1)
+});
+
 function nowIso(): string {
   return new Date().toISOString();
 }
@@ -376,6 +395,139 @@ export class BudgetCrudRepository {
 
   deleteRecurrenceRule(id: string): void {
     this.db.prepare("DELETE FROM recurrence_rule WHERE id = ?").run(id);
+  }
+
+  createDimension(input: z.infer<typeof dimensionInputSchema>): string {
+    const parsed = dimensionInputSchema.parse(input);
+    const id = crypto.randomUUID();
+    this.db
+      .prepare(
+        `
+          INSERT INTO dimension (id, name, mode, required, created_at, updated_at)
+          VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        `
+      )
+      .run(id, parsed.name, parsed.mode, parsed.required ? 1 : 0);
+    return id;
+  }
+
+  createTag(input: z.infer<typeof tagInputSchema>): string {
+    const parsed = tagInputSchema.parse(input);
+    const id = crypto.randomUUID();
+    this.db
+      .prepare(
+        `
+          INSERT INTO tag (id, dimension_id, name, parent_tag_id, created_at, updated_at, archived_at)
+          VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, NULL)
+        `
+      )
+      .run(id, parsed.dimensionId, parsed.name, parsed.parentTagId ?? null);
+    return id;
+  }
+
+  assignTagToEntity(input: z.infer<typeof tagAssignmentInputSchema>): string {
+    const parsed = tagAssignmentInputSchema.parse(input);
+    const dimension = this.db
+      .prepare("SELECT mode FROM dimension WHERE id = ?")
+      .get(parsed.dimensionId) as { mode: "single_select" | "multi_select" } | undefined;
+
+    if (!dimension) {
+      throw new Error(`Dimension not found: ${parsed.dimensionId}`);
+    }
+
+    if (dimension.mode === "single_select") {
+      const existing = this.db
+        .prepare(
+          `
+            SELECT id, tag_id
+            FROM tag_assignment
+            WHERE entity_type = ?
+              AND entity_id = ?
+              AND dimension_id = ?
+          `
+        )
+        .get(parsed.entityType, parsed.entityId, parsed.dimensionId) as
+        | { id: string; tag_id: string }
+        | undefined;
+
+      if (existing && existing.tag_id !== parsed.tagId) {
+        throw new Error("Single-select dimension already has an assigned tag.");
+      }
+
+      if (existing && existing.tag_id === parsed.tagId) {
+        return existing.id;
+      }
+    } else {
+      const duplicate = this.db
+        .prepare(
+          `
+            SELECT id
+            FROM tag_assignment
+            WHERE entity_type = ?
+              AND entity_id = ?
+              AND tag_id = ?
+          `
+        )
+        .get(parsed.entityType, parsed.entityId, parsed.tagId) as { id: string } | undefined;
+      if (duplicate) {
+        return duplicate.id;
+      }
+    }
+
+    const id = crypto.randomUUID();
+    this.db
+      .prepare(
+        `
+          INSERT INTO tag_assignment (
+            id,
+            entity_type,
+            entity_id,
+            dimension_id,
+            tag_id,
+            created_at
+          ) VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+        `
+      )
+      .run(id, parsed.entityType, parsed.entityId, parsed.dimensionId, parsed.tagId);
+    return id;
+  }
+
+  assertRequiredDimensionsSatisfied(entityType: string, entityId: string): void {
+    const missing = this.db
+      .prepare(
+        `
+          SELECT d.id, d.name
+          FROM dimension d
+          LEFT JOIN tag_assignment ta
+            ON ta.dimension_id = d.id
+           AND ta.entity_type = ?
+           AND ta.entity_id = ?
+          WHERE d.required = 1
+          GROUP BY d.id, d.name
+          HAVING COUNT(ta.id) = 0
+        `
+      )
+      .all(entityType, entityId) as Array<{ id: string; name: string }>;
+
+    if (missing.length > 0) {
+      const names = missing.map((entry) => entry.name).join(", ");
+      throw new Error(`Required dimensions missing: ${names}`);
+    }
+  }
+
+  listEntityIdsByTagFilter(entityType: string, tagId: string): string[] {
+    const rows = this.db
+      .prepare(
+        `
+          SELECT entity_id
+          FROM tag_assignment
+          WHERE entity_type = ?
+            AND tag_id = ?
+        `
+      )
+      .all(entityType, tagId) as Array<{ entity_id: string }>;
+
+    return rows.map((row) => row.entity_id);
   }
 }
 
