@@ -5,6 +5,8 @@ export const meta = sqliteTable("meta", {
   databaseUuid: text("database_uuid").notNull(),
   schemaVersion: integer("schema_version").notNull(),
   lastMutationAt: text("last_mutation_at").notNull(),
+  forecastStale: integer("forecast_stale"),
+  forecastGeneratedAt: text("forecast_generated_at"),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull()
 });

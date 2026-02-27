@@ -87,6 +87,19 @@ export function toUsdMinorUnits(value: number | string): number {
 export class BudgetCrudRepository {
   constructor(private readonly db: Database.Database) {}
 
+  private touchForecastStale(): void {
+    this.db
+      .prepare(
+        `
+          UPDATE meta
+          SET forecast_stale = 1,
+              updated_at = CURRENT_TIMESTAMP
+          WHERE id = 1
+        `
+      )
+      .run();
+  }
+
   createVendor(input: z.infer<typeof vendorInputSchema>): string {
     const parsed = vendorInputSchema.parse(input);
     const id = crypto.randomUUID();
@@ -279,6 +292,7 @@ export class BudgetCrudRepository {
         });
         this.createRecurrenceRule(parsedRecurrence);
       }
+      this.touchForecastStale();
     });
 
     write();
@@ -319,12 +333,14 @@ export class BudgetCrudRepository {
         nowIso(),
         id
       );
+    this.touchForecastStale();
   }
 
   deleteExpenseLine(id: string): void {
     this.db
       .prepare("UPDATE expense_line SET deleted_at = CURRENT_TIMESTAMP WHERE id = ?")
       .run(id);
+    this.touchForecastStale();
   }
 
   createRecurrenceRule(input: z.infer<typeof recurrenceRuleInputSchema>): string {
@@ -359,6 +375,7 @@ export class BudgetCrudRepository {
         parsed.monthOfYear ?? null,
         parsed.anchorDate ?? null
       );
+    this.touchForecastStale();
     return id;
   }
 
@@ -391,10 +408,12 @@ export class BudgetCrudRepository {
         parsed.anchorDate ?? null,
         id
       );
+    this.touchForecastStale();
   }
 
   deleteRecurrenceRule(id: string): void {
     this.db.prepare("DELETE FROM recurrence_rule WHERE id = ?").run(id);
+    this.touchForecastStale();
   }
 
   createDimension(input: z.infer<typeof dimensionInputSchema>): string {
