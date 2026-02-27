@@ -64,6 +64,15 @@ type ImportCommitResult = {
   duplicateCount: number;
   insertedCount: number;
   skippedDuplicateCount: number;
+  matchedCount?: number;
+  unmatchedCount?: number;
+  matchRate?: number;
+  unmatchedForReview?: Array<{
+    id: string;
+    transactionDate: string;
+    amountMinor: number;
+    description: string | null;
+  }>;
   errors: ImportRowError[];
 };
 
@@ -161,6 +170,7 @@ async function restoreBackup(
 }
 
 async function previewImport(input: {
+  mode: "expenses" | "actuals";
   filePath: string;
   templateName?: string;
   useSavedTemplate?: boolean;
@@ -174,6 +184,7 @@ async function previewImport(input: {
 }
 
 async function commitImport(input: {
+  mode: "expenses" | "actuals";
   filePath: string;
   templateName?: string;
   useSavedTemplate?: boolean;
@@ -229,6 +240,7 @@ export function App() {
   const [manifestPathInput, setManifestPathInput] = useState("");
   const [restoreSummary, setRestoreSummary] = useState<RestoreSummary | null>(null);
   const [importFilePath, setImportFilePath] = useState("");
+  const [importMode, setImportMode] = useState<"expenses" | "actuals">("expenses");
   const [importTemplateName, setImportTemplateName] = useState("default-expense-import");
   const [importBusy, setImportBusy] = useState(false);
   const [importPreviewResult, setImportPreviewResult] = useState<ImportPreviewResult | null>(null);
@@ -319,6 +331,7 @@ export function App() {
     setImportBusy(true);
     try {
       const result = await previewImport({
+        mode: importMode,
         filePath: importFilePath,
         templateName: importTemplateName,
         useSavedTemplate: true,
@@ -341,15 +354,22 @@ export function App() {
     setImportBusy(true);
     try {
       const result = await commitImport({
+        mode: importMode,
         filePath: importFilePath,
         templateName: importTemplateName,
         useSavedTemplate: true,
         saveTemplate: true
       });
       setImportCommitResult(result);
-      setStatus(
-        `Import commit: ${result.insertedCount} inserted, ${result.rejectedCount} rejected (${result.duplicateCount} duplicates)`
-      );
+      if (importMode === "actuals") {
+        setStatus(
+          `Actuals commit: ${result.insertedCount} inserted, ${result.matchedCount ?? 0} matched, ${result.unmatchedCount ?? 0} unmatched`
+        );
+      } else {
+        setStatus(
+          `Import commit: ${result.insertedCount} inserted, ${result.rejectedCount} rejected (${result.duplicateCount} duplicates)`
+        );
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       setStatus(`Import commit failed (${message})`);
@@ -473,6 +493,10 @@ export function App() {
         </div>
         {restoreSummary ? <p className="status">{formatRestoreBanner(restoreSummary)}</p> : null}
         <div className="crud-form">
+          <select value={importMode} onChange={(event) => setImportMode(event.target.value as "expenses" | "actuals")}>
+            <option value="expenses">Expenses</option>
+            <option value="actuals">Actuals</option>
+          </select>
           <input
             type="text"
             value={importFilePath}
@@ -500,7 +524,17 @@ export function App() {
         ) : null}
         {importCommitResult ? (
           <p className="status">
-            Commit inserted {importCommitResult.insertedCount}; duplicates skipped {importCommitResult.skippedDuplicateCount}
+            Commit inserted {importCommitResult.insertedCount}; duplicates skipped{" "}
+            {importCommitResult.skippedDuplicateCount ?? importCommitResult.duplicateCount}
+          </p>
+        ) : null}
+        {importMode === "actuals" && importCommitResult?.matchRate !== undefined ? (
+          <p className="status">Actual match rate: {(importCommitResult.matchRate * 100).toFixed(1)}%</p>
+        ) : null}
+        {importMode === "actuals" && importCommitResult?.unmatchedForReview?.[0] ? (
+          <p className="status">
+            First unmatched actual: {importCommitResult.unmatchedForReview[0].transactionDate} $
+            {(importCommitResult.unmatchedForReview[0].amountMinor / 100).toFixed(2)}
           </p>
         ) : null}
         {(importPreviewResult?.errors[0] ?? importCommitResult?.errors[0]) ? (
