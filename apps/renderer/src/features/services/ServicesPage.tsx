@@ -19,6 +19,10 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 
 import { EmptyState, PageHeader, StatusChip } from "../../ui/primitives";
 import {
+  buildVendorFilterOptions,
+  matchesVendorFilter
+} from "../vendors/vendor-filter-model";
+import {
   CONTRACT_BY_ID,
   SERVICE_RECORDS,
   type ServiceRecord,
@@ -94,6 +98,9 @@ export function ServicesPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [query, setQuery] = useState("");
+  const [vendorFilter, setVendorFilter] = useState<string>(() => {
+    return searchParams.get("vendor") ?? "all";
+  });
   const [riskFilter, setRiskFilter] = useState<ServiceRisk | "all">("all");
   const [detailTab, setDetailTab] = useState<ServiceDetailTab>(() =>
     resolveDetailTab(searchParams.get("tab"))
@@ -102,9 +109,23 @@ export function ServicesPage() {
     return searchParams.get("service") ?? SERVICE_RECORDS[0]?.id ?? "";
   });
 
+  const vendorOptions = useMemo(
+    () =>
+      buildVendorFilterOptions(
+        SERVICE_RECORDS.map((service) => ({
+          vendorId: service.vendorId,
+          vendorName: service.vendorName
+        }))
+      ),
+    []
+  );
+
   const visibleServices = useMemo(() => {
     const normalized = query.trim().toLowerCase();
     return SERVICE_RECORDS.filter((service) => {
+      if (!matchesVendorFilter(vendorFilter, service.vendorId)) {
+        return false;
+      }
       if (riskFilter !== "all" && service.risk !== riskFilter) {
         return false;
       }
@@ -117,7 +138,7 @@ export function ServicesPage() {
         service.owner.toLowerCase().includes(normalized)
       );
     });
-  }, [query, riskFilter]);
+  }, [query, riskFilter, vendorFilter]);
 
   useEffect(() => {
     if (visibleServices.length === 0) {
@@ -136,11 +157,12 @@ export function ServicesPage() {
       (current) =>
         mergeQuery(current, {
           service: selectedServiceId,
-          tab: detailTab
+          tab: detailTab,
+          vendor: vendorFilter === "all" ? null : vendorFilter
         }),
       { replace: true }
     );
-  }, [detailTab, selectedServiceId, setSearchParams]);
+  }, [detailTab, selectedServiceId, setSearchParams, vendorFilter]);
 
   const selectedService =
     SERVICE_RECORDS.find((service) => service.id === selectedServiceId) ??
@@ -173,6 +195,18 @@ export function ServicesPage() {
           value={query}
           onChange={(_event, data) => setQuery(data.value)}
         />
+        <Select
+          aria-label="Filter by vendor"
+          value={vendorFilter}
+          onChange={(event) => setVendorFilter(event.target.value)}
+        >
+          <option value="all">All vendors</option>
+          {vendorOptions.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </Select>
         <Select
           aria-label="Filter by risk"
           value={riskFilter}

@@ -1,0 +1,72 @@
+.vendors-page {
+  display: grid;
+  gap: 1rem;
+}
+
+.vendors-toolbar {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: minmax(0, 420px);
+}
+
+.vendors-layout {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: minmax(0, 1.8fr) minmax(300px, 1fr);
+}
+
+.vendors-row--selected {
+  background: color-mix(in srgb, var(--colorNeutralBackground1) 70%, var(--colorBrandBackground) 30%);
+}
+
+.vendors-row__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.vendors-detail {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.vendors-detail__section {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.vendors-detail__list {
+  display: grid;
+  gap: 0.5rem;
+  list-style: disc;
+  margin: 0;
+  padding-left: 1rem;
+}
+
+.vendors-linked-item {
+  align-items: center;
+  display: flex;
+  gap: 0.5rem;
+  justify-content: space-between;
+}
+
+.vendors-detail__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.vendors-form {
+  display: grid;
+  gap: 0.55rem;
+}
+
+@media (max-width: 1080px) {
+  .vendors-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .vendors-toolbar {
+    grid-template-columns: 1fr;
+  }
+}
