@@ -223,6 +223,17 @@ async function queryReport(payload: unknown): Promise<unknown> {
   return window.budgetit.invoke("reports.query", payload);
 }
 
+async function exportReport(payload: unknown): Promise<{
+  files: Partial<Record<"html" | "pdf" | "excel" | "csv" | "png", string>>;
+}> {
+  if (!window.budgetit) {
+    throw new Error("IPC bridge is unavailable.");
+  }
+  return (await window.budgetit.invoke("export.report", payload)) as {
+    files: Partial<Record<"html" | "pdf" | "excel" | "csv" | "png", string>>;
+  };
+}
+
 export function App() {
   const [settings, setSettings] = useState<RuntimeSettings>(defaultSettings);
   const [saving, setSaving] = useState(false);
@@ -274,6 +285,10 @@ export function App() {
   const [replacementPlanIdInput, setReplacementPlanIdInput] = useState("");
   const [replacementDetail, setReplacementDetail] = useState<ReplacementDetail | null>(null);
   const [dashboardDataset, setDashboardDataset] = useState<DashboardDataset | null>(null);
+  const [exportingDashboard, setExportingDashboard] = useState(false);
+  const [exportResult, setExportResult] = useState<{
+    files: Partial<Record<"html" | "pdf" | "excel" | "csv" | "png", string>>;
+  } | null>(null);
   const [activeAlertEntity, setActiveAlertEntity] = useState<{
     alertEventId: string;
     entityType: string;
@@ -432,6 +447,23 @@ export function App() {
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       setStatus(`Failed to load dashboard (${message})`);
+    }
+  }
+
+  async function onExportDashboard(): Promise<void> {
+    setExportingDashboard(true);
+    try {
+      const result = await exportReport({
+        scenarioId: "baseline",
+        formats: ["html", "pdf", "excel", "csv", "png"]
+      });
+      setExportResult(result);
+      setStatus("Dashboard export completed");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      setStatus(`Dashboard export failed (${message})`);
+    } finally {
+      setExportingDashboard(false);
     }
   }
 
@@ -625,6 +657,9 @@ export function App() {
         {dashboardDataset ? (
           <article className="crud-card">
             <h2>Dashboard</h2>
+            <button type="button" disabled={exportingDashboard} onClick={() => void onExportDashboard()}>
+              {exportingDashboard ? "Exporting..." : "Export dashboard (HTML/PDF/Excel/CSV/PNG)"}
+            </button>
             {getForecastStaleIndicator(dashboardDataset) ? (
               <p className="status">{getForecastStaleIndicator(dashboardDataset)}</p>
             ) : null}
@@ -667,6 +702,15 @@ export function App() {
                 </li>
               ))}
             </ul>
+            {exportResult ? (
+              <ul>
+                {Object.entries(exportResult.files).map(([format, filePath]) => (
+                  <li key={format}>
+                    {format}: {filePath}
+                  </li>
+                ))}
+              </ul>
+            ) : null}
           </article>
         ) : null}
         <p className="status">{status}</p>
