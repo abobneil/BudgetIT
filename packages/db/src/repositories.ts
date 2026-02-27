@@ -67,6 +67,12 @@ const tagAssignmentInputSchema = z.object({
   tagId: z.string().min(1)
 });
 
+const scenarioInputSchema = z.object({
+  name: z.string().min(1),
+  parentScenarioId: z.string().nullable().optional(),
+  approvalStatus: z.enum(["draft", "reviewed", "approved"]).default("draft")
+});
+
 function nowIso(): string {
   return new Date().toISOString();
 }
@@ -98,6 +104,19 @@ export class BudgetCrudRepository {
         `
       )
       .run();
+  }
+
+  private assertScenarioMutable(scenarioId: string): void {
+    const row = this.db
+      .prepare("SELECT is_locked FROM scenario WHERE id = ?")
+      .get(scenarioId) as { is_locked: number } | undefined;
+
+    if (!row) {
+      throw new Error(`Scenario not found: ${scenarioId}`);
+    }
+    if (row.is_locked === 1) {
+      throw new Error(`Scenario is locked: ${scenarioId}`);
+    }
   }
 
   createVendor(input: z.infer<typeof vendorInputSchema>): string {
@@ -240,6 +259,7 @@ export class BudgetCrudRepository {
     recurrenceInput?: z.infer<typeof recurrenceRuleInputSchema>
   ): string {
     const parsedExpense = expenseLineInputSchema.parse(expenseInput);
+    this.assertScenarioMutable(parsedExpense.scenarioId);
     if (parsedExpense.expenseType === "recurring" && !recurrenceInput) {
       throw new Error("Recurring expenses require a recurrence rule.");
     }
@@ -301,6 +321,7 @@ export class BudgetCrudRepository {
 
   updateExpenseLine(id: string, input: z.infer<typeof expenseLineInputSchema>): void {
     const parsed = expenseLineInputSchema.parse(input);
+    this.assertScenarioMutable(parsed.scenarioId);
     this.db
       .prepare(
         `
@@ -337,6 +358,14 @@ export class BudgetCrudRepository {
   }
 
   deleteExpenseLine(id: string): void {
+    const row = this.db
+      .prepare("SELECT scenario_id FROM expense_line WHERE id = ?")
+      .get(id) as { scenario_id: string } | undefined;
+    if (!row) {
+      throw new Error(`Expense line not found: ${id}`);
+    }
+    this.assertScenarioMutable(row.scenario_id);
+
     this.db
       .prepare("UPDATE expense_line SET deleted_at = CURRENT_TIMESTAMP WHERE id = ?")
       .run(id);
@@ -345,6 +374,14 @@ export class BudgetCrudRepository {
 
   createRecurrenceRule(input: z.infer<typeof recurrenceRuleInputSchema>): string {
     const parsed = recurrenceRuleInputSchema.parse(input);
+    const expense = this.db
+      .prepare("SELECT scenario_id FROM expense_line WHERE id = ?")
+      .get(parsed.expenseLineId) as { scenario_id: string } | undefined;
+    if (!expense) {
+      throw new Error(`Expense line not found: ${parsed.expenseLineId}`);
+    }
+    this.assertScenarioMutable(expense.scenario_id);
+
     if (parsed.frequency === "yearly" && typeof parsed.monthOfYear !== "number") {
       throw new Error("Yearly recurrence requires monthOfYear.");
     }
@@ -381,6 +418,14 @@ export class BudgetCrudRepository {
 
   updateRecurrenceRule(id: string, input: z.infer<typeof recurrenceRuleInputSchema>): void {
     const parsed = recurrenceRuleInputSchema.parse(input);
+    const expense = this.db
+      .prepare("SELECT scenario_id FROM expense_line WHERE id = ?")
+      .get(parsed.expenseLineId) as { scenario_id: string } | undefined;
+    if (!expense) {
+      throw new Error(`Expense line not found: ${parsed.expenseLineId}`);
+    }
+    this.assertScenarioMutable(expense.scenario_id);
+
     if (parsed.frequency === "yearly" && typeof parsed.monthOfYear !== "number") {
       throw new Error("Yearly recurrence requires monthOfYear.");
     }
@@ -412,8 +457,243 @@ export class BudgetCrudRepository {
   }
 
   deleteRecurrenceRule(id: string): void {
+    const scenario = this.db
+      .prepare(
+        `
+          SELECT e.scenario_id
+          FROM recurrence_rule r
+          JOIN expense_line e ON e.id = r.expense_line_id
+          WHERE r.id = ?
+        `
+      )
+      .get(id) as { scenario_id: string } | undefined;
+    if (!scenario) {
+      throw new Error(`Recurrence rule not found: ${id}`);
+    }
+    this.assertScenarioMutable(scenario.scenario_id);
+
     this.db.prepare("DELETE FROM recurrence_rule WHERE id = ?").run(id);
     this.touchForecastStale();
+  }
+
+  createScenario(input: z.infer<typeof scenarioInputSchema>): string {
+    const parsed = scenarioInputSchema.parse(input);
+    const id = crypto.randomUUID();
+    this.db
+      .prepare(
+        `
+          INSERT INTO scenario (
+            id,
+            name,
+            parent_scenario_id,
+            approval_status,
+            is_locked,
+            created_at,
+            updated_at
+          ) VALUES (?, ?, ?, ?, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        `
+      )
+      .run(id, parsed.name, parsed.parentScenarioId ?? null, parsed.approvalStatus);
+    return id;
+  }
+
+  setScenarioApprovalStatus(
+    scenarioId: string,
+    nextStatus: "draft" | "reviewed" | "approved"
+  ): void {
+    const current = this.db
+      .prepare("SELECT approval_status FROM scenario WHERE id = ?")
+      .get(scenarioId) as { approval_status: "draft" | "reviewed" | "approved" } | undefined;
+
+    if (!current) {
+      throw new Error(`Scenario not found: ${scenarioId}`);
+    }
+
+    const validTransitions: Record<string, Array<string>> = {
+      draft: ["reviewed"],
+      reviewed: ["approved", "draft"],
+      approved: []
+    };
+
+    if (!validTransitions[current.approval_status].includes(nextStatus)) {
+      throw new Error(
+        `Invalid scenario approval transition: ${current.approval_status} -> ${nextStatus}`
+      );
+    }
+
+    this.db
+      .prepare("UPDATE scenario SET approval_status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
+      .run(nextStatus, scenarioId);
+  }
+
+  lockScenario(scenarioId: string): void {
+    this.db
+      .prepare("UPDATE scenario SET is_locked = 1, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
+      .run(scenarioId);
+  }
+
+  cloneScenario(sourceScenarioId: string, newScenarioName: string): string {
+    const source = this.db
+      .prepare("SELECT id FROM scenario WHERE id = ?")
+      .get(sourceScenarioId) as { id: string } | undefined;
+    if (!source) {
+      throw new Error(`Scenario not found: ${sourceScenarioId}`);
+    }
+
+    const newScenarioId = crypto.randomUUID();
+    const clone = this.db.transaction(() => {
+      this.db
+        .prepare(
+          `
+            INSERT INTO scenario (
+              id,
+              name,
+              parent_scenario_id,
+              approval_status,
+              is_locked,
+              created_at,
+              updated_at
+            ) VALUES (?, ?, ?, 'draft', 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+          `
+        )
+        .run(newScenarioId, newScenarioName, sourceScenarioId);
+
+      const sourceExpenses = this.db
+        .prepare(
+          `
+            SELECT
+              id,
+              service_id,
+              contract_id,
+              name,
+              expense_type,
+              status,
+              amount_minor,
+              currency,
+              start_date,
+              end_date,
+              created_at,
+              updated_at,
+              deleted_at
+            FROM expense_line
+            WHERE scenario_id = ?
+              AND deleted_at IS NULL
+          `
+        )
+        .all(sourceScenarioId) as Array<{
+        id: string;
+        service_id: string;
+        contract_id: string | null;
+        name: string;
+        expense_type: string;
+        status: string;
+        amount_minor: number;
+        currency: string;
+        start_date: string | null;
+        end_date: string | null;
+        created_at: string;
+        updated_at: string;
+        deleted_at: string | null;
+      }>;
+
+      const expenseMap = new Map<string, string>();
+      const insertExpense = this.db.prepare(
+        `
+          INSERT INTO expense_line (
+            id,
+            scenario_id,
+            service_id,
+            contract_id,
+            name,
+            expense_type,
+            status,
+            amount_minor,
+            currency,
+            start_date,
+            end_date,
+            created_at,
+            updated_at,
+            deleted_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `
+      );
+
+      for (const expense of sourceExpenses) {
+        const clonedExpenseId = crypto.randomUUID();
+        expenseMap.set(expense.id, clonedExpenseId);
+        insertExpense.run(
+          clonedExpenseId,
+          newScenarioId,
+          expense.service_id,
+          expense.contract_id,
+          expense.name,
+          expense.expense_type,
+          expense.status,
+          expense.amount_minor,
+          expense.currency,
+          expense.start_date,
+          expense.end_date,
+          expense.created_at,
+          expense.updated_at,
+          expense.deleted_at
+        );
+      }
+
+      const sourceRecurrences = this.db
+        .prepare(
+          `
+            SELECT id, expense_line_id, frequency, interval, day_of_month, month_of_year, anchor_date
+            FROM recurrence_rule
+            WHERE expense_line_id IN (
+              SELECT id FROM expense_line WHERE scenario_id = ? AND deleted_at IS NULL
+            )
+          `
+        )
+        .all(sourceScenarioId) as Array<{
+        id: string;
+        expense_line_id: string;
+        frequency: string;
+        interval: number;
+        day_of_month: number;
+        month_of_year: number | null;
+        anchor_date: string | null;
+      }>;
+
+      const insertRecurrence = this.db.prepare(
+        `
+          INSERT INTO recurrence_rule (
+            id,
+            expense_line_id,
+            frequency,
+            interval,
+            day_of_month,
+            month_of_year,
+            anchor_date,
+            created_at,
+            updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        `
+      );
+
+      for (const recurrence of sourceRecurrences) {
+        const clonedExpenseId = expenseMap.get(recurrence.expense_line_id);
+        if (!clonedExpenseId) {
+          continue;
+        }
+        insertRecurrence.run(
+          crypto.randomUUID(),
+          clonedExpenseId,
+          recurrence.frequency,
+          recurrence.interval,
+          recurrence.day_of_month,
+          recurrence.month_of_year,
+          recurrence.anchor_date
+        );
+      }
+    });
+
+    clone();
+    return newScenarioId;
   }
 
   createDimension(input: z.infer<typeof dimensionInputSchema>): string {

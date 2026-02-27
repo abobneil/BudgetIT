@@ -11,6 +11,16 @@ export const meta = sqliteTable("meta", {
   updatedAt: text("updated_at").notNull()
 });
 
+export const scenario = sqliteTable("scenario", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  parentScenarioId: text("parent_scenario_id"),
+  approvalStatus: text("approval_status").notNull(),
+  isLocked: integer("is_locked").notNull(),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull()
+});
+
 export const vendor = sqliteTable("vendor", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
