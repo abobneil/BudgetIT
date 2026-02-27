@@ -37,5 +37,14 @@ export {
   type AlertEventRecord,
   type AlertEventStatus
 } from "./alerts-repository";
+export {
+  buildMonthlyVarianceDataset,
+  ingestActualTransactions,
+  listUnmatchedActualTransactions,
+  type ActualIngestResult,
+  type ActualTransactionInput,
+  type MonthlyVarianceRow,
+  type UnmatchedActualTransaction
+} from "./variance";
 export * as schema from "./schema";
 

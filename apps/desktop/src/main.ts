@@ -5,6 +5,7 @@ import path from "node:path";
 
 import {
   bootstrapEncryptedDatabase,
+  buildMonthlyVarianceDataset,
   createEncryptedBackup,
   restoreEncryptedBackup,
   runMigrations,
@@ -65,6 +66,11 @@ import {
   previewExpenseImport,
   type ImportColumnMapping
 } from "./import-wizard";
+import {
+  commitActualsImport,
+  previewActualsImport,
+  type ActualImportMapping
+} from "./actuals-import";
 
 export interface DesktopRuntime {
   whenReady: () => Promise<void>;
@@ -100,7 +106,10 @@ const IMPORT_FIELDS = new Set([
   "interval",
   "dayOfMonth",
   "monthOfYear",
-  "anchorDate"
+  "anchorDate",
+  "transactionDate",
+  "description",
+  "costCenter"
 ]);
 
 export function getMainWindowOptions(preloadPath: string): BrowserWindowConstructorOptions {
@@ -379,8 +388,9 @@ function parseBackupVerifyPayload(payload: unknown): {
 }
 
 function parseImportPayload(payload: unknown): {
+  mode: "expenses" | "actuals";
   filePath: string;
-  mapping?: ImportColumnMapping;
+  mapping?: Record<string, string>;
   templateName?: string;
   useSavedTemplate?: boolean;
   saveTemplate?: boolean;
@@ -390,6 +400,7 @@ function parseImportPayload(payload: unknown): {
   }
 
   const value = payload as {
+    mode?: unknown;
     filePath?: unknown;
     mapping?: unknown;
     templateName?: unknown;
@@ -401,7 +412,7 @@ function parseImportPayload(payload: unknown): {
     throw new Error("import payload requires a non-empty filePath.");
   }
 
-  let mapping: ImportColumnMapping | undefined;
+  let mapping: Record<string, string> | undefined;
   if (value.mapping && typeof value.mapping === "object") {
     const entries = Object.entries(value.mapping as Record<string, unknown>);
     mapping = {};
@@ -419,11 +430,29 @@ function parseImportPayload(payload: unknown): {
       : undefined;
 
   return {
+    mode: value.mode === "actuals" ? "actuals" : "expenses",
     filePath: value.filePath,
     mapping,
     templateName,
     useSavedTemplate: typeof value.useSavedTemplate === "boolean" ? value.useSavedTemplate : undefined,
     saveTemplate: typeof value.saveTemplate === "boolean" ? value.saveTemplate : undefined
+  };
+}
+
+function parseReportsQueryPayload(payload: unknown): {
+  query: string;
+  scenarioId: string;
+} {
+  if (!payload || typeof payload !== "object") {
+    throw new Error("reports.query requires payload with query.");
+  }
+  const value = payload as { query?: unknown; scenarioId?: unknown };
+  if (typeof value.query !== "string" || value.query.trim().length === 0) {
+    throw new Error("reports.query requires a non-empty query.");
+  }
+  return {
+    query: value.query,
+    scenarioId: typeof value.scenarioId === "string" && value.scenarioId.trim().length > 0 ? value.scenarioId : "baseline"
   };
 }
 
@@ -614,17 +643,37 @@ function setupIpcHandlers(requestExit: () => void): void {
   ipcMain.handle("import.preview", async (_event, payload: unknown) => {
     const parsed = parseImportPayload(payload);
     const handle = requireDatabaseHandle();
+    if (parsed.mode === "actuals") {
+      return previewActualsImport(handle.db, {
+        filePath: parsed.filePath,
+        mapping: parsed.mapping as ActualImportMapping | undefined
+      });
+    }
     return previewExpenseImport(handle.db, {
-      ...parsed,
+      filePath: parsed.filePath,
+      mapping: parsed.mapping as ImportColumnMapping | undefined,
+      templateName: parsed.templateName,
+      useSavedTemplate: parsed.useSavedTemplate,
+      saveTemplate: parsed.saveTemplate,
       templateStorePath: getImportTemplateStorePath()
     });
   });
   ipcMain.handle("import.commit", async (_event, payload: unknown) => {
     const parsed = parseImportPayload(payload);
     const handle = requireDatabaseHandle();
+    if (parsed.mode === "actuals") {
+      return commitActualsImport(handle.db, {
+        filePath: parsed.filePath,
+        mapping: parsed.mapping as ActualImportMapping | undefined
+      });
+    }
     const rules = loadAutoTagRules(getAutoTagRulesPath());
     const committed = commitExpenseImport(handle.db, {
-      ...parsed,
+      filePath: parsed.filePath,
+      mapping: parsed.mapping as ImportColumnMapping | undefined,
+      templateName: parsed.templateName,
+      useSavedTemplate: parsed.useSavedTemplate,
+      saveTemplate: parsed.saveTemplate,
       templateStorePath: getImportTemplateStorePath(),
       autoTagRules: rules
     });
@@ -633,6 +682,14 @@ function setupIpcHandlers(requestExit: () => void): void {
       ...committed,
       suggestions
     };
+  });
+  ipcMain.handle("reports.query", async (_event, payload: unknown) => {
+    const parsed = parseReportsQueryPayload(payload);
+    const handle = requireDatabaseHandle();
+    if (parsed.query === "variance.monthly") {
+      return buildMonthlyVarianceDataset(handle.db, parsed.scenarioId);
+    }
+    throw new Error(`Unsupported reports.query value: ${parsed.query}`);
   });
 }
 
