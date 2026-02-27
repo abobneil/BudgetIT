@@ -7,6 +7,7 @@ import {
   bootstrapEncryptedDatabase,
   buildMonthlyVarianceDataset,
   createEncryptedBackup,
+  getReplacementPlanDetail,
   restoreEncryptedBackup,
   runMigrations,
   type AlertEventRecord,
@@ -442,17 +443,22 @@ function parseImportPayload(payload: unknown): {
 function parseReportsQueryPayload(payload: unknown): {
   query: string;
   scenarioId: string;
+  servicePlanId?: string;
 } {
   if (!payload || typeof payload !== "object") {
     throw new Error("reports.query requires payload with query.");
   }
-  const value = payload as { query?: unknown; scenarioId?: unknown };
+  const value = payload as { query?: unknown; scenarioId?: unknown; servicePlanId?: unknown };
   if (typeof value.query !== "string" || value.query.trim().length === 0) {
     throw new Error("reports.query requires a non-empty query.");
   }
   return {
     query: value.query,
-    scenarioId: typeof value.scenarioId === "string" && value.scenarioId.trim().length > 0 ? value.scenarioId : "baseline"
+    scenarioId: typeof value.scenarioId === "string" && value.scenarioId.trim().length > 0 ? value.scenarioId : "baseline",
+    servicePlanId:
+      typeof value.servicePlanId === "string" && value.servicePlanId.trim().length > 0
+        ? value.servicePlanId
+        : undefined
   };
 }
 
@@ -688,6 +694,12 @@ function setupIpcHandlers(requestExit: () => void): void {
     const handle = requireDatabaseHandle();
     if (parsed.query === "variance.monthly") {
       return buildMonthlyVarianceDataset(handle.db, parsed.scenarioId);
+    }
+    if (parsed.query === "replacement.detail") {
+      if (!parsed.servicePlanId) {
+        throw new Error("reports.query replacement.detail requires servicePlanId.");
+      }
+      return getReplacementPlanDetail(handle.db, parsed.servicePlanId);
     }
     throw new Error(`Unsupported reports.query value: ${parsed.query}`);
   });

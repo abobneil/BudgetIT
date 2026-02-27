@@ -159,6 +159,7 @@ export const replacementCandidate = sqliteTable("replacement_candidate", {
   candidateServiceId: text("candidate_service_id"),
   candidateName: text("candidate_name"),
   score: integer("score"),
+  scorecardJson: text("scorecard_json"),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull()
 });

@@ -76,6 +76,20 @@ type ImportCommitResult = {
   errors: ImportRowError[];
 };
 
+type ReplacementDetail = {
+  servicePlan: {
+    id: string;
+    decisionStatus: string;
+    reasonCode: string | null;
+  };
+  aggregation: {
+    candidateCount: number;
+    averageWeightedScore: number;
+    bestCandidateId: string | null;
+    bestWeightedScore: number | null;
+  };
+};
+
 const defaultSettings: RuntimeSettings = {
   startWithWindows: true,
   minimizeToTray: true,
@@ -197,6 +211,13 @@ async function commitImport(input: {
   return (await window.budgetit.invoke("import.commit", input)) as ImportCommitResult;
 }
 
+async function queryReport(payload: unknown): Promise<unknown> {
+  if (!window.budgetit) {
+    throw new Error("IPC bridge is unavailable.");
+  }
+  return window.budgetit.invoke("reports.query", payload);
+}
+
 export function App() {
   const [settings, setSettings] = useState<RuntimeSettings>(defaultSettings);
   const [saving, setSaving] = useState(false);
@@ -245,6 +266,8 @@ export function App() {
   const [importBusy, setImportBusy] = useState(false);
   const [importPreviewResult, setImportPreviewResult] = useState<ImportPreviewResult | null>(null);
   const [importCommitResult, setImportCommitResult] = useState<ImportCommitResult | null>(null);
+  const [replacementPlanIdInput, setReplacementPlanIdInput] = useState("");
+  const [replacementDetail, setReplacementDetail] = useState<ReplacementDetail | null>(null);
   const [activeAlertEntity, setActiveAlertEntity] = useState<{
     alertEventId: string;
     entityType: string;
@@ -375,6 +398,20 @@ export function App() {
       setStatus(`Import commit failed (${message})`);
     } finally {
       setImportBusy(false);
+    }
+  }
+
+  async function onLoadReplacementDetail(): Promise<void> {
+    try {
+      const detail = (await queryReport({
+        query: "replacement.detail",
+        servicePlanId: replacementPlanIdInput
+      })) as ReplacementDetail;
+      setReplacementDetail(detail);
+      setStatus(`Loaded replacement detail for ${detail.servicePlan.id}`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      setStatus(`Failed to load replacement detail (${message})`);
     }
   }
 
@@ -541,6 +578,23 @@ export function App() {
           <p className="status">
             First import error (row {(importPreviewResult?.errors[0] ?? importCommitResult?.errors[0])?.rowNumber}):{" "}
             {(importPreviewResult?.errors[0] ?? importCommitResult?.errors[0])?.message}
+          </p>
+        ) : null}
+        <div className="crud-form">
+          <input
+            type="text"
+            value={replacementPlanIdInput}
+            onChange={(event) => setReplacementPlanIdInput(event.target.value)}
+            placeholder="Service plan id for replacement detail"
+          />
+          <button type="button" onClick={() => void onLoadReplacementDetail()}>
+            Load replacement detail
+          </button>
+        </div>
+        {replacementDetail ? (
+          <p className="status">
+            Replacement candidates: {replacementDetail.aggregation.candidateCount}; avg score{" "}
+            {replacementDetail.aggregation.averageWeightedScore}; best {replacementDetail.aggregation.bestCandidateId ?? "none"}
           </p>
         ) : null}
         <p className="status">{status}</p>
