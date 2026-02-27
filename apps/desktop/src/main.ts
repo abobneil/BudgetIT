@@ -5,6 +5,7 @@ import path from "node:path";
 
 import {
   bootstrapEncryptedDatabase,
+  buildDashboardDataset,
   buildMonthlyVarianceDataset,
   createEncryptedBackup,
   getReplacementPlanDetail,
@@ -692,6 +693,9 @@ function setupIpcHandlers(requestExit: () => void): void {
   ipcMain.handle("reports.query", async (_event, payload: unknown) => {
     const parsed = parseReportsQueryPayload(payload);
     const handle = requireDatabaseHandle();
+    if (parsed.query === "dashboard.summary") {
+      return buildDashboardDataset(handle.db, parsed.scenarioId);
+    }
     if (parsed.query === "variance.monthly") {
       return buildMonthlyVarianceDataset(handle.db, parsed.scenarioId);
     }

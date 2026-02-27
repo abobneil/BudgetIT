@@ -1,6 +1,11 @@
 import { useEffect, useState } from "react";
 
 import { formatRestoreBanner, type RestoreSummary } from "./restore-banner";
+import {
+  computeDashboardTotals,
+  getForecastStaleIndicator,
+  type DashboardDataset
+} from "./reporting";
 
 type RuntimeSettings = {
   startWithWindows: boolean;
@@ -268,6 +273,7 @@ export function App() {
   const [importCommitResult, setImportCommitResult] = useState<ImportCommitResult | null>(null);
   const [replacementPlanIdInput, setReplacementPlanIdInput] = useState("");
   const [replacementDetail, setReplacementDetail] = useState<ReplacementDetail | null>(null);
+  const [dashboardDataset, setDashboardDataset] = useState<DashboardDataset | null>(null);
   const [activeAlertEntity, setActiveAlertEntity] = useState<{
     alertEventId: string;
     entityType: string;
@@ -412,6 +418,20 @@ export function App() {
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       setStatus(`Failed to load replacement detail (${message})`);
+    }
+  }
+
+  async function onLoadDashboard(): Promise<void> {
+    try {
+      const dashboard = (await queryReport({
+        query: "dashboard.summary",
+        scenarioId: "baseline"
+      })) as DashboardDataset;
+      setDashboardDataset(dashboard);
+      setStatus("Loaded dashboard dataset");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      setStatus(`Failed to load dashboard (${message})`);
     }
   }
 
@@ -596,6 +616,58 @@ export function App() {
             Replacement candidates: {replacementDetail.aggregation.candidateCount}; avg score{" "}
             {replacementDetail.aggregation.averageWeightedScore}; best {replacementDetail.aggregation.bestCandidateId ?? "none"}
           </p>
+        ) : null}
+        <div className="crud-form">
+          <button type="button" onClick={() => void onLoadDashboard()}>
+            Load dashboard
+          </button>
+        </div>
+        {dashboardDataset ? (
+          <article className="crud-card">
+            <h2>Dashboard</h2>
+            {getForecastStaleIndicator(dashboardDataset) ? (
+              <p className="status">{getForecastStaleIndicator(dashboardDataset)}</p>
+            ) : null}
+            <p className="status">
+              Totals: forecast ${(computeDashboardTotals(dashboardDataset).forecastMinor / 100).toFixed(2)}; actual $
+              {(computeDashboardTotals(dashboardDataset).actualMinor / 100).toFixed(2)}
+            </p>
+            <h3>Spend Trend</h3>
+            <table>
+              <thead>
+                <tr>
+                  <th>Month</th>
+                  <th>Forecast</th>
+                  <th>Actual</th>
+                </tr>
+              </thead>
+              <tbody>
+                {dashboardDataset.spendTrend.map((row) => (
+                  <tr key={row.month}>
+                    <td>{row.month}</td>
+                    <td>${(row.forecastMinor / 100).toFixed(2)}</td>
+                    <td>${(row.actualMinor / 100).toFixed(2)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <h3>Renewals</h3>
+            <ul>
+              {dashboardDataset.renewals.map((row) => (
+                <li key={row.month}>
+                  {row.month}: {row.count}
+                </li>
+              ))}
+            </ul>
+            <h3>Narrative</h3>
+            <ul>
+              {dashboardDataset.narrativeBlocks.map((block) => (
+                <li key={block.id}>
+                  <strong>{block.title}:</strong> {block.body}
+                </li>
+              ))}
+            </ul>
+          </article>
         ) : null}
         <p className="status">{status}</p>
       </section>

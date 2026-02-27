@@ -62,5 +62,15 @@ export {
   type ServicePlanDecisionStatus,
   type ServicePlanReasonCode
 } from "./replacement-planning";
+export {
+  buildDashboardDataset,
+  type DashboardDataset,
+  type GrowthRow,
+  type NarrativeBlock,
+  type RenewalRow,
+  type ReplacementStatusSummary,
+  type SpendTrendRow,
+  type TaggingCompleteness
+} from "./reporting";
 export * as schema from "./schema";
 
