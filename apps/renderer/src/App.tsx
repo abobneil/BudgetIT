@@ -23,6 +23,50 @@ type AlertRecord = {
   message: string;
 };
 
+type ImportField =
+  | "scenarioId"
+  | "serviceId"
+  | "contractId"
+  | "name"
+  | "expenseType"
+  | "status"
+  | "amount"
+  | "currency"
+  | "startDate"
+  | "endDate"
+  | "frequency"
+  | "interval"
+  | "dayOfMonth"
+  | "monthOfYear"
+  | "anchorDate";
+
+type ImportRowError = {
+  rowNumber: number;
+  code: "validation" | "duplicate";
+  field: ImportField | "row";
+  message: string;
+};
+
+type ImportPreviewResult = {
+  totalRows: number;
+  acceptedCount: number;
+  rejectedCount: number;
+  duplicateCount: number;
+  templateApplied: string | null;
+  templateSaved: string | null;
+  errors: ImportRowError[];
+};
+
+type ImportCommitResult = {
+  totalRows: number;
+  acceptedCount: number;
+  rejectedCount: number;
+  duplicateCount: number;
+  insertedCount: number;
+  skippedDuplicateCount: number;
+  errors: ImportRowError[];
+};
+
 const defaultSettings: RuntimeSettings = {
   startWithWindows: true,
   minimizeToTray: true,
@@ -116,6 +160,32 @@ async function restoreBackup(
   })) as RestoreSummary;
 }
 
+async function previewImport(input: {
+  filePath: string;
+  templateName?: string;
+  useSavedTemplate?: boolean;
+  saveTemplate?: boolean;
+}): Promise<ImportPreviewResult> {
+  if (!window.budgetit) {
+    throw new Error("IPC bridge is unavailable.");
+  }
+
+  return (await window.budgetit.invoke("import.preview", input)) as ImportPreviewResult;
+}
+
+async function commitImport(input: {
+  filePath: string;
+  templateName?: string;
+  useSavedTemplate?: boolean;
+  saveTemplate?: boolean;
+}): Promise<ImportCommitResult> {
+  if (!window.budgetit) {
+    throw new Error("IPC bridge is unavailable.");
+  }
+
+  return (await window.budgetit.invoke("import.commit", input)) as ImportCommitResult;
+}
+
 export function App() {
   const [settings, setSettings] = useState<RuntimeSettings>(defaultSettings);
   const [saving, setSaving] = useState(false);
@@ -158,6 +228,11 @@ export function App() {
   const [backupPathInput, setBackupPathInput] = useState("");
   const [manifestPathInput, setManifestPathInput] = useState("");
   const [restoreSummary, setRestoreSummary] = useState<RestoreSummary | null>(null);
+  const [importFilePath, setImportFilePath] = useState("");
+  const [importTemplateName, setImportTemplateName] = useState("default-expense-import");
+  const [importBusy, setImportBusy] = useState(false);
+  const [importPreviewResult, setImportPreviewResult] = useState<ImportPreviewResult | null>(null);
+  const [importCommitResult, setImportCommitResult] = useState<ImportCommitResult | null>(null);
   const [activeAlertEntity, setActiveAlertEntity] = useState<{
     alertEventId: string;
     entityType: string;
@@ -237,6 +312,49 @@ export function App() {
       setStatus(`Backup restore failed (${message})`);
     } finally {
       setRestoringBackup(false);
+    }
+  }
+
+  async function onPreviewImport(): Promise<void> {
+    setImportBusy(true);
+    try {
+      const result = await previewImport({
+        filePath: importFilePath,
+        templateName: importTemplateName,
+        useSavedTemplate: true,
+        saveTemplate: true
+      });
+      setImportPreviewResult(result);
+      setImportCommitResult(null);
+      setStatus(
+        `Import preview: ${result.acceptedCount} accepted, ${result.rejectedCount} rejected (${result.duplicateCount} duplicates)`
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      setStatus(`Import preview failed (${message})`);
+    } finally {
+      setImportBusy(false);
+    }
+  }
+
+  async function onCommitImport(): Promise<void> {
+    setImportBusy(true);
+    try {
+      const result = await commitImport({
+        filePath: importFilePath,
+        templateName: importTemplateName,
+        useSavedTemplate: true,
+        saveTemplate: true
+      });
+      setImportCommitResult(result);
+      setStatus(
+        `Import commit: ${result.insertedCount} inserted, ${result.rejectedCount} rejected (${result.duplicateCount} duplicates)`
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      setStatus(`Import commit failed (${message})`);
+    } finally {
+      setImportBusy(false);
     }
   }
 
@@ -354,6 +472,43 @@ export function App() {
           </button>
         </div>
         {restoreSummary ? <p className="status">{formatRestoreBanner(restoreSummary)}</p> : null}
+        <div className="crud-form">
+          <input
+            type="text"
+            value={importFilePath}
+            onChange={(event) => setImportFilePath(event.target.value)}
+            placeholder="Import CSV/XLSX path"
+          />
+          <input
+            type="text"
+            value={importTemplateName}
+            onChange={(event) => setImportTemplateName(event.target.value)}
+            placeholder="Mapping template name"
+          />
+          <button type="button" disabled={importBusy} onClick={() => void onPreviewImport()}>
+            {importBusy ? "Working..." : "Preview import"}
+          </button>
+          <button type="button" disabled={importBusy} onClick={() => void onCommitImport()}>
+            {importBusy ? "Working..." : "Commit import"}
+          </button>
+        </div>
+        {importPreviewResult ? (
+          <p className="status">
+            Preview rows: {importPreviewResult.totalRows}; accepted {importPreviewResult.acceptedCount}; rejected{" "}
+            {importPreviewResult.rejectedCount}
+          </p>
+        ) : null}
+        {importCommitResult ? (
+          <p className="status">
+            Commit inserted {importCommitResult.insertedCount}; duplicates skipped {importCommitResult.skippedDuplicateCount}
+          </p>
+        ) : null}
+        {(importPreviewResult?.errors[0] ?? importCommitResult?.errors[0]) ? (
+          <p className="status">
+            First import error (row {(importPreviewResult?.errors[0] ?? importCommitResult?.errors[0])?.rowNumber}):{" "}
+            {(importPreviewResult?.errors[0] ?? importCommitResult?.errors[0])?.message}
+          </p>
+        ) : null}
         <p className="status">{status}</p>
       </section>
 

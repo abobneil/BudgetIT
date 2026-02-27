@@ -55,6 +55,11 @@ import {
   saveBackupHealthState,
   type BackupHealthState
 } from "./backup-health";
+import {
+  commitExpenseImport,
+  previewExpenseImport,
+  type ImportColumnMapping
+} from "./import-wizard";
 
 export interface DesktopRuntime {
   whenReady: () => Promise<void>;
@@ -72,6 +77,25 @@ const ALERT_TICK_INTERVAL_MS = 60_000;
 const DEFAULT_BACKUP_SUBDIR = path.join("BudgetIT", "backups");
 const BACKUP_HEALTH_FILE_NAME = "backup-health.json";
 const BACKUP_STALE_THRESHOLD_DAYS = 7;
+const IMPORT_TEMPLATE_FILE_NAME = "import-mappings.json";
+
+const IMPORT_FIELDS = new Set([
+  "scenarioId",
+  "serviceId",
+  "contractId",
+  "name",
+  "expenseType",
+  "status",
+  "amount",
+  "currency",
+  "startDate",
+  "endDate",
+  "frequency",
+  "interval",
+  "dayOfMonth",
+  "monthOfYear",
+  "anchorDate"
+]);
 
 export function getMainWindowOptions(preloadPath: string): BrowserWindowConstructorOptions {
   return {
@@ -179,6 +203,10 @@ function getDatabaseDataDirectory(): string {
 
 function getBackupHealthPath(): string {
   return path.join(app.getPath("userData"), BACKUP_HEALTH_FILE_NAME);
+}
+
+function getImportTemplateStorePath(): string {
+  return path.join(app.getPath("userData"), IMPORT_TEMPLATE_FILE_NAME);
 }
 
 function createDatabaseVault(secretPath: string): FileSecretVault {
@@ -337,6 +365,55 @@ function parseBackupVerifyPayload(payload: unknown): {
     backupPath: typeof value.backupPath === "string" && value.backupPath.trim().length > 0 ? value.backupPath : null,
     manifestPath:
       typeof value.manifestPath === "string" && value.manifestPath.trim().length > 0 ? value.manifestPath : null
+  };
+}
+
+function parseImportPayload(payload: unknown): {
+  filePath: string;
+  mapping?: ImportColumnMapping;
+  templateName?: string;
+  useSavedTemplate?: boolean;
+  saveTemplate?: boolean;
+} {
+  if (!payload || typeof payload !== "object") {
+    throw new Error("import payload requires a filePath.");
+  }
+
+  const value = payload as {
+    filePath?: unknown;
+    mapping?: unknown;
+    templateName?: unknown;
+    useSavedTemplate?: unknown;
+    saveTemplate?: unknown;
+  };
+
+  if (typeof value.filePath !== "string" || value.filePath.trim().length === 0) {
+    throw new Error("import payload requires a non-empty filePath.");
+  }
+
+  let mapping: ImportColumnMapping | undefined;
+  if (value.mapping && typeof value.mapping === "object") {
+    const entries = Object.entries(value.mapping as Record<string, unknown>);
+    mapping = {};
+    for (const [field, column] of entries) {
+      if (!IMPORT_FIELDS.has(field) || typeof column !== "string" || column.trim().length === 0) {
+        continue;
+      }
+      mapping[field as keyof ImportColumnMapping] = column;
+    }
+  }
+
+  const templateName =
+    typeof value.templateName === "string" && value.templateName.trim().length > 0
+      ? value.templateName
+      : undefined;
+
+  return {
+    filePath: value.filePath,
+    mapping,
+    templateName,
+    useSavedTemplate: typeof value.useSavedTemplate === "boolean" ? value.useSavedTemplate : undefined,
+    saveTemplate: typeof value.saveTemplate === "boolean" ? value.saveTemplate : undefined
   };
 }
 
@@ -524,6 +601,22 @@ function setupIpcHandlers(requestExit: () => void): void {
     return requireAlertStore().snooze(parsed.alertEventId, parsed.snoozedUntil);
   });
   ipcMain.handle("alerts.sendTest", async () => teamsChannel.sendTest(getTeamsSettings()));
+  ipcMain.handle("import.preview", async (_event, payload: unknown) => {
+    const parsed = parseImportPayload(payload);
+    const handle = requireDatabaseHandle();
+    return previewExpenseImport(handle.db, {
+      ...parsed,
+      templateStorePath: getImportTemplateStorePath()
+    });
+  });
+  ipcMain.handle("import.commit", async (_event, payload: unknown) => {
+    const parsed = parseImportPayload(payload);
+    const handle = requireDatabaseHandle();
+    return commitExpenseImport(handle.db, {
+      ...parsed,
+      templateStorePath: getImportTemplateStorePath()
+    });
+  });
 }
 
 function publishDesktopNotification(event: AlertEventRecord, onClick: () => void): void {
