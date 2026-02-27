@@ -2,6 +2,7 @@ import path from "node:path";
 
 import {
   bootstrapEncryptedDatabase,
+  createEncryptedBackup,
   runMigrations,
   type AlertEventRecord
 } from "@budgetit/db";
@@ -52,6 +53,7 @@ export interface DesktopRuntime {
 const SETTINGS_FILE_NAME = "runtime-settings.json";
 const DATABASE_KEY_FILE_NAME = "database-key.json";
 const ALERT_TICK_INTERVAL_MS = 60_000;
+const DEFAULT_BACKUP_SUBDIR = path.join("BudgetIT", "backups");
 
 export function getMainWindowOptions(preloadPath: string): BrowserWindowConstructorOptions {
   return {
@@ -215,6 +217,13 @@ function requireAlertStore(): AlertStore {
   return alertStore;
 }
 
+function requireDatabaseHandle(): NonNullable<typeof databaseHandle> {
+  if (!databaseHandle) {
+    throw new Error("Encrypted database is not initialized.");
+  }
+  return databaseHandle;
+}
+
 function parseAckPayload(payload: unknown): { alertEventId: string } {
   if (!payload || typeof payload !== "object") {
     throw new Error("alerts.ack requires { alertEventId } payload.");
@@ -249,6 +258,20 @@ function parseSnoozePayload(payload: unknown): {
   return { alertEventId: value.alertEventId, snoozedUntil: value.snoozedUntil };
 }
 
+function parseBackupCreatePayload(payload: unknown): { destinationDir: string } {
+  const defaultDestination = path.join(app.getPath("documents"), DEFAULT_BACKUP_SUBDIR);
+  if (!payload || typeof payload !== "object") {
+    return { destinationDir: defaultDestination };
+  }
+
+  const value = payload as { destinationDir?: unknown };
+  if (typeof value.destinationDir !== "string" || value.destinationDir.trim().length === 0) {
+    return { destinationDir: defaultDestination };
+  }
+
+  return { destinationDir: value.destinationDir };
+}
+
 function setupIpcHandlers(requestExit: () => void): void {
   ipcMain.handle("settings.get", async () => runtimeSettings);
   ipcMain.handle("settings.update", async (_event, payload: Partial<RuntimeSettings>) => {
@@ -258,6 +281,15 @@ function setupIpcHandlers(requestExit: () => void): void {
   ipcMain.handle("app.exit", async () => {
     requestExit();
     return { ok: true };
+  });
+  ipcMain.handle("backup.create", async (_event, payload: unknown) => {
+    const parsed = parseBackupCreatePayload(payload);
+    const handle = requireDatabaseHandle();
+    return createEncryptedBackup({
+      sourceDbPath: handle.dbPath,
+      dbKeyHex: handle.keyHex,
+      destinationDir: parsed.destinationDir
+    });
   });
   ipcMain.handle("alerts.list", async () => requireAlertStore().list());
   ipcMain.handle("alerts.ack", async (_event, payload: unknown) => {
