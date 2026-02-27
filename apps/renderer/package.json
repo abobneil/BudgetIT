@@ -5,6 +5,7 @@
   "scripts": {
     "lint": "eslint \"src/**/*.{ts,tsx}\" vite.config.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run",
     "build": "vite build"
   },
   "dependencies": {

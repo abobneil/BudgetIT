@@ -16,10 +16,16 @@ export {
   computeFileSha256,
   createEncryptedBackup,
   preflightBackupDestination,
+  readBackupManifest,
+  restoreEncryptedBackup,
+  verifyEncryptedBackup,
   type BackupDestinationKind,
+  type BackupIntegrityResult,
   type BackupManifest,
   type CreateEncryptedBackupInput,
-  type CreateEncryptedBackupResult
+  type CreateEncryptedBackupResult,
+  type RestoreEncryptedBackupInput,
+  type RestoreEncryptedBackupResult
 } from "./backup";
 export {
   acknowledgeAlertEvent,
