@@ -1,0 +1,54 @@
+.nlq-page {
+  display: grid;
+  gap: 0.9rem;
+  padding: 1rem 1.25rem;
+}
+
+.nlq-page__prompt {
+  display: grid;
+  gap: 0.5rem;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.nlq-page__examples {
+  margin-top: 0.5rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.nlq-page__history {
+  margin: 0;
+  padding-left: 1rem;
+  display: grid;
+  gap: 0.2rem;
+}
+
+.nlq-page__history li {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.nlq-page__filter-preview {
+  background: #f6f8fa;
+  border: 1px solid #d1d9e0;
+  border-radius: 8px;
+  padding: 0.6rem;
+  margin: 0.45rem 0 0;
+  overflow-x: auto;
+}
+
+.nlq-page__actions,
+.nlq-page__save-report {
+  margin-top: 0.55rem;
+  display: grid;
+  gap: 0.5rem;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+}
+
+@media (max-width: 860px) {
+  .nlq-page__prompt {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
