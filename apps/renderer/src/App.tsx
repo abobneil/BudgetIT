@@ -95,6 +95,16 @@ type ReplacementDetail = {
   };
 };
 
+type NlqParseResult = {
+  filterSpec: Record<string, unknown>;
+  explanation: string;
+  rows: Array<{
+    id: string;
+    name: string;
+    amount_minor: number;
+  }>;
+};
+
 const defaultSettings: RuntimeSettings = {
   startWithWindows: true,
   minimizeToTray: true,
@@ -234,6 +244,13 @@ async function exportReport(payload: unknown): Promise<{
   };
 }
 
+async function parseNlq(payload: { query: string; referenceDate?: string }): Promise<NlqParseResult> {
+  if (!window.budgetit) {
+    throw new Error("IPC bridge is unavailable.");
+  }
+  return (await window.budgetit.invoke("nlq.parse", payload)) as NlqParseResult;
+}
+
 export function App() {
   const [settings, setSettings] = useState<RuntimeSettings>(defaultSettings);
   const [saving, setSaving] = useState(false);
@@ -285,6 +302,8 @@ export function App() {
   const [replacementPlanIdInput, setReplacementPlanIdInput] = useState("");
   const [replacementDetail, setReplacementDetail] = useState<ReplacementDetail | null>(null);
   const [dashboardDataset, setDashboardDataset] = useState<DashboardDataset | null>(null);
+  const [nlqInput, setNlqInput] = useState("scenario:baseline expenses over $50 tag:it");
+  const [nlqResult, setNlqResult] = useState<NlqParseResult | null>(null);
   const [exportingDashboard, setExportingDashboard] = useState(false);
   const [exportResult, setExportResult] = useState<{
     files: Partial<Record<"html" | "pdf" | "excel" | "csv" | "png", string>>;
@@ -464,6 +483,19 @@ export function App() {
       setStatus(`Dashboard export failed (${message})`);
     } finally {
       setExportingDashboard(false);
+    }
+  }
+
+  async function onRunNlq(): Promise<void> {
+    try {
+      const result = await parseNlq({
+        query: nlqInput
+      });
+      setNlqResult(result);
+      setStatus(`NLQ parsed with ${result.rows.length} matching rows`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      setStatus(`NLQ parse failed (${message})`);
     }
   }
 
@@ -713,6 +745,26 @@ export function App() {
             ) : null}
           </article>
         ) : null}
+        <article className="crud-card">
+          <h2>NLQ</h2>
+          <div className="crud-form">
+            <input
+              type="text"
+              value={nlqInput}
+              onChange={(event) => setNlqInput(event.target.value)}
+              placeholder="Natural language query"
+            />
+            <button type="button" onClick={() => void onRunNlq()}>
+              Run NLQ
+            </button>
+          </div>
+          {nlqResult ? (
+            <>
+              <p className="status">{nlqResult.explanation}</p>
+              <p className="status">Matched rows: {nlqResult.rows.length}</p>
+            </>
+          ) : null}
+        </article>
         <p className="status">{status}</p>
       </section>
 

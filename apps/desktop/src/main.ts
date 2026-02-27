@@ -9,6 +9,8 @@ import {
   buildMonthlyVarianceDataset,
   createEncryptedBackup,
   getReplacementPlanDetail,
+  parseNlqToFilterSpec,
+  queryExpensesByFilterSpec,
   restoreEncryptedBackup,
   runMigrations,
   type AlertEventRecord,
@@ -517,6 +519,27 @@ function parseExportReportPayload(payload: unknown): {
   };
 }
 
+function parseNlqPayload(payload: unknown): {
+  query: string;
+  referenceDate?: string;
+} {
+  if (!payload || typeof payload !== "object") {
+    throw new Error("nlq.parse requires payload with query.");
+  }
+
+  const value = payload as { query?: unknown; referenceDate?: unknown };
+  if (typeof value.query !== "string" || value.query.trim().length === 0) {
+    throw new Error("nlq.parse requires a non-empty query.");
+  }
+  return {
+    query: value.query,
+    referenceDate:
+      typeof value.referenceDate === "string" && value.referenceDate.trim().length > 0
+        ? value.referenceDate
+        : undefined
+  };
+}
+
 async function withHiddenReportWindow<T>(html: string, run: (window: BrowserWindow) => Promise<T>): Promise<T> {
   const window = new BrowserWindow({
     width: 1280,
@@ -812,6 +835,20 @@ function setupIpcHandlers(requestExit: () => void): void {
       },
       createElectronReportRenderers()
     );
+  });
+  ipcMain.handle("nlq.parse", async (_event, payload: unknown) => {
+    const parsed = parseNlqPayload(payload);
+    const handle = requireDatabaseHandle();
+    const referenceDate = parsed.referenceDate ? new Date(parsed.referenceDate) : undefined;
+    const nlq = parseNlqToFilterSpec(parsed.query, { referenceDate });
+    const queried = queryExpensesByFilterSpec(handle.db, nlq.filterSpec);
+    return {
+      filterSpec: nlq.filterSpec,
+      explanation: queried.compiled.explanation,
+      sql: queried.compiled.sql,
+      params: queried.compiled.params,
+      rows: queried.rows
+    };
   });
 }
 
