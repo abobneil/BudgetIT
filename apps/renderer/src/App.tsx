@@ -46,6 +46,9 @@ export function App() {
   const [assignments, setAssignments] = useState<
     Array<{ entityType: "expense_line"; entityId: string; dimensionId: string; tagId: string }>
   >([]);
+  const [scenarios, setScenarios] = useState<
+    Array<{ id: string; name: string; approval: "draft" | "reviewed" | "approved"; locked: boolean; parentId?: string }>
+  >([{ id: "baseline", name: "Baseline", approval: "approved", locked: false }]);
   const [vendorName, setVendorName] = useState("");
   const [serviceName, setServiceName] = useState("");
   const [contractNumber, setContractNumber] = useState("");
@@ -57,6 +60,7 @@ export function App() {
   const [dimensionRequired, setDimensionRequired] = useState(false);
   const [tagName, setTagName] = useState("");
   const [selectedFilterTagId, setSelectedFilterTagId] = useState("");
+  const [scenarioName, setScenarioName] = useState("");
 
   useEffect(() => {
     void (async () => {
@@ -161,6 +165,70 @@ export function App() {
                 </button>
                 <button type="button" onClick={() => setVendors((current) => current.filter((entry) => entry.id !== vendor.id))}>
                   Delete
+                </button>
+              </li>
+            ))}
+          </ul>
+        </article>
+
+        <article className="crud-card">
+          <h2>Scenarios</h2>
+          <div className="crud-form">
+            <input
+              value={scenarioName}
+              onChange={(event) => setScenarioName(event.target.value)}
+              placeholder="Scenario name"
+            />
+            <button
+              type="button"
+              onClick={() => {
+                if (!scenarioName.trim()) return;
+                setScenarios((current) => [
+                  ...current,
+                  {
+                    id: nextId("scenario"),
+                    name: scenarioName.trim(),
+                    approval: "draft",
+                    locked: false,
+                    parentId: current[0]?.id
+                  }
+                ]);
+                setScenarioName("");
+              }}
+            >
+              Clone from first scenario
+            </button>
+          </div>
+          <ul>
+            {scenarios.map((scenario) => (
+              <li key={scenario.id}>
+                <span>
+                  {scenario.name} [{scenario.approval}] {scenario.locked ? "(locked)" : ""}
+                </span>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setScenarios((current) =>
+                      current.map((entry) => {
+                        if (entry.id !== scenario.id || entry.locked) return entry;
+                        if (entry.approval === "draft") return { ...entry, approval: "reviewed" };
+                        if (entry.approval === "reviewed") return { ...entry, approval: "approved" };
+                        return entry;
+                      })
+                    )
+                  }
+                >
+                  Advance approval
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setScenarios((current) =>
+                      current.map((entry) => (entry.id === scenario.id ? { ...entry, locked: true } : entry))
+                    )
+                  }
+                >
+                  Lock
                 </button>
               </li>
             ))}
