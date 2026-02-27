@@ -1,3 +1,6 @@
+import crypto from "node:crypto";
+import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 
 import {
@@ -41,6 +44,17 @@ import {
   type TeamsAlertInput,
   type TeamsChannelSettings
 } from "./teams-channel";
+import {
+  createEmptyBackupHealthState,
+  evaluateBackupFreshness,
+  loadBackupHealthState,
+  recordBackupCreated,
+  recordBackupVerificationFailure,
+  recordBackupVerificationSuccess,
+  recordStaleBackupAlert,
+  saveBackupHealthState,
+  type BackupHealthState
+} from "./backup-health";
 
 export interface DesktopRuntime {
   whenReady: () => Promise<void>;
@@ -56,6 +70,8 @@ const SETTINGS_FILE_NAME = "runtime-settings.json";
 const DATABASE_KEY_FILE_NAME = "database-key.json";
 const ALERT_TICK_INTERVAL_MS = 60_000;
 const DEFAULT_BACKUP_SUBDIR = path.join("BudgetIT", "backups");
+const BACKUP_HEALTH_FILE_NAME = "backup-health.json";
+const BACKUP_STALE_THRESHOLD_DAYS = 7;
 
 export function getMainWindowOptions(preloadPath: string): BrowserWindowConstructorOptions {
   return {
@@ -136,6 +152,7 @@ let databaseHandle: ReturnType<typeof bootstrapEncryptedDatabase> | null = null;
 let alertStore: AlertStore | null = null;
 let schedulerTimer: NodeJS.Timeout | null = null;
 let lastRestoreSummary: RestoreEncryptedBackupResult | null = null;
+let backupHealthState: BackupHealthState = createEmptyBackupHealthState();
 const teamsChannel = createTeamsWorkflowChannel();
 
 function toIsoDate(value: Date): string {
@@ -160,6 +177,10 @@ function getDatabaseDataDirectory(): string {
   return path.join(app.getPath("userData"), "data");
 }
 
+function getBackupHealthPath(): string {
+  return path.join(app.getPath("userData"), BACKUP_HEALTH_FILE_NAME);
+}
+
 function createDatabaseVault(secretPath: string): FileSecretVault {
   return new FileSecretVault(secretPath, {
     isAvailable: () => safeStorage.isEncryptionAvailable(),
@@ -174,6 +195,7 @@ function initializeDatabaseAndAlerts(): void {
   databaseHandle = bootstrapEncryptedDatabase(getDatabaseDataDirectory(), keyHex);
   runMigrations(databaseHandle.db);
   alertStore = createDatabaseAlertStore(databaseHandle.db);
+  backupHealthState = loadBackupHealthState(getBackupHealthPath());
 }
 
 function stopSchedulerAndCloseDatabase(): void {
@@ -204,6 +226,11 @@ function persistRuntimeSettings(nextSettings: RuntimeSettings): RuntimeSettings 
   writeRuntimeSettings(getRuntimeSettingsPath(), runtimeSettings);
   app.setLoginItemSettings({ openAtLogin: runtimeSettings.startWithWindows });
   return runtimeSettings;
+}
+
+function persistBackupHealthState(nextState: BackupHealthState): void {
+  backupHealthState = nextState;
+  saveBackupHealthState(getBackupHealthPath(), backupHealthState);
 }
 
 function getTeamsSettings(): TeamsChannelSettings {
@@ -297,6 +324,81 @@ function parseBackupRestorePayload(payload: unknown): {
   };
 }
 
+function parseBackupVerifyPayload(payload: unknown): {
+  backupPath: string | null;
+  manifestPath: string | null;
+} {
+  if (!payload || typeof payload !== "object") {
+    return { backupPath: null, manifestPath: null };
+  }
+
+  const value = payload as { backupPath?: unknown; manifestPath?: unknown };
+  return {
+    backupPath: typeof value.backupPath === "string" && value.backupPath.trim().length > 0 ? value.backupPath : null,
+    manifestPath:
+      typeof value.manifestPath === "string" && value.manifestPath.trim().length > 0 ? value.manifestPath : null
+  };
+}
+
+function insertBackupReliabilityAlert(kind: string, message: string, severity: "info" | "high"): void {
+  const handle = databaseHandle;
+  if (!handle) {
+    return;
+  }
+
+  const fireAt = currentIsoDate();
+  const dedupeKey = `backup-health|${kind}|${fireAt}`;
+  const formattedMessage = severity === "high" ? `[HIGH] ${message}` : message;
+
+  try {
+    handle.db
+      .prepare(
+        `
+          INSERT INTO alert_event (
+            id,
+            scenario_id,
+            alert_rule_id,
+            entity_type,
+            entity_id,
+            fire_at,
+            fired_at,
+            status,
+            snoozed_until,
+            dedupe_key,
+            message,
+            created_at,
+            updated_at
+          ) VALUES (?, 'baseline', 'system-backup-health', 'backup', 'system', ?, NULL, 'pending', NULL, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        `
+      )
+      .run(crypto.randomUUID(), fireAt, dedupeKey, formattedMessage);
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
+    if (!detail.includes("UNIQUE")) {
+      throw error;
+    }
+  }
+}
+
+function monitorBackupFreshness(nowIsoDate: string): void {
+  const freshness = evaluateBackupFreshness(backupHealthState, {
+    nowIso: nowIsoDate,
+    staleThresholdDays: BACKUP_STALE_THRESHOLD_DAYS
+  });
+
+  if (!freshness.shouldAlert) {
+    return;
+  }
+
+  persistBackupHealthState(
+    recordStaleBackupAlert(backupHealthState, {
+      checkedAt: nowIsoDate,
+      detail: freshness.detail
+    })
+  );
+  insertBackupReliabilityAlert("stale", freshness.detail, "high");
+}
+
 function setupIpcHandlers(requestExit: () => void): void {
   ipcMain.handle("settings.get", async () => ({
     ...runtimeSettings,
@@ -313,11 +415,19 @@ function setupIpcHandlers(requestExit: () => void): void {
   ipcMain.handle("backup.create", async (_event, payload: unknown) => {
     const parsed = parseBackupCreatePayload(payload);
     const handle = requireDatabaseHandle();
-    return createEncryptedBackup({
+    const created = await createEncryptedBackup({
       sourceDbPath: handle.dbPath,
       dbKeyHex: handle.keyHex,
       destinationDir: parsed.destinationDir
     });
+    persistBackupHealthState(
+      recordBackupCreated(backupHealthState, {
+        checkedAt: created.manifest.createdAt,
+        backupPath: created.backupPath,
+        manifestPath: created.manifestPath
+      })
+    );
+    return created;
   });
   ipcMain.handle("backup.restore", async (_event, payload: unknown) => {
     const parsed = parseBackupRestorePayload(payload);
@@ -337,6 +447,68 @@ function setupIpcHandlers(requestExit: () => void): void {
     } finally {
       initializeDatabaseAndAlerts();
       startAlertScheduler();
+    }
+  });
+  ipcMain.handle("backup.verify", async (_event, payload: unknown) => {
+    const parsed = parseBackupVerifyPayload(payload);
+    const backupPath = parsed.backupPath ?? backupHealthState.latestBackupPath;
+    const manifestPath = parsed.manifestPath ?? backupHealthState.latestManifestPath;
+    if (!backupPath || !manifestPath) {
+      throw new Error("No backup is available to verify. Provide backupPath and manifestPath.");
+    }
+
+    const handle = requireDatabaseHandle();
+    const schemaRow = handle.db
+      .prepare("SELECT schema_version FROM meta WHERE id = 1")
+      .get() as { schema_version: number } | undefined;
+    const currentSchemaVersion = schemaRow?.schema_version ?? 0;
+    const nowIsoDate = new Date().toISOString();
+    const verifyTargetPath = path.join(os.tmpdir(), `budgetit-verify-${crypto.randomUUID()}.db`);
+
+    try {
+      await restoreEncryptedBackup({
+        backupPath,
+        manifestPath,
+        targetDbPath: verifyTargetPath,
+        dbKeyHex: handle.keyHex,
+        currentSchemaVersion,
+        restoredAt: new Date(nowIsoDate)
+      });
+      persistBackupHealthState(
+        recordBackupVerificationSuccess(backupHealthState, {
+          checkedAt: nowIsoDate,
+          backupPath,
+          manifestPath
+        })
+      );
+      return {
+        ok: true,
+        lastVerifiedAt: backupHealthState.lastVerifiedAt
+      };
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      persistBackupHealthState(
+        recordBackupVerificationFailure(backupHealthState, {
+          checkedAt: nowIsoDate,
+          backupPath,
+          manifestPath,
+          detail
+        })
+      );
+      insertBackupReliabilityAlert("verify_failed", `Backup verification failed: ${detail}`, "high");
+      return {
+        ok: false,
+        error: detail,
+        lastVerifiedAt: backupHealthState.lastVerifiedAt
+      };
+    } finally {
+      try {
+        fs.rmSync(verifyTargetPath, { force: true });
+        fs.rmSync(`${verifyTargetPath}-wal`, { force: true });
+        fs.rmSync(`${verifyTargetPath}-shm`, { force: true });
+      } catch {
+        // Best-effort cleanup.
+      }
     }
   });
   ipcMain.handle("alerts.list", async () => requireAlertStore().list());
@@ -396,6 +568,7 @@ function runAlertSchedulerTick(): void {
 
   const now = currentIsoDate();
   processAlertNotifications(store, now, publishAlert, navigateToAlert);
+  monitorBackupFreshness(new Date().toISOString());
 }
 
 function startAlertScheduler(): void {
