@@ -28,16 +28,35 @@ function assertAllowedInvokeChannel(channel: string): void {
 
 export interface BudgetItBridge {
   invoke: (channel: string, payload?: unknown) => Promise<unknown>;
+  onAlertNavigate: (listener: (payload: AlertNavigatePayload) => void) => () => void;
 }
 
+export type AlertNavigatePayload = {
+  alertEventId: string;
+  entityType: string;
+  entityId: string;
+};
+
 export function createBudgetItBridge(
-  invokeImpl: (channel: string, payload?: unknown) => Promise<unknown>
+  invokeImpl: (channel: string, payload?: unknown) => Promise<unknown>,
+  subscribeToAlertNavigate: (
+    listener: (payload: AlertNavigatePayload) => void
+  ) => () => void = (listener) => {
+    const handler = (_event: unknown, payload: AlertNavigatePayload) => {
+      listener(payload);
+    };
+    ipcRenderer.on("alerts.navigate", handler);
+    return () => {
+      ipcRenderer.off("alerts.navigate", handler);
+    };
+  }
 ): BudgetItBridge {
   return {
     invoke: async (channel, payload) => {
       assertAllowedInvokeChannel(channel);
       return invokeImpl(channel, payload);
-    }
+    },
+    onAlertNavigate: (listener) => subscribeToAlertNavigate(listener)
   };
 }
 

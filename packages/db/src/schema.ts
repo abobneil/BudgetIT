@@ -183,6 +183,7 @@ export const alertEvent = sqliteTable("alert_event", {
   fireAt: text("fire_at").notNull(),
   firedAt: text("fired_at"),
   status: text("status").notNull(),
+  snoozedUntil: text("snoozed_until"),
   dedupeKey: text("dedupe_key").notNull(),
   message: text("message").notNull(),
   createdAt: text("created_at").notNull(),

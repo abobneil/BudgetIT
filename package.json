@@ -8,9 +8,9 @@
   ],
   "scripts": {
     "lint": "npm run lint --workspaces --if-present",
-    "typecheck": "npm run typecheck --workspaces --if-present",
+    "typecheck": "npm run build --workspace @budgetit/db && npm run typecheck --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
-    "build": "npm run build --workspaces --if-present",
+    "build": "npm run build --workspace @budgetit/db && npm run build --workspaces --if-present",
     "dist:win": "npm run build && electron-builder --config electron-builder.yml --win nsis --publish never",
     "release:win": "npm run dist:win"
   },

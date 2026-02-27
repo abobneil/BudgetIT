@@ -5,6 +5,16 @@ type RuntimeSettings = {
   minimizeToTray: boolean;
 };
 
+type AlertRecord = {
+  id: string;
+  entityType: string;
+  entityId: string;
+  fireAt: string;
+  status: "pending" | "snoozed" | "acked";
+  snoozedUntil: string | null;
+  message: string;
+};
+
 const defaultSettings: RuntimeSettings = {
   startWithWindows: true,
   minimizeToTray: true
@@ -24,6 +34,44 @@ async function saveSettings(settings: RuntimeSettings): Promise<RuntimeSettings>
   }
 
   return (await window.budgetit.invoke("settings.update", settings)) as RuntimeSettings;
+}
+
+async function listAlerts(): Promise<AlertRecord[]> {
+  if (!window.budgetit) {
+    return [];
+  }
+
+  return (await window.budgetit.invoke("alerts.list")) as AlertRecord[];
+}
+
+async function acknowledgeAlert(alertEventId: string): Promise<AlertRecord> {
+  if (!window.budgetit) {
+    throw new Error("IPC bridge is unavailable.");
+  }
+
+  return (await window.budgetit.invoke("alerts.ack", { alertEventId })) as AlertRecord;
+}
+
+async function snoozeAlert(alertEventId: string, snoozedUntil: string): Promise<AlertRecord> {
+  if (!window.budgetit) {
+    throw new Error("IPC bridge is unavailable.");
+  }
+
+  return (await window.budgetit.invoke("alerts.snooze", {
+    alertEventId,
+    snoozedUntil
+  })) as AlertRecord;
+}
+
+async function unsnoozeAlert(alertEventId: string): Promise<AlertRecord> {
+  if (!window.budgetit) {
+    throw new Error("IPC bridge is unavailable.");
+  }
+
+  return (await window.budgetit.invoke("alerts.snooze", {
+    alertEventId,
+    snoozedUntil: null
+  })) as AlertRecord;
 }
 
 export function App() {
@@ -61,13 +109,42 @@ export function App() {
   const [tagName, setTagName] = useState("");
   const [selectedFilterTagId, setSelectedFilterTagId] = useState("");
   const [scenarioName, setScenarioName] = useState("");
+  const [alerts, setAlerts] = useState<AlertRecord[]>([]);
+  const [alertLoading, setAlertLoading] = useState(false);
+  const [activeAlertEntity, setActiveAlertEntity] = useState<{
+    alertEventId: string;
+    entityType: string;
+    entityId: string;
+  } | null>(null);
 
   useEffect(() => {
-    void (async () => {
-      const next = await getSettings();
-      setSettings(next);
+    let cancelled = false;
+
+    const load = async () => {
+      const [nextSettings, nextAlerts] = await Promise.all([getSettings(), listAlerts()]);
+      if (cancelled) {
+        return;
+      }
+      setSettings(nextSettings);
+      setAlerts(nextAlerts);
       setStatus("Runtime settings loaded");
+    };
+
+    const unsubscribe = window.budgetit?.onAlertNavigate?.((payload) => {
+      setActiveAlertEntity(payload);
+      setStatus(`Navigated to ${payload.entityType}:${payload.entityId}`);
+    });
+
+    void (async () => {
+      await load();
     })();
+
+    return () => {
+      cancelled = true;
+      if (unsubscribe) {
+        unsubscribe();
+      }
+    };
   }, []);
 
   async function onSave(): Promise<void> {
@@ -80,6 +157,19 @@ export function App() {
 
   function nextId(prefix: string): string {
     return `${prefix}-${crypto.randomUUID()}`;
+  }
+
+  async function refreshAlerts(): Promise<void> {
+    setAlertLoading(true);
+    const nextAlerts = await listAlerts();
+    setAlerts(nextAlerts);
+    setAlertLoading(false);
+  }
+
+  function getSnoozeUntilIsoDate(days: number): string {
+    const value = new Date();
+    value.setUTCDate(value.getUTCDate() + days);
+    return value.toISOString().slice(0, 10);
   }
 
   const filteredExpenseIds =
@@ -129,6 +219,61 @@ export function App() {
           {saving ? "Saving..." : "Save runtime settings"}
         </button>
         <p className="status">{status}</p>
+      </section>
+
+      <section className="crud-card">
+        <h2>Alert Center</h2>
+        <button type="button" disabled={alertLoading} onClick={() => void refreshAlerts()}>
+          {alertLoading ? "Refreshing..." : "Refresh alerts"}
+        </button>
+        {activeAlertEntity ? (
+          <p className="status">
+            Focused entity: {activeAlertEntity.entityType}:{activeAlertEntity.entityId}
+          </p>
+        ) : null}
+        <ul>
+          {alerts.map((alert) => (
+            <li key={alert.id}>
+              <span>
+                {alert.message} [{alert.status}] due {alert.fireAt}
+                {alert.snoozedUntil ? ` (snoozed until ${alert.snoozedUntil})` : ""}
+              </span>
+              <button
+                type="button"
+                onClick={() =>
+                  void (async () => {
+                    await acknowledgeAlert(alert.id);
+                    await refreshAlerts();
+                  })()
+                }
+              >
+                Ack
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  void (async () => {
+                    await snoozeAlert(alert.id, getSnoozeUntilIsoDate(7));
+                    await refreshAlerts();
+                  })()
+                }
+              >
+                Snooze 7d
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  void (async () => {
+                    await unsnoozeAlert(alert.id);
+                    await refreshAlerts();
+                  })()
+                }
+              >
+                Unsnooze
+              </button>
+            </li>
+          ))}
+        </ul>
       </section>
 
       <section className="crud-grid">
