@@ -37,13 +37,14 @@ describe("migration runner", () => {
         "002_audit_indexes.sql",
         "003_tag_assignment_indexes.sql",
         "004_forecast_state.sql",
-        "005_scenarios.sql"
+        "005_scenarios.sql",
+        "006_alert_dedupe.sql"
       ]);
 
       const metaRow = boot.db
         .prepare("SELECT schema_version, last_mutation_at, forecast_stale FROM meta WHERE id = 1")
         .get() as { schema_version: number; last_mutation_at: string; forecast_stale: number };
-      expect(metaRow.schema_version).toBe(5);
+      expect(metaRow.schema_version).toBe(6);
       expect(metaRow.forecast_stale).toBe(1);
       expect(metaRow.last_mutation_at.length).toBeGreaterThan(0);
     } finally {
@@ -77,7 +78,8 @@ describe("migration runner", () => {
         "002_audit_indexes.sql",
         "003_tag_assignment_indexes.sql",
         "004_forecast_state.sql",
-        "005_scenarios.sql"
+        "005_scenarios.sql",
+        "006_alert_dedupe.sql"
       ]);
 
       const indexRow = boot.db
