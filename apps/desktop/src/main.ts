@@ -33,6 +33,11 @@ import {
   type RuntimeSettings
 } from "./lifecycle";
 import { readRuntimeSettings, writeRuntimeSettings } from "./settings-store";
+import {
+  createTeamsWorkflowChannel,
+  type TeamsAlertInput,
+  type TeamsChannelSettings
+} from "./teams-channel";
 
 export interface DesktopRuntime {
   whenReady: () => Promise<void>;
@@ -126,6 +131,7 @@ let runtimeSettingsPath = "";
 let databaseHandle: ReturnType<typeof bootstrapEncryptedDatabase> | null = null;
 let alertStore: AlertStore | null = null;
 let schedulerTimer: NodeJS.Timeout | null = null;
+const teamsChannel = createTeamsWorkflowChannel();
 
 function toIsoDate(value: Date): string {
   return value.toISOString().slice(0, 10);
@@ -195,6 +201,13 @@ function persistRuntimeSettings(nextSettings: RuntimeSettings): RuntimeSettings 
   return runtimeSettings;
 }
 
+function getTeamsSettings(): TeamsChannelSettings {
+  return {
+    enabled: runtimeSettings.teamsEnabled,
+    webhookUrl: runtimeSettings.teamsWebhookUrl
+  };
+}
+
 function requireAlertStore(): AlertStore {
   if (!alertStore) {
     throw new Error("Alert store is not initialized.");
@@ -258,9 +271,10 @@ function setupIpcHandlers(requestExit: () => void): void {
     }
     return requireAlertStore().snooze(parsed.alertEventId, parsed.snoozedUntil);
   });
+  ipcMain.handle("alerts.sendTest", async () => teamsChannel.sendTest(getTeamsSettings()));
 }
 
-function publishDesktopAlert(event: AlertEventRecord, onClick: () => void): void {
+function publishDesktopNotification(event: AlertEventRecord, onClick: () => void): void {
   if (!Notification.isSupported()) {
     return;
   }
@@ -271,6 +285,22 @@ function publishDesktopAlert(event: AlertEventRecord, onClick: () => void): void
   });
   notification.on("click", onClick);
   notification.show();
+}
+
+function publishTeamsAlert(event: AlertEventRecord): void {
+  const alertInput: TeamsAlertInput = {
+    title: "BudgetIT Alert",
+    message: event.message,
+    entityType: event.entityType,
+    entityId: event.entityId,
+    fireAt: event.fireAt
+  };
+  void teamsChannel.sendAlert(getTeamsSettings(), alertInput);
+}
+
+function publishAlert(event: AlertEventRecord, onClick: () => void): void {
+  publishDesktopNotification(event, onClick);
+  publishTeamsAlert(event);
 }
 
 function navigateToAlert(payload: AlertNavigatePayload): void {
@@ -285,7 +315,7 @@ function runAlertSchedulerTick(): void {
   }
 
   const now = currentIsoDate();
-  processAlertNotifications(store, now, publishDesktopAlert, navigateToAlert);
+  processAlertNotifications(store, now, publishAlert, navigateToAlert);
 }
 
 function startAlertScheduler(): void {
