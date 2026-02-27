@@ -1,0 +1,60 @@
+.expenses-page {
+  display: grid;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+}
+
+.expenses-toolbar {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.expenses-toolbar__filters,
+.expenses-toolbar__bulk {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.expenses-layout {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: minmax(0, 2fr) minmax(18rem, 1fr);
+}
+
+.expenses-row {
+  cursor: pointer;
+}
+
+.expenses-row--focused {
+  outline: 2px solid #2563eb;
+  outline-offset: -2px;
+}
+
+.expenses-row__actions {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.expenses-detail {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.expenses-detail__occurrences {
+  margin: 0.35rem 0 0;
+  padding-left: 1rem;
+  display: grid;
+  gap: 0.15rem;
+}
+
+.expenses-form {
+  display: grid;
+  gap: 0.5rem;
+}
+
+@media (max-width: 1260px) {
+  .expenses-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
