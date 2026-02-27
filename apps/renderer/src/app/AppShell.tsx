@@ -1,4 +1,5 @@
 import type { PropsWithChildren } from "react";
+import { Button, Input, Select, Text } from "@fluentui/react-components";
 import { NavLink, useLocation } from "react-router-dom";
 
 import { NAV_ROUTES, resolveRouteLabel } from "./routes";
@@ -28,27 +29,29 @@ export function AppShell({ children }: PropsWithChildren) {
       </aside>
       <div className="desktop-shell__content">
         <header className="desktop-shell__topbar">
-          <h1 className="desktop-shell__title" data-testid="page-title">
-            {pageTitle}
-          </h1>
-          <select
-            aria-label="Scenario selector"
-            className="desktop-shell__toolbar-select"
-            defaultValue="baseline"
+          <Text
+            as="h1"
+            className="desktop-shell__title"
+            data-testid="page-title"
+            weight="semibold"
+            size={500}
           >
+            {pageTitle}
+          </Text>
+          <Select aria-label="Scenario selector" className="desktop-shell__toolbar-select" defaultValue="baseline">
             <option value="baseline">Baseline</option>
             <option value="draft">Draft</option>
             <option value="approved">Approved</option>
-          </select>
-          <input
+          </Select>
+          <Input
             aria-label="Global search"
             className="desktop-shell__toolbar-input"
             placeholder="Search (Ctrl+K)"
             type="search"
           />
-          <button className="desktop-shell__toolbar-button" type="button">
+          <Button appearance="secondary" className="desktop-shell__toolbar-button" type="button">
             Create
-          </button>
+          </Button>
         </header>
         <main className="desktop-shell__page">{children}</main>
       </div>

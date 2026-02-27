@@ -28,7 +28,9 @@ describe("AppShell", () => {
 
     expect(screen.getByLabelText("Primary navigation")).toBeInTheDocument();
     expect(screen.getByTestId("page-title")).toHaveTextContent("Dashboard");
-    expect(screen.getByRole("heading", { level: 2, name: "Dashboard" })).toBeInTheDocument();
+    expect(
+      screen.getByText("Dashboard workspace is being upgraded")
+    ).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Alerts" })).toBeInTheDocument();
   });
 
@@ -39,6 +41,8 @@ describe("AppShell", () => {
     renderAt("/alerts");
 
     expect(screen.getByTestId("page-title")).toHaveTextContent("Alerts");
-    expect(screen.getByRole("heading", { level: 2, name: "Alerts" })).toBeInTheDocument();
+    expect(
+      screen.getByText("Alerts workspace is being upgraded")
+    ).toBeInTheDocument();
   });
 });

@@ -1,0 +1,32 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`design primitives > captures a stable primitive render snapshot 1`] = `
+<div
+  class="fui-FluentProvider fui-FluentProvider_r_3_ ___jdtuxv0_17k0bs4 f19n0e5 fxugw4r f1o700av fk6fouc fkhj508 figsok6 f1i3iumi"
+  dir="ltr"
+>
+  <header
+    style="display: flex; align-items: flex-start; justify-content: space-between; gap: 0.75rem;"
+  >
+    <div>
+      <span
+        class="fui-Title2 fui-Text ___15xadyy_1panhqr fk6fouc fojgt09 fcen8rp fl43uef fpgzoln f1w7gpdv f6juhto f1gl81tg f2jf649"
+        style="margin: 0px;"
+      >
+        Snapshot Header
+      </span>
+      <span
+        class="fui-Text ___c56hd20_1xy0w11 fk6fouc fkhj508 f1i3iumi figsok6 fpgzoln f1w7gpdv f6juhto f1gl81tg f2jf649"
+        style="color: rgb(87, 96, 106); display: block; margin-top: 0.25rem;"
+      >
+        Primitive baseline
+      </span>
+    </div>
+  </header>
+  <div
+    class="fui-Badge r1iycov ___18pwi1f_lps8ht0 flxk52p f1phragk"
+  >
+    Approved
+  </div>
+</div>
+`;
