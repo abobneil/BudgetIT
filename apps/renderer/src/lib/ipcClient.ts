@@ -11,6 +11,61 @@ export type RuntimeSettingsResponse = RuntimeSettings & {
   lastRestoreSummary?: RestoreSummary | null;
 };
 
+export type BackupCreateResult = {
+  backupPath: string;
+  manifestPath: string;
+  manifest: {
+    createdAt: string;
+    sourceLastMutationAt: string;
+    schemaVersion: number;
+    checksumSha256: string;
+    destinationKind: "local_or_external" | "network";
+  };
+};
+
+export type BackupVerifyResult = {
+  ok: boolean;
+  error?: string;
+  lastVerifiedAt: string | null;
+};
+
+export type DatabaseSecurityStatus = {
+  databasePath: string;
+  keyPresent: boolean;
+  safeStorageAvailable: boolean;
+};
+
+export type DbRekeyResult = {
+  ok: boolean;
+  rotatedAt: string;
+};
+
+export type MaintenanceMaterializeResult = {
+  ok: boolean;
+  generatedCount: number;
+  horizonMonths: number;
+  scenarioId: string;
+  generatedAt: string;
+};
+
+export type MaintenanceDiagnosticsResult = {
+  scenarioId: string;
+  generatedAt: string;
+  database: {
+    path: string;
+    schemaVersion: number;
+    forecastStale: boolean;
+    forecastGeneratedAt: string | null;
+    lastMutationAt: string | null;
+    integrity: string;
+  };
+  backup: {
+    lastBackupAt: string | null;
+    lastVerifiedAt: string | null;
+  };
+  counts: Record<string, number>;
+};
+
 export type AlertRecord = {
   id: string;
   entityType: string;
@@ -193,6 +248,29 @@ export async function restoreBackup(
   });
 }
 
+export async function createBackup(payload?: {
+  destinationDir?: string;
+}): Promise<BackupCreateResult> {
+  return invokeIpc<BackupCreateResult>("backup.create", payload);
+}
+
+export async function verifyBackup(payload?: {
+  backupPath?: string;
+  manifestPath?: string;
+}): Promise<BackupVerifyResult> {
+  return invokeIpc<BackupVerifyResult>("backup.verify", payload);
+}
+
+export async function getDatabaseSecurityStatus(): Promise<DatabaseSecurityStatus> {
+  return invokeIpc<DatabaseSecurityStatus>("db.open");
+}
+
+export async function rekeyDatabase(payload?: {
+  newKeyHex?: string;
+}): Promise<DbRekeyResult> {
+  return invokeIpc<DbRekeyResult>("db.rekey", payload);
+}
+
 export async function previewImport(input: {
   mode: "expenses" | "actuals";
   filePath: string;
@@ -215,6 +293,26 @@ export async function commitImport(input: {
 
 export async function queryReport(payload: unknown): Promise<unknown> {
   return invokeIpc<unknown>("reports.query", payload);
+}
+
+export async function materializeForecast(payload: {
+  scenarioId: string;
+  horizonMonths?: number;
+}): Promise<MaintenanceMaterializeResult> {
+  return invokeIpc<MaintenanceMaterializeResult>("reports.query", {
+    query: "maintenance.materialize",
+    scenarioId: payload.scenarioId,
+    horizonMonths: payload.horizonMonths
+  });
+}
+
+export async function runDiagnostics(payload: {
+  scenarioId: string;
+}): Promise<MaintenanceDiagnosticsResult> {
+  return invokeIpc<MaintenanceDiagnosticsResult>("reports.query", {
+    query: "maintenance.diagnostics",
+    scenarioId: payload.scenarioId
+  });
 }
 
 export async function exportReport(payload: unknown): Promise<{

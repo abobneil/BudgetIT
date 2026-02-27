@@ -12,6 +12,7 @@ import {
   Text,
   Title3
 } from "@fluentui/react-components";
+import { useNavigate } from "react-router-dom";
 
 import type { DashboardDataset } from "../../reporting";
 import { useScenarioContext } from "../scenarios/ScenarioContext";
@@ -54,11 +55,11 @@ function barWidth(value: number, max: number): string {
 
 export function DashboardPage() {
   const { selectedScenarioId, selectedScenario } = useScenarioContext();
+  const navigate = useNavigate();
   const [dataset, setDataset] = useState<DashboardDataset | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshMessage, setRefreshMessage] = useState<string | null>(null);
-  const [rematerializing, setRematerializing] = useState(false);
   const [exportingFormat, setExportingFormat] = useState<ExportFormat | null>(null);
   const [exportError, setExportError] = useState<string | null>(null);
   const [exportFiles, setExportFiles] = useState<
@@ -92,10 +93,7 @@ export function DashboardPage() {
     return Math.max(...dataset.variance.map((row) => Math.abs(row.varianceMinor)));
   }, [dataset]);
 
-  async function loadDashboard(
-    scenarioId: string,
-    rematerialize = false
-  ): Promise<void> {
+  async function loadDashboard(scenarioId: string): Promise<void> {
     setLoading(true);
     setError(null);
     try {
@@ -104,28 +102,18 @@ export function DashboardPage() {
         scenarioId
       })) as DashboardDataset;
       setDataset(next);
-      setRefreshMessage(
-        rematerialize
-          ? "Re-materialize action requested and dashboard data refreshed."
-          : "Dashboard data refreshed."
-      );
+      setRefreshMessage("Dashboard data refreshed.");
     } catch (nextError) {
       const detail = nextError instanceof Error ? nextError.message : String(nextError);
       setError(`Failed to load dashboard: ${detail}`);
     } finally {
       setLoading(false);
-      setRematerializing(false);
     }
   }
 
   useEffect(() => {
     void loadDashboard(selectedScenarioId);
   }, [selectedScenarioId]);
-
-  async function handleRematerialize(): Promise<void> {
-    setRematerializing(true);
-    await loadDashboard(selectedScenarioId, true);
-  }
 
   async function handleExport(format: ExportFormat): Promise<void> {
     setExportingFormat(format);
@@ -199,10 +187,9 @@ export function DashboardPage() {
           <Text>{staleState.message}</Text>
           <Button
             appearance="secondary"
-            disabled={rematerializing}
-            onClick={() => void handleRematerialize()}
+            onClick={() => navigate("/settings?section=maintenance")}
           >
-            {rematerializing ? "Re-materializing..." : "Re-materialize"}
+            Open Settings
           </Button>
         </Card>
       ) : null}

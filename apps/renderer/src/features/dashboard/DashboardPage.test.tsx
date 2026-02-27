@@ -106,14 +106,14 @@ describe("DashboardPage", () => {
     expect(screen.getByText("Tagging Completeness")).toBeInTheDocument();
   });
 
-  it("shows stale warning and allows re-materialize refresh entry point", async () => {
+  it("shows stale warning and routes maintenance action to settings", async () => {
     renderDashboardPage();
 
     await screen.findByTestId("stale-forecast-banner");
-    fireEvent.click(screen.getByRole("button", { name: "Re-materialize" }));
+    fireEvent.click(screen.getByRole("button", { name: "Open Settings" }));
 
     await waitFor(() => {
-      expect(queryReportMock).toHaveBeenCalledTimes(2);
+      expect(queryReportMock).toHaveBeenCalledTimes(1);
     });
   });
 
