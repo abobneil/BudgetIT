@@ -1,0 +1,128 @@
+.dashboard-page {
+  display: grid;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+}
+
+.dashboard-page--loading {
+  min-height: 40vh;
+  place-content: center;
+}
+
+.dashboard-page__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.dashboard-page__stale-card {
+  border-left: 4px solid #d97706;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.dashboard-page__export-list {
+  margin: 0;
+  padding-left: 1rem;
+  display: grid;
+  gap: 0.25rem;
+}
+
+.dashboard-kpis {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.dashboard-kpi-card {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.dashboard-grid {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.dashboard-chart-card {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.dashboard-chart {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.dashboard-chart__row {
+  display: grid;
+  grid-template-columns: 5.5rem minmax(0, 1fr) 5rem;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.dashboard-chart__bar-group {
+  display: grid;
+  gap: 0.3rem;
+}
+
+.dashboard-chart__bar-track {
+  height: 0.45rem;
+  border-radius: 999px;
+  background: #d1d5db;
+  overflow: hidden;
+}
+
+.dashboard-chart__bar {
+  height: 100%;
+  border-radius: inherit;
+}
+
+.dashboard-chart__bar--forecast {
+  background: #6366f1;
+}
+
+.dashboard-chart__bar--actual {
+  background: #0ea5e9;
+}
+
+.dashboard-chart__bar--variance-up {
+  background: #d97706;
+}
+
+.dashboard-chart__bar--variance-down {
+  background: #16a34a;
+}
+
+.dashboard-chart__bar--renewal {
+  background: #ec4899;
+}
+
+.dashboard-chart__label,
+.dashboard-chart__value {
+  font-size: 0.85rem;
+}
+
+.dashboard-narratives {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+}
+
+@media (max-width: 1380px) {
+  .dashboard-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .dashboard-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 1080px) {
+  .dashboard-kpis,
+  .dashboard-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
