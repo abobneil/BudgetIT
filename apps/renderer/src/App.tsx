@@ -3,6 +3,8 @@ import { useEffect, useState } from "react";
 type RuntimeSettings = {
   startWithWindows: boolean;
   minimizeToTray: boolean;
+  teamsEnabled: boolean;
+  teamsWebhookUrl: string;
 };
 
 type AlertRecord = {
@@ -17,7 +19,9 @@ type AlertRecord = {
 
 const defaultSettings: RuntimeSettings = {
   startWithWindows: true,
-  minimizeToTray: true
+  minimizeToTray: true,
+  teamsEnabled: false,
+  teamsWebhookUrl: ""
 };
 
 async function getSettings(): Promise<RuntimeSettings> {
@@ -74,6 +78,24 @@ async function unsnoozeAlert(alertEventId: string): Promise<AlertRecord> {
   })) as AlertRecord;
 }
 
+async function sendTeamsTestAlert(): Promise<{
+  ok: boolean;
+  attempts: number;
+  statusCode: number | null;
+  health: { status: string };
+}> {
+  if (!window.budgetit) {
+    throw new Error("IPC bridge is unavailable.");
+  }
+
+  return (await window.budgetit.invoke("alerts.sendTest")) as {
+    ok: boolean;
+    attempts: number;
+    statusCode: number | null;
+    health: { status: string };
+  };
+}
+
 export function App() {
   const [settings, setSettings] = useState<RuntimeSettings>(defaultSettings);
   const [saving, setSaving] = useState(false);
@@ -111,6 +133,7 @@ export function App() {
   const [scenarioName, setScenarioName] = useState("");
   const [alerts, setAlerts] = useState<AlertRecord[]>([]);
   const [alertLoading, setAlertLoading] = useState(false);
+  const [sendingTeamsTest, setSendingTeamsTest] = useState(false);
   const [activeAlertEntity, setActiveAlertEntity] = useState<{
     alertEventId: string;
     entityType: string;
@@ -153,6 +176,23 @@ export function App() {
     setSettings(next);
     setSaving(false);
     setStatus("Runtime settings saved");
+  }
+
+  async function onSendTeamsTest(): Promise<void> {
+    setSendingTeamsTest(true);
+    try {
+      const result = await sendTeamsTestAlert();
+      if (result.ok) {
+        setStatus("Teams test notification sent");
+      } else {
+        setStatus(`Teams test failed (${result.health.status})`);
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      setStatus(`Teams test failed (${message})`);
+    } finally {
+      setSendingTeamsTest(false);
+    }
   }
 
   function nextId(prefix: string): string {
@@ -215,8 +255,40 @@ export function App() {
           Minimize to tray on close
         </label>
 
+        <label>
+          <input
+            type="checkbox"
+            checked={settings.teamsEnabled}
+            onChange={(event) => {
+              setSettings((current) => ({
+                ...current,
+                teamsEnabled: event.target.checked
+              }));
+            }}
+          />
+          Enable Teams webhook alerts
+        </label>
+
+        <label>
+          Teams webhook URL
+          <input
+            type="text"
+            value={settings.teamsWebhookUrl}
+            onChange={(event) => {
+              setSettings((current) => ({
+                ...current,
+                teamsWebhookUrl: event.target.value
+              }));
+            }}
+            placeholder="https://..."
+          />
+        </label>
+
         <button type="button" disabled={saving} onClick={() => void onSave()}>
           {saving ? "Saving..." : "Save runtime settings"}
+        </button>
+        <button type="button" disabled={sendingTeamsTest} onClick={() => void onSendTeamsTest()}>
+          {sendingTeamsTest ? "Sending..." : "Send Teams test"}
         </button>
         <p className="status">{status}</p>
       </section>

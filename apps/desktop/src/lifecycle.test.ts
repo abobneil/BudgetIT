@@ -14,10 +14,14 @@ describe("runtime lifecycle helpers", () => {
 
   it("persists startup preference through merged settings updates", () => {
     const updated = mergeRuntimeSettings(DEFAULT_RUNTIME_SETTINGS, {
-      startWithWindows: false
+      startWithWindows: false,
+      teamsEnabled: true,
+      teamsWebhookUrl: "https://example.invalid/webhook"
     });
     expect(updated.startWithWindows).toBe(false);
     expect(updated.minimizeToTray).toBe(true);
+    expect(updated.teamsEnabled).toBe(true);
+    expect(updated.teamsWebhookUrl).toBe("https://example.invalid/webhook");
   });
 
   it("stops scheduler and quits app when explicit exit is requested", () => {

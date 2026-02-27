@@ -27,18 +27,24 @@ describe("runtime settings persistence", () => {
 
     expect(settings.startWithWindows).toBe(true);
     expect(settings.minimizeToTray).toBe(true);
+    expect(settings.teamsEnabled).toBe(false);
+    expect(settings.teamsWebhookUrl).toBe("");
   });
 
   it("writes and reads updated startup settings", () => {
     const settingsPath = makeTempSettingsPath();
     writeRuntimeSettings(settingsPath, {
       startWithWindows: false,
-      minimizeToTray: true
+      minimizeToTray: true,
+      teamsEnabled: true,
+      teamsWebhookUrl: "https://example.invalid/webhook"
     });
 
     const settings = readRuntimeSettings(settingsPath);
     expect(settings.startWithWindows).toBe(false);
     expect(settings.minimizeToTray).toBe(true);
+    expect(settings.teamsEnabled).toBe(true);
+    expect(settings.teamsWebhookUrl).toBe("https://example.invalid/webhook");
   });
 });
 

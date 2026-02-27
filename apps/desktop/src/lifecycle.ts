@@ -1,11 +1,15 @@
 export interface RuntimeSettings {
   startWithWindows: boolean;
   minimizeToTray: boolean;
+  teamsEnabled: boolean;
+  teamsWebhookUrl: string;
 }
 
 export const DEFAULT_RUNTIME_SETTINGS: RuntimeSettings = {
   startWithWindows: true,
-  minimizeToTray: true
+  minimizeToTray: true,
+  teamsEnabled: false,
+  teamsWebhookUrl: ""
 };
 
 export function mergeRuntimeSettings(
@@ -20,7 +24,15 @@ export function mergeRuntimeSettings(
     minimizeToTray:
       typeof update.minimizeToTray === "boolean"
         ? update.minimizeToTray
-        : current.minimizeToTray
+        : current.minimizeToTray,
+    teamsEnabled:
+      typeof update.teamsEnabled === "boolean"
+        ? update.teamsEnabled
+        : current.teamsEnabled,
+    teamsWebhookUrl:
+      typeof update.teamsWebhookUrl === "string"
+        ? update.teamsWebhookUrl
+        : current.teamsWebhookUrl
   };
 }
 
