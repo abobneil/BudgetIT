@@ -14,6 +14,7 @@ import {
 } from "@fluentui/react-components";
 
 import type { DashboardDataset } from "../../reporting";
+import { useScenarioContext } from "../scenarios/ScenarioContext";
 import { exportReport, queryReport } from "../../lib/ipcClient";
 import { EmptyState, InlineError, PageHeader } from "../../ui/primitives";
 import {
@@ -23,8 +24,6 @@ import {
 import "./DashboardPage.css";
 
 type ExportFormat = "html" | "pdf" | "excel" | "csv" | "png";
-
-const DASHBOARD_SCENARIO_ID = "baseline";
 const CURRENCY_FORMATTER = new Intl.NumberFormat("en-US", {
   style: "currency",
   currency: "USD"
@@ -54,6 +53,7 @@ function barWidth(value: number, max: number): string {
 }
 
 export function DashboardPage() {
+  const { selectedScenarioId, selectedScenario } = useScenarioContext();
   const [dataset, setDataset] = useState<DashboardDataset | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -92,13 +92,16 @@ export function DashboardPage() {
     return Math.max(...dataset.variance.map((row) => Math.abs(row.varianceMinor)));
   }, [dataset]);
 
-  async function loadDashboard(rematerialize = false): Promise<void> {
+  async function loadDashboard(
+    scenarioId: string,
+    rematerialize = false
+  ): Promise<void> {
     setLoading(true);
     setError(null);
     try {
       const next = (await queryReport({
         query: "dashboard.summary",
-        scenarioId: DASHBOARD_SCENARIO_ID
+        scenarioId
       })) as DashboardDataset;
       setDataset(next);
       setRefreshMessage(
@@ -116,12 +119,12 @@ export function DashboardPage() {
   }
 
   useEffect(() => {
-    void loadDashboard();
-  }, []);
+    void loadDashboard(selectedScenarioId);
+  }, [selectedScenarioId]);
 
   async function handleRematerialize(): Promise<void> {
     setRematerializing(true);
-    await loadDashboard(true);
+    await loadDashboard(selectedScenarioId, true);
   }
 
   async function handleExport(format: ExportFormat): Promise<void> {
@@ -129,7 +132,7 @@ export function DashboardPage() {
     setExportError(null);
     try {
       const result = await exportReport({
-        scenarioId: DASHBOARD_SCENARIO_ID,
+        scenarioId: selectedScenarioId,
         formats: [format]
       });
       setExportFiles(result.files);
@@ -153,10 +156,15 @@ export function DashboardPage() {
     <section className="dashboard-page" aria-live="polite">
       <PageHeader
         title="Dashboard"
-        subtitle="Decision-ready view for forecast, actuals, renewals, and replacement readiness."
+        subtitle={`Decision-ready view for forecast, actuals, renewals, and replacement readiness. Active scenario: ${
+          selectedScenario?.name ?? selectedScenarioId
+        }.`}
         actions={
           <div className="dashboard-page__actions">
-            <Button appearance="secondary" onClick={() => void loadDashboard()}>
+            <Button
+              appearance="secondary"
+              onClick={() => void loadDashboard(selectedScenarioId)}
+            >
               Refresh
             </Button>
             <Menu>
@@ -200,6 +208,9 @@ export function DashboardPage() {
       ) : null}
 
       {error ? <InlineError message={error} /> : null}
+      <Text data-testid="dashboard-scenario-context">{`Scenario: ${
+        selectedScenario?.name ?? selectedScenarioId
+      }`}</Text>
       {refreshMessage ? <Text>{refreshMessage}</Text> : null}
       {exportError ? <InlineError message={exportError} /> : null}
 

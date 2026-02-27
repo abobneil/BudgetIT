@@ -2,12 +2,14 @@ import type { PropsWithChildren } from "react";
 import { Button, Input, Select, Text } from "@fluentui/react-components";
 import { NavLink, useLocation } from "react-router-dom";
 
+import { useScenarioContext } from "../features/scenarios/ScenarioContext";
 import { NAV_ROUTES, resolveRouteLabel } from "./routes";
 import "./AppShell.css";
 
 export function AppShell({ children }: PropsWithChildren) {
   const location = useLocation();
   const pageTitle = resolveRouteLabel(location.pathname);
+  const { scenarios, selectedScenarioId, selectScenario } = useScenarioContext();
 
   return (
     <div className="desktop-shell">
@@ -38,10 +40,17 @@ export function AppShell({ children }: PropsWithChildren) {
           >
             {pageTitle}
           </Text>
-          <Select aria-label="Scenario selector" className="desktop-shell__toolbar-select" defaultValue="baseline">
-            <option value="baseline">Baseline</option>
-            <option value="draft">Draft</option>
-            <option value="approved">Approved</option>
+          <Select
+            aria-label="Scenario selector"
+            className="desktop-shell__toolbar-select"
+            value={selectedScenarioId}
+            onChange={(event) => selectScenario(event.target.value)}
+          >
+            {scenarios.map((scenario) => (
+              <option key={scenario.id} value={scenario.id}>
+                {scenario.name}
+              </option>
+            ))}
           </Select>
           <Input
             aria-label="Global search"
