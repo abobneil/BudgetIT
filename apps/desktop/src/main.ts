@@ -56,6 +56,11 @@ import {
   type BackupHealthState
 } from "./backup-health";
 import {
+  loadAutoTagRules,
+  suggestRulesFromManualCorrections,
+  type AutoTagSuggestion
+} from "./auto-tagging";
+import {
   commitExpenseImport,
   previewExpenseImport,
   type ImportColumnMapping
@@ -78,6 +83,7 @@ const DEFAULT_BACKUP_SUBDIR = path.join("BudgetIT", "backups");
 const BACKUP_HEALTH_FILE_NAME = "backup-health.json";
 const BACKUP_STALE_THRESHOLD_DAYS = 7;
 const IMPORT_TEMPLATE_FILE_NAME = "import-mappings.json";
+const AUTO_TAG_RULES_FILE_NAME = "auto-tag-rules.json";
 
 const IMPORT_FIELDS = new Set([
   "scenarioId",
@@ -207,6 +213,10 @@ function getBackupHealthPath(): string {
 
 function getImportTemplateStorePath(): string {
   return path.join(app.getPath("userData"), IMPORT_TEMPLATE_FILE_NAME);
+}
+
+function getAutoTagRulesPath(): string {
+  return path.join(app.getPath("userData"), AUTO_TAG_RULES_FILE_NAME);
 }
 
 function createDatabaseVault(secretPath: string): FileSecretVault {
@@ -612,10 +622,17 @@ function setupIpcHandlers(requestExit: () => void): void {
   ipcMain.handle("import.commit", async (_event, payload: unknown) => {
     const parsed = parseImportPayload(payload);
     const handle = requireDatabaseHandle();
-    return commitExpenseImport(handle.db, {
+    const rules = loadAutoTagRules(getAutoTagRulesPath());
+    const committed = commitExpenseImport(handle.db, {
       ...parsed,
-      templateStorePath: getImportTemplateStorePath()
+      templateStorePath: getImportTemplateStorePath(),
+      autoTagRules: rules
     });
+    const suggestions: AutoTagSuggestion[] = suggestRulesFromManualCorrections(handle.db);
+    return {
+      ...committed,
+      suggestions
+    };
   });
 }
 

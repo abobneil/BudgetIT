@@ -6,6 +6,8 @@ import { BudgetCrudRepository, toUsdMinorUnits } from "@budgetit/db";
 import type Database from "better-sqlite3-multiple-ciphers";
 import * as XLSX from "xlsx";
 
+import { applyAutoTagRules, type AutoTagMatch, type AutoTagRule } from "./auto-tagging";
+
 export type ImportField =
   | "scenarioId"
   | "serviceId"
@@ -88,7 +90,12 @@ export type ImportCommitResult = {
   duplicateCount: number;
   insertedCount: number;
   skippedDuplicateCount: number;
+  autoTagAssignments: Array<{ entityId: string; matches: AutoTagMatch[] }>;
   errors: ImportRowError[];
+};
+
+export type ImportCommitInput = ImportPreviewInput & {
+  autoTagRules?: AutoTagRule[];
 };
 
 type TemplateStore = {
@@ -759,10 +766,7 @@ export function previewExpenseImport(
   };
 }
 
-export function commitExpenseImport(
-  db: Database.Database,
-  input: ImportPreviewInput
-): ImportCommitResult {
+export function commitExpenseImport(db: Database.Database, input: ImportCommitInput): ImportCommitResult {
   const preview = previewExpenseImport(db, input);
   if (preview.acceptedRows.length === 0) {
     return {
@@ -772,14 +776,18 @@ export function commitExpenseImport(
       duplicateCount: preview.duplicateCount,
       insertedCount: 0,
       skippedDuplicateCount: preview.duplicateCount,
+      autoTagAssignments: [],
       errors: preview.errors
     };
   }
 
   const repo = new BudgetCrudRepository(db);
+  const autoTagRules = input.autoTagRules ?? [];
+  const serviceToVendor = new Map<string, string | undefined>();
+  const autoTagAssignments: Array<{ entityId: string; matches: AutoTagMatch[] }> = [];
   const write = db.transaction(() => {
     for (const row of preview.acceptedRows) {
-      repo.createExpenseLineWithOptionalRecurrence(
+      const createdExpenseId = repo.createExpenseLineWithOptionalRecurrence(
         {
           scenarioId: row.scenarioId,
           serviceId: row.serviceId,
@@ -803,6 +811,26 @@ export function commitExpenseImport(
             }
           : undefined
       );
+
+      if (autoTagRules.length > 0) {
+        let vendorId = serviceToVendor.get(row.serviceId);
+        if (!serviceToVendor.has(row.serviceId)) {
+          const vendorRow = db
+            .prepare("SELECT vendor_id FROM service WHERE id = ?")
+            .get(row.serviceId) as { vendor_id: string } | undefined;
+          vendorId = vendorRow?.vendor_id;
+          serviceToVendor.set(row.serviceId, vendorId);
+        }
+
+        const matches = applyAutoTagRules(db, autoTagRules, {
+          entityType: "expense_line",
+          entityId: createdExpenseId,
+          vendorId,
+          description: row.name,
+          amountMinor: row.amountMinor
+        });
+        autoTagAssignments.push({ entityId: createdExpenseId, matches });
+      }
     }
   });
   write();
@@ -814,6 +842,7 @@ export function commitExpenseImport(
     duplicateCount: preview.duplicateCount,
     insertedCount: preview.acceptedRows.length,
     skippedDuplicateCount: preview.duplicateCount,
+    autoTagAssignments,
     errors: preview.errors
   };
 }
