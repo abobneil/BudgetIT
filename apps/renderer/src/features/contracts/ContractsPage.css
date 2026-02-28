@@ -1,6 +1,7 @@
 .contracts-page {
   display: grid;
   gap: 1rem;
+  padding: 1rem 1.25rem;
 }
 
 .contracts-toolbar {
@@ -17,7 +18,7 @@
 }
 
 .contracts-row--selected {
-  background: color-mix(in srgb, var(--colorNeutralBackground1) 70%, var(--colorBrandBackground) 30%);
+  background: color-mix(in srgb, var(--status-info) 12%, var(--colorNeutralBackground1));
 }
 
 .contracts-row__actions {

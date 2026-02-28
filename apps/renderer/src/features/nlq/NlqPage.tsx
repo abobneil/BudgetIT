@@ -264,38 +264,63 @@ export function NlqPage() {
             </Table>
 
             <div className="nlq-page__actions">
-              <Select
-                aria-label="NLQ export format"
-                value={exportFormat}
-                onChange={(event) => setExportFormat(event.target.value as ExportFormat)}
-              >
-                <option value="csv">CSV</option>
-                <option value="excel">Excel</option>
-              </Select>
-              <Input
-                aria-label="NLQ export path"
-                value={exportPath}
-                onChange={(_event, data) => setExportPath(data.value)}
-                placeholder="C:\\exports"
-              />
-              <Button appearance="secondary" onClick={() => void exportResults()}>
-                Export results
-              </Button>
+              <section className="nlq-page__action-panel">
+                <Text className="nlq-page__action-label" weight="semibold">
+                  Export format
+                </Text>
+                <Select
+                  aria-label="NLQ export format"
+                  value={exportFormat}
+                  onChange={(event) => setExportFormat(event.target.value as ExportFormat)}
+                >
+                  <option value="csv">CSV</option>
+                  <option value="excel">Excel</option>
+                </Select>
+              </section>
+              <section className="nlq-page__action-panel">
+                <Text className="nlq-page__action-label" weight="semibold">
+                  Output directory
+                </Text>
+                <Input
+                  aria-label="NLQ export path"
+                  value={exportPath}
+                  onChange={(_event, data) => setExportPath(data.value)}
+                  placeholder="C:\\exports"
+                />
+              </section>
+              <section className="nlq-page__action-panel">
+                <Text className="nlq-page__action-label" weight="semibold">
+                  Run export
+                </Text>
+                <Button appearance="secondary" onClick={() => void exportResults()}>
+                  Export results
+                </Button>
+              </section>
             </div>
           </Card>
 
           <Card>
             <Title3>Save as Report</Title3>
             <div className="nlq-page__save-report">
-              <Input
-                aria-label="Save report name"
-                value={saveReportName}
-                onChange={(_event, data) => setSaveReportName(data.value)}
-                placeholder="Quarterly security variance"
-              />
-              <Button appearance="primary" onClick={saveAsReport}>
-                Save as report
-              </Button>
+              <section className="nlq-page__action-panel">
+                <Text className="nlq-page__action-label" weight="semibold">
+                  Report name
+                </Text>
+                <Input
+                  aria-label="Save report name"
+                  value={saveReportName}
+                  onChange={(_event, data) => setSaveReportName(data.value)}
+                  placeholder="Quarterly security variance"
+                />
+              </section>
+              <section className="nlq-page__action-panel">
+                <Text className="nlq-page__action-label" weight="semibold">
+                  Save preset
+                </Text>
+                <Button appearance="primary" onClick={saveAsReport}>
+                  Save as report
+                </Button>
+              </section>
             </div>
           </Card>
         </>

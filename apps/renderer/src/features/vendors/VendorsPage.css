@@ -1,6 +1,7 @@
 .vendors-page {
   display: grid;
   gap: 1rem;
+  padding: 1rem 1.25rem;
 }
 
 .vendors-toolbar {
@@ -16,7 +17,7 @@
 }
 
 .vendors-row--selected {
-  background: color-mix(in srgb, var(--colorNeutralBackground1) 70%, var(--colorBrandBackground) 30%);
+  background: color-mix(in srgb, var(--status-info) 12%, var(--colorNeutralBackground1));
 }
 
 .vendors-row__actions {
@@ -58,7 +59,47 @@
 
 .vendors-form {
   display: grid;
-  gap: 0.55rem;
+  gap: 0.8rem;
+}
+
+.vendors-form__section {
+  display: grid;
+  gap: 0.65rem;
+  border: 1px solid var(--colorNeutralStroke2);
+  border-radius: 0.6rem;
+  padding: 0.65rem;
+  background: var(--colorNeutralBackground2);
+}
+
+.vendors-form__section-header {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.vendors-form__grid {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.vendors-form__grid--two {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.vendors-form__field {
+  display: grid;
+  gap: 0.3rem;
+}
+
+.vendors-form__field--full {
+  grid-column: 1 / -1;
+}
+
+.vendors-form__label {
+  color: var(--colorNeutralForeground2);
+}
+
+.vendors-form__hint {
+  color: var(--colorNeutralForeground3);
 }
 
 @media (max-width: 1080px) {
@@ -68,5 +109,9 @@
 
   .vendors-toolbar {
     grid-template-columns: 1fr;
+  }
+
+  .vendors-form__grid--two {
+    grid-template-columns: minmax(0, 1fr);
   }
 }

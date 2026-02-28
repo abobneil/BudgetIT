@@ -16,6 +16,7 @@ const allowedInvokeChannels = new Set<string>([
   "import.preview",
   "import.commit",
   "reports.query",
+  "report.preview",
   "export.report",
   "nlq.parse"
 ]);

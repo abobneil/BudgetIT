@@ -44,7 +44,20 @@
   margin-top: 0.55rem;
   display: grid;
   gap: 0.5rem;
-  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+}
+
+.nlq-page__action-panel {
+  display: grid;
+  gap: 0.35rem;
+  border: 1px solid var(--colorNeutralStroke2);
+  border-radius: 8px;
+  background: var(--colorNeutralBackground2);
+  padding: 0.55rem;
+}
+
+.nlq-page__action-label {
+  color: var(--colorNeutralForeground2);
 }
 
 @media (max-width: 860px) {

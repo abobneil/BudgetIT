@@ -10,7 +10,7 @@
 }
 
 .scenarios-page__row--selected {
-  outline: 2px solid #0b5fff;
+  outline: 2px solid var(--status-info);
   outline-offset: -2px;
 }
 

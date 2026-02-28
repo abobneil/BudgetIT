@@ -79,7 +79,6 @@ function stepLabel(step: ImportWizardStep): string {
   }
   return "Commit";
 }
-
 export function ImportPage() {
   const { notify } = useFeedback();
   const [draft, setDraft] = useState(() => createInitialImportWizardDraft());
@@ -99,6 +98,7 @@ export function ImportPage() {
   }, [draft.previewResult, errorFilter]);
   const previewRows = PREVIEW_ROWS_BY_MODE[draft.mode];
   const selectedSuggestionCount = tagSuggestions.filter((entry) => entry.selected).length;
+  const currentStepIndex = IMPORT_WIZARD_STEPS.indexOf(currentStep);
 
   function onNext(): void {
     if (!canAdvanceStep(currentStep, draft)) {
@@ -181,17 +181,21 @@ export function ImportPage() {
 
       <Card>
         <ol className="import-stepper">
-          {IMPORT_WIZARD_STEPS.map((step) => (
+          {IMPORT_WIZARD_STEPS.map((step, index) => (
             <li
               key={step}
               className={
-                step === currentStep
-                  ? "import-stepper__item import-stepper__item--active"
-                  : "import-stepper__item"
+                index < currentStepIndex
+                  ? "import-stepper__item import-stepper__item--complete"
+                  : step === currentStep
+                    ? "import-stepper__item import-stepper__item--active"
+                    : "import-stepper__item"
               }
               data-testid={`import-step-${step}`}
+              aria-current={step === currentStep ? "step" : undefined}
             >
-              {stepLabel(step)}
+              <span className="import-stepper__index">{index + 1}</span>
+              <span className="import-stepper__label">{stepLabel(step)}</span>
             </li>
           ))}
         </ol>
@@ -200,70 +204,102 @@ export function ImportPage() {
       {currentStep === "mode" ? (
         <Card>
           <Title3>Step 1: Select import mode</Title3>
-          <Select
-            aria-label="Import mode"
-            value={draft.mode}
-            onChange={(event) =>
-              setDraft((current) => ({
-                ...current,
-                mode: event.target.value as "expenses" | "actuals",
-                previewResult: null,
-                commitResult: null
-              }))
-            }
-          >
-            <option value="expenses">Expenses</option>
-            <option value="actuals">Actuals</option>
-          </Select>
+          <div className="import-step-form">
+            <div className="import-step-form__field">
+              <Text className="import-step-form__label" size={200} weight="medium">
+                Import mode
+              </Text>
+              <Select
+                aria-label="Import mode"
+                value={draft.mode}
+                onChange={(event) =>
+                  setDraft((current) => ({
+                    ...current,
+                    mode: event.target.value as "expenses" | "actuals",
+                    previewResult: null,
+                    commitResult: null
+                  }))
+                }
+              >
+                <option value="expenses">Expenses</option>
+                <option value="actuals">Actuals</option>
+              </Select>
+              <Text className="import-step-form__hint" size={100}>
+                {draft.mode === "expenses"
+                  ? "Use for planned/committed expense lines."
+                  : "Use for observed transactions matched against expenses."}
+              </Text>
+            </div>
+          </div>
         </Card>
       ) : null}
 
       {currentStep === "file" ? (
         <Card>
           <Title3>Step 2: Select file</Title3>
-          <Input
-            aria-label="Import file path"
-            value={draft.filePath}
-            onChange={(_event, data) =>
-              setDraft((current) => ({ ...current, filePath: data.value }))
-            }
-            placeholder="C:\\imports\\budget.xlsx"
-          />
+          <div className="import-step-form">
+            <div className="import-step-form__field">
+              <Text className="import-step-form__label" size={200} weight="medium">
+                Source file path
+              </Text>
+              <Input
+                aria-label="Import file path"
+                value={draft.filePath}
+                onChange={(_event, data) =>
+                  setDraft((current) => ({ ...current, filePath: data.value }))
+                }
+                placeholder="C:\\imports\\budget.xlsx"
+              />
+              <Text className="import-step-form__hint" size={100}>
+                Supports CSV and spreadsheet sources accepted by the backend importer.
+              </Text>
+            </div>
+          </div>
         </Card>
       ) : null}
 
       {currentStep === "mapping" ? (
         <Card>
           <Title3>Step 3: Mapping template</Title3>
-          <Input
-            aria-label="Mapping template"
-            value={draft.templateName}
-            onChange={(_event, data) =>
-              setDraft((current) => ({ ...current, templateName: data.value }))
-            }
-            placeholder="default-expense-import"
-          />
-          <div className="import-flags">
-            <Checkbox
-              label="Use saved template"
-              checked={draft.useSavedTemplate}
-              onChange={(_event, data) =>
-                setDraft((current) => ({
-                  ...current,
-                  useSavedTemplate: data.checked === true
-                }))
-              }
-            />
-            <Checkbox
-              label="Save template"
-              checked={draft.saveTemplate}
-              onChange={(_event, data) =>
-                setDraft((current) => ({
-                  ...current,
-                  saveTemplate: data.checked === true
-                }))
-              }
-            />
+          <div className="import-step-form">
+            <div className="import-step-form__field">
+              <Text className="import-step-form__label" size={200} weight="medium">
+                Mapping template name
+              </Text>
+              <Input
+                aria-label="Mapping template"
+                value={draft.templateName}
+                onChange={(_event, data) =>
+                  setDraft((current) => ({ ...current, templateName: data.value }))
+                }
+                placeholder="default-expense-import"
+              />
+              <Text className="import-step-form__hint" size={100}>
+                Keep a consistent name to reuse mapping profiles across imports.
+              </Text>
+            </div>
+            <div className="import-flags">
+              <Checkbox
+                label="Use saved template"
+                checked={draft.useSavedTemplate}
+                onChange={(_event, data) =>
+                  setDraft((current) => ({
+                    ...current,
+                    useSavedTemplate: data.checked === true
+                  }))
+                }
+              />
+              <Checkbox
+                label="Save template"
+                checked={draft.saveTemplate}
+                onChange={(_event, data) =>
+                  setDraft((current) => ({
+                    ...current,
+                    saveTemplate: data.checked === true
+                  }))
+                }
+              />
+            </div>
           </div>
         </Card>
       ) : null}
@@ -387,7 +423,7 @@ export function ImportPage() {
                       <ul className="import-unmatched-list">
                         {draft.commitResult.unmatchedForReview.map((entry) => (
                           <li key={entry.id}>
-                            <Text>{`${entry.transactionDate} • $${(entry.amountMinor / 100).toFixed(2)} • ${
+                            <Text>{`${entry.transactionDate} | $${(entry.amountMinor / 100).toFixed(2)} | ${
                               entry.description ?? "No description"
                             }`}</Text>
                             <Button size="small" appearance="secondary">

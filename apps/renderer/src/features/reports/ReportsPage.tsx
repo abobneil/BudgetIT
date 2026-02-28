@@ -16,7 +16,7 @@ import {
 } from "@fluentui/react-components";
 
 import type { DashboardDataset } from "../../reporting";
-import { exportReport, queryReport } from "../../lib/ipcClient";
+import { exportReport, previewReport, queryReport } from "../../lib/ipcClient";
 import { useFeedback } from "../../ui/feedback";
 import {
   EmptyState,
@@ -72,6 +72,10 @@ export function ReportsPage() {
   const [destinationConfirmed, setDestinationConfirmed] = useState(false);
   const [exportJobs, setExportJobs] = useState<ExportJob[]>([]);
   const [exportError, setExportError] = useState<string | null>(null);
+  const [previewVisible, setPreviewVisible] = useState(false);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+  const [previewHtml, setPreviewHtml] = useState<string | null>(null);
   const [savePresetName, setSavePresetName] = useState("");
 
   const presets = useMemo(() => {
@@ -222,6 +226,36 @@ export function ReportsPage() {
     }
   }
 
+  async function loadReportPreview(): Promise<void> {
+    if (!selectedPreset) {
+      return;
+    }
+
+    setPreviewVisible(true);
+    setPreviewLoading(true);
+    setPreviewError(null);
+    try {
+      const preview = await previewReport({
+        scenarioId: selectedScenarioId,
+        reportType: selectedPreset.query,
+        filters: {
+          dateFrom,
+          dateTo,
+          tag: tagFilter
+        }
+      });
+      setPreviewHtml(preview.html);
+      notify({ tone: "success", message: "Report preview refreshed." });
+    } catch (nextError) {
+      const detail = nextError instanceof Error ? nextError.message : String(nextError);
+      setPreviewError(detail);
+      setPreviewHtml(null);
+      notify({ tone: "error", message: `Failed to generate preview: ${detail}` });
+    } finally {
+      setPreviewLoading(false);
+    }
+  }
+
   return (
     <section className="reports-page">
       <PageHeader
@@ -335,50 +369,100 @@ export function ReportsPage() {
       <Card>
         <Title3>Export Orchestration</Title3>
         <div className="reports-export-controls">
-          <Select
-            aria-label="Export format"
-            value={exportFormat}
-            onChange={(event) => setExportFormat(event.target.value as ReportFormat)}
-          >
-            {EXPORT_FORMATS.map((format) => (
-              <option key={format} value={format}>
-                {format.toUpperCase()}
-              </option>
-            ))}
-          </Select>
-          <Input
-            aria-label="Export destination"
-            value={destinationPath}
-            onChange={(_event, data) => {
-              setDestinationPath(data.value);
-              setDestinationConfirmed(false);
-            }}
-            placeholder="C:\\exports"
-          />
-          <Button
-            appearance="secondary"
-            onClick={() => {
-              if (!destinationPath.trim()) {
-                const message = "Destination path is required.";
-                setExportError(message);
-                notify({ tone: "warning", message });
-                return;
-              }
-              setExportError(null);
-              setDestinationConfirmed(true);
-              notify({
-                tone: "success",
-                message: `Export destination confirmed: ${destinationPath}.`
-              });
-            }}
-          >
-            Confirm destination
-          </Button>
-          <Button appearance="primary" onClick={() => void queueExportJob()}>
-            Queue export
-          </Button>
+          <section className="reports-export-controls__step">
+            <Text className="reports-export-controls__label" weight="semibold">
+              1. Choose format
+            </Text>
+            <Select
+              aria-label="Export format"
+              value={exportFormat}
+              onChange={(event) => setExportFormat(event.target.value as ReportFormat)}
+            >
+              {EXPORT_FORMATS.map((format) => (
+                <option key={format} value={format}>
+                  {format.toUpperCase()}
+                </option>
+              ))}
+            </Select>
+          </section>
+          <section className="reports-export-controls__step">
+            <Text className="reports-export-controls__label" weight="semibold">
+              2. Confirm destination
+            </Text>
+            <Input
+              aria-label="Export destination"
+              value={destinationPath}
+              onChange={(_event, data) => {
+                setDestinationPath(data.value);
+                setDestinationConfirmed(false);
+              }}
+              placeholder="C:\\exports"
+            />
+            <Button
+              appearance="secondary"
+              onClick={() => {
+                if (!destinationPath.trim()) {
+                  const message = "Destination path is required.";
+                  setExportError(message);
+                  notify({ tone: "warning", message });
+                  return;
+                }
+                setExportError(null);
+                setDestinationConfirmed(true);
+                notify({
+                  tone: "success",
+                  message: `Export destination confirmed: ${destinationPath}.`
+                });
+              }}
+            >
+              Confirm destination
+            </Button>
+          </section>
+          <section className="reports-export-controls__step">
+            <Text className="reports-export-controls__label" weight="semibold">
+              3. Preview and queue
+            </Text>
+            <div className="reports-export-controls__actions">
+              <Button appearance="secondary" onClick={() => void loadReportPreview()}>
+                Preview report
+              </Button>
+              <Button appearance="primary" onClick={() => void queueExportJob()}>
+                Queue export
+              </Button>
+            </div>
+          </section>
         </div>
       </Card>
+
+      {previewVisible ? (
+        <Card data-testid="reports-export-preview">
+          <div className="reports-preview__header">
+            <Title3>Export Preview</Title3>
+            <Button
+              appearance="subtle"
+              onClick={() => {
+                setPreviewVisible(false);
+                setPreviewError(null);
+                setPreviewHtml(null);
+              }}
+            >
+              Close preview
+            </Button>
+          </div>
+          {previewLoading ? (
+            <Text>Generating preview...</Text>
+          ) : previewError ? (
+            <InlineError message={previewError} />
+          ) : (
+            <iframe
+              title="Report export preview"
+              className="reports-preview__frame"
+              sandbox=""
+              srcDoc={previewHtml ?? ""}
+            />
+          )}
+        </Card>
+      ) : null}
 
       <Card>
         <Title3>Save Report Preset</Title3>

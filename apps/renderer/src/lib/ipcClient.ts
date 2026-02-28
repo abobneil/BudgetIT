@@ -98,6 +98,18 @@ export type QueryReportPayload = {
 
 export type ExportReportType = ReportPresetQuery | "nlq.results";
 
+export type PreviewReportPayload = {
+  scenarioId?: string;
+  reportType: ReportPresetQuery;
+  filters?: ReportFilters;
+};
+
+export type PreviewReportResult = {
+  html: string;
+  scenarioId: string;
+  reportType: ReportPresetQuery;
+};
+
 export type ExportReportPayload = {
   scenarioId?: string;
   reportType: ExportReportType;
@@ -337,6 +349,10 @@ export async function commitImport(input: {
 
 export async function queryReport(payload: QueryReportPayload): Promise<unknown> {
   return invokeIpc<unknown>("reports.query", payload);
+}
+
+export async function previewReport(payload: PreviewReportPayload): Promise<PreviewReportResult> {
+  return invokeIpc<PreviewReportResult>("report.preview", payload);
 }
 
 export async function materializeForecast(payload: {

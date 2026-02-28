@@ -82,6 +82,7 @@ function renderDashboardPage() {
 
 describe("DashboardPage", () => {
   beforeEach(() => {
+    localStorage.clear();
     queryReportMock.mockReset();
     exportReportMock.mockReset();
     queryReportMock.mockResolvedValue(datasetFixture);
@@ -243,5 +244,31 @@ describe("DashboardPage", () => {
       });
     });
     expect(await screen.findByText(/C:\\exports\\dashboard\.html/i)).toBeInTheDocument();
+  });
+
+  it("supports editing dashboard cards, visibility toggles, and section grouping", async () => {
+    renderDashboardPage();
+
+    await screen.findByText("Forecast");
+    fireEvent.click(screen.getByRole("button", { name: "Edit layout" }));
+    expect(screen.getByTestId("dashboard-layout-editor")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("checkbox", { name: "Toggle Forecast card" }));
+    await waitFor(() => {
+      expect(screen.queryByTestId("dashboard-card-kpi-forecast")).not.toBeInTheDocument();
+    });
+
+    fireEvent.change(screen.getByLabelText("New dashboard section name"), {
+      target: { value: "Reliability" }
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Add section" }));
+
+    fireEvent.change(screen.getByLabelText("Section for Renewals Timeline"), {
+      target: { value: "section-reliability" }
+    });
+
+    expect(
+      await screen.findByTestId("dashboard-section-section-reliability")
+    ).toBeInTheDocument();
   });
 });

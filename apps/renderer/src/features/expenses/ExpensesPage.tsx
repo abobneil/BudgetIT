@@ -953,116 +953,205 @@ export function ExpensesPage() {
         submitLabel={drawerMode === "create" ? "Create" : "Save"}
       >
         <div className="expenses-form">
-          <Input
-            aria-label="Expense name"
-            value={formState.name}
-            onChange={(_event, data) =>
-              setFormState((current) => ({ ...current, name: data.value }))
-            }
-            placeholder="Expense name"
-          />
-          <Input
-            aria-label="Expense amount minor units"
-            value={formState.amountMinor}
-            onChange={(_event, data) =>
-              setFormState((current) => ({ ...current, amountMinor: data.value }))
-            }
-            placeholder="Amount in minor units"
-          />
-          <Select
-            aria-label="Expense status"
-            value={formState.status}
-            onChange={(event) =>
-              setFormState((current) => ({
-                ...current,
-                status: event.target.value as ExpenseStatus
-              }))
-            }
-          >
-            {STATUS_OPTIONS.map((status) => (
-              <option key={status} value={status}>
-                {status}
-              </option>
-            ))}
-          </Select>
-          <Select
-            aria-label="Expense vendor"
-            value={formState.vendorId}
-            onChange={(event) =>
-              setFormState((current) => ({
-                ...current,
-                vendorId: event.target.value
-              }))
-            }
-          >
-            {vendorOptions.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </Select>
-          <Input
-            aria-label="Expense service"
-            value={formState.serviceName}
-            onChange={(_event, data) =>
-              setFormState((current) => ({ ...current, serviceName: data.value }))
-            }
-            placeholder="Linked service"
-          />
-          <Input
-            aria-label="Expense contract"
-            value={formState.contractNumber}
-            onChange={(_event, data) =>
-              setFormState((current) => ({ ...current, contractNumber: data.value }))
-            }
-            placeholder="Linked contract"
-          />
-          <Input
-            aria-label="Expense tags"
-            value={formState.tagsCsv}
-            onChange={(_event, data) =>
-              setFormState((current) => ({ ...current, tagsCsv: data.value }))
-            }
-            placeholder="Tags (comma-separated)"
-          />
-          <Select
-            aria-label="Recurrence frequency"
-            value={formState.recurrenceFrequency}
-            onChange={(event) =>
-              setFormState((current) => ({
-                ...current,
-                recurrenceFrequency: event.target.value as RecurrencePreviewRule["frequency"]
-              }))
-            }
-          >
-            <option value="monthly">monthly</option>
-            <option value="quarterly">quarterly</option>
-            <option value="yearly">yearly</option>
-          </Select>
-          <Input
-            aria-label="Recurrence interval"
-            value={formState.recurrenceInterval}
-            onChange={(_event, data) =>
-              setFormState((current) => ({ ...current, recurrenceInterval: data.value }))
-            }
-            placeholder="Recurrence interval"
-          />
-          <Input
-            aria-label="Recurrence day of month"
-            value={formState.recurrenceDayOfMonth}
-            onChange={(_event, data) =>
-              setFormState((current) => ({ ...current, recurrenceDayOfMonth: data.value }))
-            }
-            placeholder="Day of month (1-31)"
-          />
-          <Input
-            aria-label="Recurrence anchor date"
-            value={formState.recurrenceAnchorDate}
-            onChange={(_event, data) =>
-              setFormState((current) => ({ ...current, recurrenceAnchorDate: data.value }))
-            }
-            type="date"
-          />
+          <section className="expenses-form__section">
+            <div className="expenses-form__section-header">
+              <Text weight="semibold">Core details</Text>
+              <Text size={200}>Primary identity and accounting fields.</Text>
+            </div>
+            <div className="expenses-form__grid expenses-form__grid--two">
+              <div className="expenses-form__field expenses-form__field--full">
+                <Text className="expenses-form__label" size={200} weight="medium">
+                  Expense name
+                </Text>
+                <Input
+                  aria-label="Expense name"
+                  value={formState.name}
+                  onChange={(_event, data) =>
+                    setFormState((current) => ({ ...current, name: data.value }))
+                  }
+                  placeholder="Expense name"
+                />
+              </div>
+              <div className="expenses-form__field">
+                <Text className="expenses-form__label" size={200} weight="medium">
+                  Amount (minor units)
+                </Text>
+                <Input
+                  aria-label="Expense amount minor units"
+                  type="number"
+                  min="0"
+                  value={formState.amountMinor}
+                  onChange={(_event, data) =>
+                    setFormState((current) => ({ ...current, amountMinor: data.value }))
+                  }
+                  placeholder="5000"
+                />
+                <Text className="expenses-form__hint" size={100}>
+                  Example: 5000 = $50.00.
+                </Text>
+              </div>
+              <div className="expenses-form__field">
+                <Text className="expenses-form__label" size={200} weight="medium">
+                  Status
+                </Text>
+                <Select
+                  aria-label="Expense status"
+                  value={formState.status}
+                  onChange={(event) =>
+                    setFormState((current) => ({
+                      ...current,
+                      status: event.target.value as ExpenseStatus
+                    }))
+                  }
+                >
+                  {STATUS_OPTIONS.map((status) => (
+                    <option key={status} value={status}>
+                      {status}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+              <div className="expenses-form__field expenses-form__field--full">
+                <Text className="expenses-form__label" size={200} weight="medium">
+                  Vendor
+                </Text>
+                <Select
+                  aria-label="Expense vendor"
+                  value={formState.vendorId}
+                  onChange={(event) =>
+                    setFormState((current) => ({
+                      ...current,
+                      vendorId: event.target.value
+                    }))
+                  }
+                >
+                  {vendorOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+            </div>
+          </section>
+          <section className="expenses-form__section">
+            <div className="expenses-form__section-header">
+              <Text weight="semibold">Links and tags</Text>
+              <Text size={200}>Optional references for discovery and reporting.</Text>
+            </div>
+            <div className="expenses-form__grid expenses-form__grid--two">
+              <div className="expenses-form__field">
+                <Text className="expenses-form__label" size={200} weight="medium">
+                  Linked service
+                </Text>
+                <Input
+                  aria-label="Expense service"
+                  value={formState.serviceName}
+                  onChange={(_event, data) =>
+                    setFormState((current) => ({ ...current, serviceName: data.value }))
+                  }
+                  placeholder="Linked service"
+                />
+              </div>
+              <div className="expenses-form__field">
+                <Text className="expenses-form__label" size={200} weight="medium">
+                  Linked contract
+                </Text>
+                <Input
+                  aria-label="Expense contract"
+                  value={formState.contractNumber}
+                  onChange={(_event, data) =>
+                    setFormState((current) => ({ ...current, contractNumber: data.value }))
+                  }
+                  placeholder="Linked contract"
+                />
+              </div>
+              <div className="expenses-form__field expenses-form__field--full">
+                <Text className="expenses-form__label" size={200} weight="medium">
+                  Tags
+                </Text>
+                <Input
+                  aria-label="Expense tags"
+                  value={formState.tagsCsv}
+                  onChange={(_event, data) =>
+                    setFormState((current) => ({ ...current, tagsCsv: data.value }))
+                  }
+                  placeholder="Tags (comma-separated)"
+                />
+              </div>
+            </div>
+          </section>
+          <section className="expenses-form__section">
+            <div className="expenses-form__section-header">
+              <Text weight="semibold">Recurrence</Text>
+              <Text size={200}>Configure cadence for forecast and renewals.</Text>
+            </div>
+            <div className="expenses-form__grid expenses-form__grid--two">
+              <div className="expenses-form__field">
+                <Text className="expenses-form__label" size={200} weight="medium">
+                  Frequency
+                </Text>
+                <Select
+                  aria-label="Recurrence frequency"
+                  value={formState.recurrenceFrequency}
+                  onChange={(event) =>
+                    setFormState((current) => ({
+                      ...current,
+                      recurrenceFrequency: event.target.value as RecurrencePreviewRule["frequency"]
+                    }))
+                  }
+                >
+                  <option value="monthly">monthly</option>
+                  <option value="quarterly">quarterly</option>
+                  <option value="yearly">yearly</option>
+                </Select>
+              </div>
+              <div className="expenses-form__field">
+                <Text className="expenses-form__label" size={200} weight="medium">
+                  Interval
+                </Text>
+                <Input
+                  aria-label="Recurrence interval"
+                  type="number"
+                  min="1"
+                  value={formState.recurrenceInterval}
+                  onChange={(_event, data) =>
+                    setFormState((current) => ({ ...current, recurrenceInterval: data.value }))
+                  }
+                  placeholder="1"
+                />
+              </div>
+              <div className="expenses-form__field">
+                <Text className="expenses-form__label" size={200} weight="medium">
+                  Day of month
+                </Text>
+                <Input
+                  aria-label="Recurrence day of month"
+                  type="number"
+                  min="1"
+                  max="31"
+                  value={formState.recurrenceDayOfMonth}
+                  onChange={(_event, data) =>
+                    setFormState((current) => ({ ...current, recurrenceDayOfMonth: data.value }))
+                  }
+                  placeholder="1"
+                />
+              </div>
+              <div className="expenses-form__field">
+                <Text className="expenses-form__label" size={200} weight="medium">
+                  Anchor date
+                </Text>
+                <Input
+                  aria-label="Recurrence anchor date"
+                  value={formState.recurrenceAnchorDate}
+                  onChange={(_event, data) =>
+                    setFormState((current) => ({ ...current, recurrenceAnchorDate: data.value }))
+                  }
+                  type="date"
+                />
+              </div>
+            </div>
+          </section>
         </div>
         {formError ? <InlineError message={formError} /> : null}
       </FormDrawer>

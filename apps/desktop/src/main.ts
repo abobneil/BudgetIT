@@ -81,6 +81,7 @@ import {
   type ActualImportMapping
 } from "./actuals-import";
 import {
+  createDashboardHtml,
   exportDashboardReport,
   exportNlqResultsReport,
   type ExportFormat,
@@ -758,6 +759,44 @@ export function parseExportReportPayload(payload: unknown, defaultOutputDir: str
   };
 }
 
+export function parseReportPreviewPayload(payload: unknown): {
+  scenarioId: string;
+  reportType: ReportPresetQuery;
+  filters?: ReportDatasetFilters;
+} {
+  if (!payload || typeof payload !== "object") {
+    return {
+      scenarioId: "baseline",
+      reportType: "dashboard.summary"
+    };
+  }
+
+  const value = payload as {
+    scenarioId?: unknown;
+    reportType?: unknown;
+    filters?: unknown;
+  };
+
+  const scenarioId =
+    typeof value.scenarioId === "string" && value.scenarioId.trim().length > 0
+      ? value.scenarioId
+      : "baseline";
+  const reportTypeCandidate =
+    typeof value.reportType === "string" && value.reportType.trim().length > 0
+      ? value.reportType.trim()
+      : "dashboard.summary";
+
+  if (!REPORT_PRESET_QUERY_SET.has(reportTypeCandidate as ReportPresetQuery)) {
+    throw new Error(`Unsupported report.preview reportType: ${reportTypeCandidate}`);
+  }
+
+  return {
+    scenarioId,
+    reportType: reportTypeCandidate as ReportPresetQuery,
+    filters: parseReportFilters(value.filters)
+  };
+}
+
 function parseNlqPayload(payload: unknown): {
   query: string;
   referenceDate?: string;
@@ -1150,6 +1189,21 @@ function setupIpcHandlers(requestExit: () => void): void {
       };
     }
     throw new Error(`Unsupported reports.query value: ${parsed.query}`);
+  });
+  ipcMain.handle("report.preview", async (_event, payload: unknown) => {
+    const parsed = parseReportPreviewPayload(payload);
+    const handle = requireDatabaseHandle();
+    const dataset = buildReportPresetDataset(
+      handle.db,
+      parsed.reportType,
+      parsed.scenarioId,
+      parsed.filters
+    );
+    return {
+      html: createDashboardHtml(dataset),
+      scenarioId: parsed.scenarioId,
+      reportType: parsed.reportType
+    };
   });
   ipcMain.handle("export.report", async (_event, payload: unknown) => {
     const parsed = parseExportReportPayload(payload);

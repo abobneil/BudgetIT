@@ -35,7 +35,7 @@
 }
 
 .alerts-row--focused {
-  border-left-color: #2563eb;
+  border-left-color: var(--status-info);
 }
 
 .alerts-row__meta {

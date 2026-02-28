@@ -7,6 +7,7 @@ describe("preload IPC bridge", () => {
     const bridge = createBudgetItBridge(async () => "ok");
 
     await expect(bridge.invoke("settings.get")).resolves.toBe("ok");
+    await expect(bridge.invoke("report.preview")).resolves.toBe("ok");
     await expect(bridge.invoke("settings.deleteEverything")).rejects.toThrow(
       "Unauthorized IPC channel: settings.deleteEverything"
     );

@@ -5,6 +5,11 @@ artifactName: BudgetIT-${version}-win-${arch}.${ext}
 directories:
   output: dist/release
 
+npmRebuild: false
+
+toolsets:
+  winCodeSign: "1.1.0"
+
 files:
   - apps/desktop/dist/**/*
   - apps/desktop/assets/**/*
@@ -14,17 +19,23 @@ files:
   - packages/db/package.json
   - package.json
 
+extraResources:
+  - from: apps/desktop/assets/app-icon.ico
+    to: app-icon.ico
+
 extraMetadata:
   main: apps/desktop/dist/main.js
 
 win:
   icon: apps/desktop/assets/app-icon.ico
+  signAndEditExecutable: false
   target:
     - target: nsis
       arch:
         - x64
 
 nsis:
+  include: build/installer.nsh
   oneClick: false
   perMachine: false
   allowToChangeInstallationDirectory: true

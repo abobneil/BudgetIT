@@ -445,52 +445,97 @@ export function SettingsPage() {
 
         <Card className="settings-card settings-card--full">
           <Title3>Backup & Restore</Title3>
-          <div className="settings-card__field-row">
-            <Input
-              aria-label="Backup destination directory"
-              value={backupDestination}
-              onChange={(_event, data) => setBackupDestination(data.value)}
-              placeholder="C:\\Backups\\BudgetIT"
-            />
-            <Button disabled={backupBusy} onClick={() => void handleCreateBackup()}>
-              {backupBusy ? "Working..." : "Create backup"}
-            </Button>
-          </div>
+          <div className="settings-backup">
+            <section className="settings-backup__section">
+              <div className="settings-backup__section-header">
+                <Text weight="semibold">Create backup</Text>
+                <Text size={200}>Write a database backup and manifest to a target directory.</Text>
+              </div>
+              <div className="settings-backup__row settings-backup__row--create">
+                <div className="settings-backup__field">
+                  <Text className="settings-backup__label" size={200} weight="medium">
+                    Destination directory
+                  </Text>
+                  <Input
+                    aria-label="Backup destination directory"
+                    value={backupDestination}
+                    onChange={(_event, data) => setBackupDestination(data.value)}
+                    placeholder="C:\\Backups\\BudgetIT"
+                  />
+                </div>
+                <Button disabled={backupBusy} onClick={() => void handleCreateBackup()}>
+                  {backupBusy ? "Working..." : "Create backup"}
+                </Button>
+              </div>
+            </section>
 
-          <div className="settings-card__field-row">
-            <Input
-              aria-label="Restore backup path"
-              value={backupPathInput}
-              onChange={(_event, data) => setBackupPathInput(data.value)}
-              placeholder="Backup .db path"
-            />
-            <Input
-              aria-label="Restore manifest path"
-              value={manifestPathInput}
-              onChange={(_event, data) => setManifestPathInput(data.value)}
-              placeholder="Manifest .json path"
-            />
-            <Button disabled={restoringBackup} onClick={() => void handleRestoreBackup()}>
-              {restoringBackup ? "Restoring..." : "Restore backup"}
-            </Button>
-          </div>
+            <section className="settings-backup__section">
+              <div className="settings-backup__section-header">
+                <Text weight="semibold">Restore backup</Text>
+                <Text size={200}>Restore from a backup database and its manifest file.</Text>
+              </div>
+              <div className="settings-backup__row settings-backup__row--restore">
+                <div className="settings-backup__field">
+                  <Text className="settings-backup__label" size={200} weight="medium">
+                    Backup path
+                  </Text>
+                  <Input
+                    aria-label="Restore backup path"
+                    value={backupPathInput}
+                    onChange={(_event, data) => setBackupPathInput(data.value)}
+                    placeholder="Backup .db path"
+                  />
+                </div>
+                <div className="settings-backup__field">
+                  <Text className="settings-backup__label" size={200} weight="medium">
+                    Manifest path
+                  </Text>
+                  <Input
+                    aria-label="Restore manifest path"
+                    value={manifestPathInput}
+                    onChange={(_event, data) => setManifestPathInput(data.value)}
+                    placeholder="Manifest .json path"
+                  />
+                </div>
+                <Button disabled={restoringBackup} onClick={() => void handleRestoreBackup()}>
+                  {restoringBackup ? "Restoring..." : "Restore backup"}
+                </Button>
+              </div>
+            </section>
 
-          <div className="settings-card__field-row">
-            <Input
-              aria-label="Verify backup path"
-              value={verifyBackupPathInput}
-              onChange={(_event, data) => setVerifyBackupPathInput(data.value)}
-              placeholder="Backup .db path (optional)"
-            />
-            <Input
-              aria-label="Verify manifest path"
-              value={verifyManifestPathInput}
-              onChange={(_event, data) => setVerifyManifestPathInput(data.value)}
-              placeholder="Manifest .json path (optional)"
-            />
-            <Button disabled={backupBusy} onClick={() => void handleVerifyBackup()}>
-              {backupBusy ? "Working..." : "Verify backup"}
-            </Button>
+            <section className="settings-backup__section">
+              <div className="settings-backup__section-header">
+                <Text weight="semibold">Verify backup integrity</Text>
+                <Text size={200}>Run checksum and manifest validation before restore.</Text>
+              </div>
+              <div className="settings-backup__row settings-backup__row--restore">
+                <div className="settings-backup__field">
+                  <Text className="settings-backup__label" size={200} weight="medium">
+                    Backup path (optional)
+                  </Text>
+                  <Input
+                    aria-label="Verify backup path"
+                    value={verifyBackupPathInput}
+                    onChange={(_event, data) => setVerifyBackupPathInput(data.value)}
+                    placeholder="Backup .db path (optional)"
+                  />
+                </div>
+                <div className="settings-backup__field">
+                  <Text className="settings-backup__label" size={200} weight="medium">
+                    Manifest path (optional)
+                  </Text>
+                  <Input
+                    aria-label="Verify manifest path"
+                    value={verifyManifestPathInput}
+                    onChange={(_event, data) => setVerifyManifestPathInput(data.value)}
+                    placeholder="Manifest .json path (optional)"
+                  />
+                </div>
+                <Button disabled={backupBusy} onClick={() => void handleVerifyBackup()}>
+                  {backupBusy ? "Working..." : "Verify backup"}
+                </Button>
+              </div>
+            </section>
           </div>
 
           {restoreSummary ? (

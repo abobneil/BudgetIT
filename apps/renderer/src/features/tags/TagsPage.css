@@ -1,6 +1,7 @@
 .tags-page {
   display: grid;
   gap: 1rem;
+  padding: 1rem 1.25rem;
 }
 
 .tags-summary-card {
@@ -29,11 +30,28 @@
 }
 
 .tags-detail__create {
-  align-items: center;
   display: grid;
   gap: 0.5rem;
-  grid-template-columns: 1fr auto;
-  margin-top: 0.6rem;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+}
+
+.tags-detail__panel {
+  display: grid;
+  gap: 0.5rem;
+  border: 1px solid var(--colorNeutralStroke2);
+  border-radius: 8px;
+  background: var(--colorNeutralBackground2);
+  padding: 0.55rem;
+}
+
+.tags-detail__field {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.tags-detail__label {
+  color: var(--colorNeutralForeground2);
 }
 
 .tags-detail__tag-list {
@@ -53,6 +71,8 @@
 .tags-detail__merge {
   display: grid;
   gap: 0.45rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) auto;
+  align-items: end;
 }
 
 .tags-queue__items {
@@ -64,10 +84,19 @@
 }
 
 .tags-queue__items li {
-  align-items: center;
+  display: grid;
+  gap: 0.45rem;
+  border: 1px solid var(--colorNeutralStroke2);
+  border-radius: 8px;
+  background: var(--colorNeutralBackground2);
+  padding: 0.55rem;
+}
+
+.tags-queue__controls {
   display: grid;
   gap: 0.5rem;
-  grid-template-columns: minmax(0, 1fr) minmax(160px, 220px) auto;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
 }
 
 @media (max-width: 980px) {
@@ -75,11 +104,9 @@
     grid-template-columns: 1fr;
   }
 
-  .tags-queue__items li {
-    grid-template-columns: 1fr;
-  }
-
-  .tags-detail__create {
+  .tags-queue__controls,
+  .tags-detail__create,
+  .tags-detail__merge {
     grid-template-columns: 1fr;
   }
 }

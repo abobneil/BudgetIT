@@ -11,7 +11,8 @@
     "typecheck": "npm run build --workspace @budgetit/db && npm run typecheck --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
     "build": "npm run build --workspace @budgetit/db && npm run build --workspaces --if-present",
-    "dist:win": "npm run build && electron-builder --config electron-builder.yml --win nsis --publish never",
+    "rebuild:native:electron": "node scripts/rebuild-native-electron.cjs",
+    "dist:win": "npm run build && npm run rebuild:native:electron && electron-builder --config electron-builder.yml --config.npmRebuild=false --win nsis --publish never",
     "release:win": "npm run dist:win",
     "smoke:packaged": "powershell -ExecutionPolicy Bypass -File scripts/release-smoke.ps1"
   },

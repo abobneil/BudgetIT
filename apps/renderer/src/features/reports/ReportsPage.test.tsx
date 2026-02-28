@@ -7,17 +7,19 @@ import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { DashboardDataset } from "../../reporting";
-import { exportReport, queryReport } from "../../lib/ipcClient";
+import { exportReport, previewReport, queryReport } from "../../lib/ipcClient";
 import { budgetItLightTheme } from "../../ui/theme";
 import { ReportsPage } from "./ReportsPage";
 
 vi.mock("../../lib/ipcClient", () => ({
   queryReport: vi.fn(),
-  exportReport: vi.fn()
+  exportReport: vi.fn(),
+  previewReport: vi.fn()
 }));
 
 const queryReportMock = vi.mocked(queryReport);
 const exportReportMock = vi.mocked(exportReport);
+const previewReportMock = vi.mocked(previewReport);
 
 const datasetFixture: DashboardDataset = {
   scenarioId: "baseline",
@@ -66,6 +68,7 @@ describe("ReportsPage", () => {
     localStorage.clear();
     queryReportMock.mockReset();
     exportReportMock.mockReset();
+    previewReportMock.mockReset();
     queryReportMock.mockResolvedValue(datasetFixture);
     exportReportMock.mockImplementation(async (payload) => {
       const input = payload as { formats: Array<"html" | "pdf" | "excel" | "csv" | "png"> };
@@ -75,6 +78,11 @@ describe("ReportsPage", () => {
           [format]: `C:\\exports\\report.${format}`
         }
       };
+    });
+    previewReportMock.mockResolvedValue({
+      html: "<!doctype html><html><body><h1>Preview</h1></body></html>",
+      scenarioId: "baseline",
+      reportType: "dashboard.summary"
     });
   });
 
@@ -168,5 +176,32 @@ describe("ReportsPage", () => {
     expect(await screen.findByText(/C:\\exports\\report\.csv/i)).toBeInTheDocument();
     expect(await screen.findByText(/C:\\exports\\report\.pdf/i)).toBeInTheDocument();
     expect(screen.getAllByText("succeeded").length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("generates an export preview before queueing report export", async () => {
+    renderReportsPage();
+    await screen.findByText("Report Gallery");
+
+    fireEvent.click(screen.getByRole("button", { name: "Open Spend by Tag" }));
+    fireEvent.change(screen.getByLabelText("Filter tag"), {
+      target: { value: "security" }
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Preview report" }));
+
+    await waitFor(() => {
+      expect(previewReportMock).toHaveBeenCalledWith({
+        scenarioId: "baseline",
+        reportType: "spend.byTag",
+        filters: {
+          dateFrom: "2026-01-01",
+          dateTo: "2026-12-31",
+          tag: "security"
+        }
+      });
+    });
+
+    const frame = await screen.findByTitle("Report export preview");
+    expect(frame).toHaveAttribute("srcdoc", expect.stringContaining("<h1>Preview</h1>"));
   });
 });

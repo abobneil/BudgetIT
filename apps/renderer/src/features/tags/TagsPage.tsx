@@ -229,17 +229,25 @@ export function TagsPage() {
               <Text>{`Constraint: ${selectedDimension.mode}`}</Text>
               <Text>{`Required: ${selectedDimension.required ? "yes" : "no"}`}</Text>
 
-              <div className="tags-detail__create">
-                <Input
-                  aria-label="New tag label"
-                  placeholder="Create new tag"
-                  value={newTagLabel}
-                  onChange={(_event, data) => setNewTagLabel(data.value)}
-                />
-                <Button appearance="primary" onClick={handleCreateTag}>
-                  Create tag
-                </Button>
-              </div>
+              <section className="tags-detail__panel">
+                <Text weight="semibold">Create tag</Text>
+                <div className="tags-detail__create">
+                  <div className="tags-detail__field">
+                    <Text className="tags-detail__label" size={200} weight="medium">
+                      New tag label
+                    </Text>
+                    <Input
+                      aria-label="New tag label"
+                      placeholder="Create new tag"
+                      value={newTagLabel}
+                      onChange={(_event, data) => setNewTagLabel(data.value)}
+                    />
+                  </div>
+                  <Button appearance="primary" onClick={handleCreateTag}>
+                    Create tag
+                  </Button>
+                </div>
+              </section>
 
               <ul className="tags-detail__tag-list">
                 {selectedDimension.tags.map((tag) => (
@@ -260,39 +268,52 @@ export function TagsPage() {
                 ))}
               </ul>
 
-              <div className="tags-detail__merge">
-                <Select
-                  aria-label="Merge source tag"
-                  value={mergeSourceTagId}
-                  onChange={(event) => setMergeSourceTagId(event.target.value)}
-                >
-                  <option value="">Select source tag</option>
-                  {selectedDimension.tags
-                    .filter((tag) => !tag.retired)
-                    .map((tag) => (
-                      <option key={tag.id} value={tag.id}>
-                        {tag.label}
-                      </option>
-                    ))}
-                </Select>
-                <Select
-                  aria-label="Merge target tag"
-                  value={mergeTargetTagId}
-                  onChange={(event) => setMergeTargetTagId(event.target.value)}
-                >
-                  <option value="">Select target tag</option>
-                  {selectedDimension.tags
-                    .filter((tag) => !tag.retired)
-                    .map((tag) => (
-                      <option key={tag.id} value={tag.id}>
-                        {tag.label}
-                      </option>
-                    ))}
-                </Select>
-                <Button appearance="secondary" onClick={handleMergeTags}>
-                  Merge
-                </Button>
-              </div>
+              <section className="tags-detail__panel">
+                <Text weight="semibold">Merge tags</Text>
+                <div className="tags-detail__merge">
+                  <div className="tags-detail__field">
+                    <Text className="tags-detail__label" size={200} weight="medium">
+                      Source tag
+                    </Text>
+                    <Select
+                      aria-label="Merge source tag"
+                      value={mergeSourceTagId}
+                      onChange={(event) => setMergeSourceTagId(event.target.value)}
+                    >
+                      <option value="">Select source tag</option>
+                      {selectedDimension.tags
+                        .filter((tag) => !tag.retired)
+                        .map((tag) => (
+                          <option key={tag.id} value={tag.id}>
+                            {tag.label}
+                          </option>
+                        ))}
+                    </Select>
+                  </div>
+                  <div className="tags-detail__field">
+                    <Text className="tags-detail__label" size={200} weight="medium">
+                      Target tag
+                    </Text>
+                    <Select
+                      aria-label="Merge target tag"
+                      value={mergeTargetTagId}
+                      onChange={(event) => setMergeTargetTagId(event.target.value)}
+                    >
+                      <option value="">Select target tag</option>
+                      {selectedDimension.tags
+                        .filter((tag) => !tag.retired)
+                        .map((tag) => (
+                          <option key={tag.id} value={tag.id}>
+                            {tag.label}
+                          </option>
+                        ))}
+                    </Select>
+                  </div>
+                  <Button appearance="secondary" onClick={handleMergeTags}>
+                    Merge
+                  </Button>
+                </div>
+              </section>
             </Card>
           ) : null}
         </section>
@@ -308,41 +329,48 @@ export function TagsPage() {
               const dimension = dimensions.find((item) => item.id === entry.missingDimensionId);
               const selectionKey = `${entry.itemId}:${entry.missingDimensionId}`;
               return (
-                <li key={selectionKey}>
+                <li key={selectionKey} className="tags-queue__item">
                   <Text>{`${entry.itemName} is missing ${
                     dimension?.name ?? entry.missingDimensionId
                   }`}</Text>
-                  <Select
-                    aria-label={`Queue tag ${selectionKey}`}
-                    value={queueSelections[selectionKey] ?? ""}
-                    onChange={(event) =>
-                      setQueueSelections((current) => ({
-                        ...current,
-                        [selectionKey]: event.target.value
-                      }))
-                    }
-                  >
-                    <option value="">Select tag</option>
-                    {(dimension?.tags ?? [])
-                      .filter((tag) => !tag.retired)
-                      .map((tag) => (
-                        <option key={tag.id} value={tag.id}>
-                          {tag.label}
-                        </option>
-                      ))}
-                  </Select>
-                  <Button
-                    appearance="primary"
-                    onClick={() =>
-                      completeQueueItem(
-                        entry.itemId,
-                        entry.missingDimensionId,
-                        queueSelections[selectionKey] ?? ""
-                      )
-                    }
-                  >
-                    Complete queue item
-                  </Button>
+                  <div className="tags-queue__controls">
+                    <div className="tags-detail__field">
+                      <Text className="tags-detail__label" size={200} weight="medium">
+                        Tag assignment
+                      </Text>
+                      <Select
+                        aria-label={`Queue tag ${selectionKey}`}
+                        value={queueSelections[selectionKey] ?? ""}
+                        onChange={(event) =>
+                          setQueueSelections((current) => ({
+                            ...current,
+                            [selectionKey]: event.target.value
+                          }))
+                        }
+                      >
+                        <option value="">Select tag</option>
+                        {(dimension?.tags ?? [])
+                          .filter((tag) => !tag.retired)
+                          .map((tag) => (
+                            <option key={tag.id} value={tag.id}>
+                              {tag.label}
+                            </option>
+                          ))}
+                      </Select>
+                    </div>
+                    <Button
+                      appearance="primary"
+                      onClick={() =>
+                        completeQueueItem(
+                          entry.itemId,
+                          entry.missingDimensionId,
+                          queueSelections[selectionKey] ?? ""
+                        )
+                      }
+                    >
+                      Complete queue item
+                    </Button>
+                  </div>
                 </li>
               );
             })}

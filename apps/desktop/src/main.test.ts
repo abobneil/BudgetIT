@@ -4,6 +4,7 @@ import {
   bootstrapDesktop,
   DIAGNOSTICS_TRACKED_TABLES,
   parseExportReportPayload,
+  parseReportPreviewPayload,
   parseReportsQueryPayload
 } from "./main";
 
@@ -135,6 +136,35 @@ describe("desktop bootstrap", () => {
         "C:\\exports\\default"
       )
     ).toThrow(/Unsupported export\.report format/);
+  });
+
+  it("parses report preview payload and validates report types", () => {
+    const parsedDefault = parseReportPreviewPayload({});
+    expect(parsedDefault.scenarioId).toBe("baseline");
+    expect(parsedDefault.reportType).toBe("dashboard.summary");
+
+    const parsedConfigured = parseReportPreviewPayload({
+      scenarioId: "scenario-2",
+      reportType: "spend.byTag",
+      filters: {
+        dateFrom: "2026-01-01",
+        dateTo: "2026-12-31",
+        tag: "security"
+      }
+    });
+    expect(parsedConfigured.scenarioId).toBe("scenario-2");
+    expect(parsedConfigured.reportType).toBe("spend.byTag");
+    expect(parsedConfigured.filters).toEqual({
+      dateFrom: "2026-01-01",
+      dateTo: "2026-12-31",
+      tag: "security"
+    });
+
+    expect(() =>
+      parseReportPreviewPayload({
+        reportType: "unknown.report"
+      })
+    ).toThrow(/Unsupported report\.preview reportType/);
   });
 
   it("tracks the expected diagnostics tables", () => {

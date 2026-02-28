@@ -565,74 +565,130 @@ export function VendorsPage() {
         submitLabel={drawerMode === "create" ? "Create" : "Save"}
       >
         <div className="vendors-form">
-          <Input
-            aria-label="Vendor name"
-            value={formState.name}
-            onChange={(_event, data) =>
-              setFormState((current) => ({ ...current, name: data.value }))
-            }
-            placeholder="Vendor name"
-          />
-          <Input
-            aria-label="Vendor owner"
-            value={formState.owner}
-            onChange={(_event, data) =>
-              setFormState((current) => ({ ...current, owner: data.value }))
-            }
-            placeholder="Vendor owner"
-          />
-          <Input
-            aria-label="Vendor annual spend minor units"
-            value={formState.annualSpendMinor}
-            onChange={(_event, data) =>
-              setFormState((current) => ({ ...current, annualSpendMinor: data.value }))
-            }
-            placeholder="Annual spend (minor units)"
-          />
-          <Select
-            aria-label="Vendor status"
-            value={formState.status}
-            onChange={(event) =>
-              setFormState((current) => ({
-                ...current,
-                status: event.target.value as VendorStatus
-              }))
-            }
-          >
-            <option value="active">active</option>
-            <option value="watch">watch</option>
-            <option value="archived">archived</option>
-          </Select>
-          <Select
-            aria-label="Vendor risk"
-            value={formState.risk}
-            onChange={(event) =>
-              setFormState((current) => ({
-                ...current,
-                risk: event.target.value as VendorRisk
-              }))
-            }
-          >
-            <option value="low">low</option>
-            <option value="medium">medium</option>
-            <option value="high">high</option>
-          </Select>
-          <Input
-            aria-label="Vendor linked service IDs"
-            value={formState.linkedServiceIdsCsv}
-            onChange={(_event, data) =>
-              setFormState((current) => ({ ...current, linkedServiceIdsCsv: data.value }))
-            }
-            placeholder="Linked service IDs (comma-separated)"
-          />
-          <Input
-            aria-label="Vendor linked contract IDs"
-            value={formState.linkedContractIdsCsv}
-            onChange={(_event, data) =>
-              setFormState((current) => ({ ...current, linkedContractIdsCsv: data.value }))
-            }
-            placeholder="Linked contract IDs (comma-separated)"
-          />
+          <section className="vendors-form__section">
+            <div className="vendors-form__section-header">
+              <Text weight="semibold">Core details</Text>
+              <Text size={200}>Primary identity, owner, and spend profile.</Text>
+            </div>
+            <div className="vendors-form__grid vendors-form__grid--two">
+              <div className="vendors-form__field vendors-form__field--full">
+                <Text className="vendors-form__label" size={200} weight="medium">
+                  Vendor name
+                </Text>
+                <Input
+                  aria-label="Vendor name"
+                  value={formState.name}
+                  onChange={(_event, data) =>
+                    setFormState((current) => ({ ...current, name: data.value }))
+                  }
+                  placeholder="Vendor name"
+                />
+              </div>
+              <div className="vendors-form__field">
+                <Text className="vendors-form__label" size={200} weight="medium">
+                  Owner
+                </Text>
+                <Input
+                  aria-label="Vendor owner"
+                  value={formState.owner}
+                  onChange={(_event, data) =>
+                    setFormState((current) => ({ ...current, owner: data.value }))
+                  }
+                  placeholder="Vendor owner"
+                />
+              </div>
+              <div className="vendors-form__field">
+                <Text className="vendors-form__label" size={200} weight="medium">
+                  Annual spend (minor units)
+                </Text>
+                <Input
+                  aria-label="Vendor annual spend minor units"
+                  type="number"
+                  min="0"
+                  value={formState.annualSpendMinor}
+                  onChange={(_event, data) =>
+                    setFormState((current) => ({ ...current, annualSpendMinor: data.value }))
+                  }
+                  placeholder="50000"
+                />
+                <Text className="vendors-form__hint" size={100}>
+                  Example: 50000 = $500.00.
+                </Text>
+              </div>
+              <div className="vendors-form__field">
+                <Text className="vendors-form__label" size={200} weight="medium">
+                  Status
+                </Text>
+                <Select
+                  aria-label="Vendor status"
+                  value={formState.status}
+                  onChange={(event) =>
+                    setFormState((current) => ({
+                      ...current,
+                      status: event.target.value as VendorStatus
+                    }))
+                  }
+                >
+                  <option value="active">active</option>
+                  <option value="watch">watch</option>
+                  <option value="archived">archived</option>
+                </Select>
+              </div>
+              <div className="vendors-form__field">
+                <Text className="vendors-form__label" size={200} weight="medium">
+                  Risk
+                </Text>
+                <Select
+                  aria-label="Vendor risk"
+                  value={formState.risk}
+                  onChange={(event) =>
+                    setFormState((current) => ({
+                      ...current,
+                      risk: event.target.value as VendorRisk
+                    }))
+                  }
+                >
+                  <option value="low">low</option>
+                  <option value="medium">medium</option>
+                  <option value="high">high</option>
+                </Select>
+              </div>
+            </div>
+          </section>
+          <section className="vendors-form__section">
+            <div className="vendors-form__section-header">
+              <Text weight="semibold">Linked records</Text>
+              <Text size={200}>Optional relationship IDs for services and contracts.</Text>
+            </div>
+            <div className="vendors-form__grid">
+              <div className="vendors-form__field">
+                <Text className="vendors-form__label" size={200} weight="medium">
+                  Linked service IDs
+                </Text>
+                <Input
+                  aria-label="Vendor linked service IDs"
+                  value={formState.linkedServiceIdsCsv}
+                  onChange={(_event, data) =>
+                    setFormState((current) => ({ ...current, linkedServiceIdsCsv: data.value }))
+                  }
+                  placeholder="Linked service IDs (comma-separated)"
+                />
+              </div>
+              <div className="vendors-form__field">
+                <Text className="vendors-form__label" size={200} weight="medium">
+                  Linked contract IDs
+                </Text>
+                <Input
+                  aria-label="Vendor linked contract IDs"
+                  value={formState.linkedContractIdsCsv}
+                  onChange={(_event, data) =>
+                    setFormState((current) => ({ ...current, linkedContractIdsCsv: data.value }))
+                  }
+                  placeholder="Linked contract IDs (comma-separated)"
+                />
+              </div>
+            </div>
+          </section>
         </div>
         {formError ? <InlineError message={formError} /> : null}
       </FormDrawer>

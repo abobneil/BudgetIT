@@ -14,6 +14,7 @@ const invokeChannels = [
   "import.preview",
   "import.commit",
   "reports.query",
+  "report.preview",
   "export.report",
   "nlq.parse"
 ] as const;
