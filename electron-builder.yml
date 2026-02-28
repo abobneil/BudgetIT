@@ -18,6 +18,7 @@ extraMetadata:
   main: apps/desktop/dist/main.js
 
 win:
+  icon: apps/desktop/assets/app-icon.ico
   target:
     - target: nsis
       arch:
@@ -27,6 +28,9 @@ nsis:
   oneClick: false
   perMachine: false
   allowToChangeInstallationDirectory: true
+  installerIcon: apps/desktop/assets/app-icon.ico
+  uninstallerIcon: apps/desktop/assets/app-icon.ico
+  installerHeaderIcon: apps/desktop/assets/app-icon.ico
   artifactName: BudgetIT-Setup-${version}-${arch}.${ext}
   createDesktopShortcut: always
   runAfterFinish: true

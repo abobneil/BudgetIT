@@ -107,6 +107,7 @@ const BACKUP_HEALTH_FILE_NAME = "backup-health.json";
 const BACKUP_STALE_THRESHOLD_DAYS = 7;
 const IMPORT_TEMPLATE_FILE_NAME = "import-mappings.json";
 const AUTO_TAG_RULES_FILE_NAME = "auto-tag-rules.json";
+const APP_ICON_FILE_NAME = "app-icon.ico";
 const TRAY_ICON_FILE_NAME = "tray-icon.png";
 const DIAGNOSTICS_LOG_DIR_NAME = "logs";
 const DIAGNOSTICS_LOG_FILE_NAME = "desktop.log";
@@ -174,6 +175,7 @@ export function getMainWindowOptions(preloadPath: string): BrowserWindowConstruc
     minWidth: 1024,
     minHeight: 720,
     show: false,
+    icon: resolveMainWindowIconPath(),
     webPreferences: {
       preload: preloadPath,
       contextIsolation: true,
@@ -283,6 +285,20 @@ function getImportTemplateStorePath(): string {
 
 function getAutoTagRulesPath(): string {
   return path.join(app.getPath("userData"), AUTO_TAG_RULES_FILE_NAME);
+}
+
+function resolveMainWindowIconPath(): string | undefined {
+  const appIconPath = path.join(__dirname, "../assets", APP_ICON_FILE_NAME);
+  if (fs.existsSync(appIconPath)) {
+    return appIconPath;
+  }
+
+  const trayIconPath = path.join(__dirname, "../assets", TRAY_ICON_FILE_NAME);
+  if (fs.existsSync(trayIconPath)) {
+    return trayIconPath;
+  }
+
+  return undefined;
 }
 
 function serializeDiagnosticDetails(details: unknown): string {
