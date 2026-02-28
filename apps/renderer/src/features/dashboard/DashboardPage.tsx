@@ -692,7 +692,7 @@ export function DashboardPage() {
             </Button>
           }
         />
-      ) : !dataset || !kpis ? (
+      ) : !dataset || !visibleDataset || !kpis ? (
         <EmptyState
           title="No dashboard data available"
           description="Import or create records to populate dashboard insights."
