@@ -26,6 +26,9 @@ import {
 } from "../../ui/primitives";
 import {
   buildDashboardKpiMetrics,
+  DASHBOARD_RANGE_MONTHS,
+  filterDashboardDatasetByRange,
+  type DashboardRange,
   mapDashboardStaleState
 } from "./dashboard-model";
 import "./DashboardPage.css";
@@ -44,6 +47,13 @@ const EXPORT_FORMAT_OPTIONS: Array<{ format: ExportFormat; label: string }> = [
   { format: "png", label: "Export PNG" }
 ];
 
+const DASHBOARD_RANGE_OPTIONS: Array<{ id: DashboardRange; label: string }> = [
+  { id: "1m", label: "1m" },
+  { id: "3m", label: "3m" },
+  { id: "12m", label: "12m" },
+  { id: "60m", label: "60m" }
+];
+
 function formatUsd(minor: number): string {
   return CURRENCY_FORMATTER.format(minor / 100);
 }
@@ -59,6 +69,10 @@ function barWidth(value: number, max: number): string {
   return `${Math.max((value / max) * 100, 2)}%`;
 }
 
+function formatMonthWindow(months: number): string {
+  return `${months} month${months === 1 ? "" : "s"}`;
+}
+
 export function DashboardPage() {
   const { selectedScenarioId, selectedScenario } = useScenarioContext();
   const navigate = useNavigate();
@@ -67,36 +81,43 @@ export function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [exportingFormat, setExportingFormat] = useState<ExportFormat | null>(null);
+  const [selectedRange, setSelectedRange] = useState<DashboardRange>("12m");
   const [exportFiles, setExportFiles] = useState<
     Partial<Record<ExportFormat, string>>
   >({});
 
+  const visibleDataset = useMemo(
+    () => (dataset ? filterDashboardDatasetByRange(dataset, selectedRange) : null),
+    [dataset, selectedRange]
+  );
   const kpis = useMemo(
-    () => (dataset ? buildDashboardKpiMetrics(dataset) : null),
-    [dataset]
+    () => (visibleDataset ? buildDashboardKpiMetrics(visibleDataset) : null),
+    [visibleDataset]
   );
   const staleState = useMemo(
     () => (dataset ? mapDashboardStaleState(dataset) : { isStale: false, message: null }),
     [dataset]
   );
   const maxSpendMinor = useMemo(() => {
-    if (!dataset || dataset.spendTrend.length === 0) {
+    if (!visibleDataset || visibleDataset.spendTrend.length === 0) {
       return 0;
     }
-    return Math.max(...dataset.spendTrend.map((row) => Math.max(row.forecastMinor, row.actualMinor)));
-  }, [dataset]);
+    return Math.max(
+      ...visibleDataset.spendTrend.map((row) => Math.max(row.forecastMinor, row.actualMinor))
+    );
+  }, [visibleDataset]);
   const maxRenewalCount = useMemo(() => {
-    if (!dataset || dataset.renewals.length === 0) {
+    if (!visibleDataset || visibleDataset.renewals.length === 0) {
       return 0;
     }
-    return Math.max(...dataset.renewals.map((row) => row.count));
-  }, [dataset]);
+    return Math.max(...visibleDataset.renewals.map((row) => row.count));
+  }, [visibleDataset]);
   const maxVarianceMinor = useMemo(() => {
-    if (!dataset || dataset.variance.length === 0) {
+    if (!visibleDataset || visibleDataset.variance.length === 0) {
       return 0;
     }
-    return Math.max(...dataset.variance.map((row) => Math.abs(row.varianceMinor)));
-  }, [dataset]);
+    return Math.max(...visibleDataset.variance.map((row) => Math.abs(row.varianceMinor)));
+  }, [visibleDataset]);
 
   async function loadDashboard(
     scenarioId: string,
@@ -164,9 +185,21 @@ export function DashboardPage() {
         title="Dashboard"
         subtitle={`Decision-ready view for forecast, actuals, renewals, and replacement readiness. Active scenario: ${
           selectedScenario?.name ?? selectedScenarioId
-        }.`}
+        }. Window: ${formatMonthWindow(DASHBOARD_RANGE_MONTHS[selectedRange])}.`}
         actions={
           <div className="dashboard-page__actions">
+            <div className="dashboard-page__range" role="group" aria-label="Dashboard range">
+              {DASHBOARD_RANGE_OPTIONS.map((option) => (
+                <Button
+                  key={option.id}
+                  appearance={selectedRange === option.id ? "primary" : "secondary"}
+                  onClick={() => setSelectedRange(option.id)}
+                  size="small"
+                >
+                  {option.label}
+                </Button>
+              ))}
+            </div>
             <Button
               appearance="secondary"
               onClick={() => void loadDashboard(selectedScenarioId)}
@@ -253,6 +286,7 @@ export function DashboardPage() {
         />
       ) : (
         <>
+          <Text>{`Showing last ${formatMonthWindow(DASHBOARD_RANGE_MONTHS[selectedRange])}.`}</Text>
           <section className="dashboard-kpis">
             <Card className="dashboard-kpi-card">
               <Text>Forecast</Text>
@@ -291,7 +325,7 @@ export function DashboardPage() {
               <Card className="dashboard-chart-card">
                 <Title3>Spend Trend</Title3>
                 <div className="dashboard-chart">
-                  {dataset.spendTrend.map((row) => (
+                  {visibleDataset?.spendTrend.map((row) => (
                     <div className="dashboard-chart__row" key={row.month}>
                       <Text className="dashboard-chart__label">{row.month}</Text>
                       <div className="dashboard-chart__bar-group">
@@ -319,7 +353,7 @@ export function DashboardPage() {
               <Card className="dashboard-chart-card">
                 <Title3>Variance</Title3>
                 <div className="dashboard-chart">
-                  {dataset.variance.map((row) => (
+                  {visibleDataset?.variance.map((row) => (
                     <div className="dashboard-chart__row" key={row.month}>
                       <Text className="dashboard-chart__label">{row.month}</Text>
                       <div className="dashboard-chart__bar-track">
@@ -344,10 +378,10 @@ export function DashboardPage() {
               <Card className="dashboard-chart-card">
                 <Title3>Renewals Timeline</Title3>
                 <div className="dashboard-chart">
-                  {dataset.renewals.length === 0 ? (
+                  {!visibleDataset || visibleDataset.renewals.length === 0 ? (
                     <Text>No renewals scheduled.</Text>
                   ) : (
-                    dataset.renewals.map((row) => (
+                    visibleDataset.renewals.map((row) => (
                       <div className="dashboard-chart__row" key={row.month}>
                         <Text className="dashboard-chart__label">{row.month}</Text>
                         <div className="dashboard-chart__bar-track">

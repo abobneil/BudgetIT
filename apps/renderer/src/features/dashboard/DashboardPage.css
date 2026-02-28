@@ -13,10 +13,17 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.dashboard-page__range {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
 }
 
 .dashboard-page__stale-card {
-  border-left: 4px solid #d97706;
+  border-left: 4px solid var(--status-warning);
   display: grid;
   gap: 0.5rem;
 }
@@ -70,7 +77,7 @@
 .dashboard-chart__bar-track {
   height: 0.45rem;
   border-radius: 999px;
-  background: #d1d5db;
+  background: var(--colorNeutralBackground3);
   overflow: hidden;
 }
 
@@ -80,23 +87,23 @@
 }
 
 .dashboard-chart__bar--forecast {
-  background: #6366f1;
+  background: var(--status-muted);
 }
 
 .dashboard-chart__bar--actual {
-  background: #0ea5e9;
+  background: var(--status-info);
 }
 
 .dashboard-chart__bar--variance-up {
-  background: #d97706;
+  background: var(--status-warning);
 }
 
 .dashboard-chart__bar--variance-down {
-  background: #16a34a;
+  background: var(--status-success);
 }
 
 .dashboard-chart__bar--renewal {
-  background: #ec4899;
+  background: var(--status-info);
 }
 
 .dashboard-chart__label,

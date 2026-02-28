@@ -4,14 +4,14 @@
   height: 100vh;
   max-height: 100vh;
   overflow: hidden;
-  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-  color: #1f2328;
+  font-family: "Roboto", "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  color: var(--colorNeutralForeground1);
 }
 
 .desktop-shell__nav {
-  border-right: 1px solid #d1d9e0;
+  border-right: 1px solid var(--colorNeutralStroke2);
   padding: 1rem 0.75rem;
-  background: #f6f8fa;
+  background: var(--colorNeutralBackground2);
   display: grid;
   align-content: start;
   gap: 0.25rem;
@@ -26,19 +26,19 @@
 
 .desktop-shell__link {
   text-decoration: none;
-  color: #24292f;
+  color: var(--colorNeutralForeground2);
   padding: 0.55rem 0.5rem;
   border-radius: 8px;
   font-size: 0.95rem;
 }
 
 .desktop-shell__link:hover {
-  background: #eaedf1;
+  background: var(--colorNeutralBackground3);
 }
 
 .desktop-shell__link--active {
-  background: #dbeafe;
-  color: #0b5fff;
+  background: var(--colorBrandBackground2);
+  color: var(--colorBrandForeground1);
   font-weight: 600;
 }
 
@@ -54,13 +54,13 @@
   position: sticky;
   top: 0;
   z-index: 5;
-  border-bottom: 1px solid #d1d9e0;
+  border-bottom: 1px solid var(--colorNeutralStroke2);
   padding: 0.75rem 1rem;
   display: grid;
   grid-template-columns: 1fr auto minmax(15rem, 1fr) auto auto;
   gap: 0.75rem;
   align-items: center;
-  background: #ffffff;
+  background: var(--colorNeutralBackground1);
 }
 
 .desktop-shell__title {
@@ -70,30 +70,32 @@
 
 .desktop-shell__toolbar-input,
 .desktop-shell__toolbar-select {
-  border: 1px solid #c2cad3;
+  border: 1px solid var(--colorNeutralStroke1);
   border-radius: 6px;
   padding: 0.4rem 0.5rem;
   font: inherit;
+  color: var(--colorNeutralForeground1);
+  background: var(--colorNeutralBackground1);
 }
 
 .desktop-shell__toolbar-button {
-  border: 1px solid #c2cad3;
+  border: 1px solid var(--colorNeutralStroke1);
   border-radius: 6px;
-  background: #fff;
+  background: var(--colorNeutralBackground1);
   padding: 0.4rem 0.7rem;
   cursor: pointer;
 }
 
 .desktop-shell__feedback {
-  border-bottom: 1px solid #d1d9e0;
-  background: #ecfdf3;
-  color: #166534;
+  border-bottom: 1px solid var(--colorNeutralStroke2);
+  background: color-mix(in srgb, var(--status-success) 14%, var(--colorNeutralBackground1));
+  color: var(--status-success);
   padding: 0.4rem 1rem;
 }
 
 .desktop-shell__feedback--error {
-  background: #fef2f2;
-  color: #991b1b;
+  background: color-mix(in srgb, var(--status-danger) 16%, var(--colorNeutralBackground1));
+  color: var(--status-danger);
 }
 
 .desktop-shell__command-list {
@@ -106,8 +108,8 @@
 
 .desktop-shell__command-row {
   width: 100%;
-  border: 1px solid #d1d9e0;
-  background: #fff;
+  border: 1px solid var(--colorNeutralStroke2);
+  background: var(--colorNeutralBackground1);
   border-radius: 8px;
   padding: 0.45rem 0.55rem;
   display: flex;
@@ -118,19 +120,19 @@
 }
 
 .desktop-shell__command-row--active {
-  border-color: #60a5fa;
-  background: #eff6ff;
+  border-color: var(--status-info);
+  background: color-mix(in srgb, var(--status-info) 12%, var(--colorNeutralBackground1));
 }
 
 .desktop-shell__command-shortcut {
-  color: #4b5563;
+  color: var(--colorNeutralForeground3);
   font-size: 0.82rem;
 }
 
 .desktop-shell__command-hint {
   margin-top: 0.75rem;
   display: block;
-  color: #57606a;
+  color: var(--colorNeutralForeground3);
 }
 
 .desktop-shell__keyboard-map {
@@ -143,7 +145,7 @@
 .desktop-shell__page {
   min-height: 0;
   overflow: auto;
-  background: #ffffff;
+  background: var(--colorNeutralBackground1);
 }
 
 @media (max-width: 900px) {
@@ -154,7 +156,7 @@
 
   .desktop-shell__nav {
     border-right: 0;
-    border-bottom: 1px solid #d1d9e0;
+    border-bottom: 1px solid var(--colorNeutralStroke2);
     grid-auto-flow: column;
     overflow-x: auto;
     overflow-y: hidden;

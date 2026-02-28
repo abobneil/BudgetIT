@@ -117,6 +117,80 @@ describe("DashboardPage", () => {
     });
   });
 
+  it("applies 1m/3m/12m/60m range chips to visible dashboard data", async () => {
+    queryReportMock.mockResolvedValue({
+      ...datasetFixture,
+      staleForecast: false,
+      spendTrend: [
+        { month: "2026-01", forecastMinor: 1000, actualMinor: 900 },
+        { month: "2026-02", forecastMinor: 2000, actualMinor: 2100 },
+        { month: "2026-03", forecastMinor: 3000, actualMinor: 3100 },
+        { month: "2026-04", forecastMinor: 4000, actualMinor: 3900 }
+      ],
+      variance: [
+        {
+          month: "2026-01",
+          forecastMinor: 1000,
+          actualMinor: 900,
+          varianceMinor: -100,
+          unmatchedActualMinor: 0,
+          unmatchedCount: 0
+        },
+        {
+          month: "2026-02",
+          forecastMinor: 2000,
+          actualMinor: 2100,
+          varianceMinor: 100,
+          unmatchedActualMinor: 0,
+          unmatchedCount: 0
+        },
+        {
+          month: "2026-03",
+          forecastMinor: 3000,
+          actualMinor: 3100,
+          varianceMinor: 100,
+          unmatchedActualMinor: 0,
+          unmatchedCount: 0
+        },
+        {
+          month: "2026-04",
+          forecastMinor: 4000,
+          actualMinor: 3900,
+          varianceMinor: -100,
+          unmatchedActualMinor: 0,
+          unmatchedCount: 0
+        }
+      ],
+      renewals: [
+        { month: "2026-01", count: 1 },
+        { month: "2026-02", count: 1 },
+        { month: "2026-03", count: 1 },
+        { month: "2026-04", count: 1 }
+      ],
+      growth: [
+        { month: "2026-01", forecastMinor: 1000, growthPct: null },
+        { month: "2026-02", forecastMinor: 2000, growthPct: 100 },
+        { month: "2026-03", forecastMinor: 3000, growthPct: 50 },
+        { month: "2026-04", forecastMinor: 4000, growthPct: 33.3 }
+      ]
+    });
+
+    renderDashboardPage();
+
+    await screen.findByText("Showing last 12 months.");
+    expect(screen.getAllByText("2026-01").length).toBeGreaterThan(0);
+
+    fireEvent.click(screen.getByRole("button", { name: "1m" }));
+    await screen.findByText("Showing last 1 month.");
+    expect(screen.queryAllByText("2026-01")).toHaveLength(0);
+    expect(screen.getAllByText("2026-04").length).toBeGreaterThan(0);
+
+    fireEvent.click(screen.getByRole("button", { name: "3m" }));
+    await screen.findByText("Showing last 3 months.");
+    expect(screen.queryAllByText("2026-01")).toHaveLength(0);
+    expect(screen.getAllByText("2026-02").length).toBeGreaterThan(0);
+  });
+
   it("exports selected format and displays output path", async () => {
     exportReportMock.mockResolvedValue({
       files: { csv: "C:\\exports\\dashboard.csv" }

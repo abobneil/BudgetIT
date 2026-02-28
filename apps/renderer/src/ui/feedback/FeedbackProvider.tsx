@@ -23,12 +23,16 @@ type FeedbackItem = {
   tone: FeedbackTone;
   message: string;
   title?: string;
+  guidance?: string;
+  correlationId?: string;
 };
 
 type NotifyOptions = {
   tone: FeedbackTone;
   message: string;
   title?: string;
+  guidance?: string;
+  correlationId?: string;
   durationMs?: number;
 };
 
@@ -67,9 +71,16 @@ export function FeedbackProvider({ children }: PropsWithChildren) {
   }, []);
 
   const notify = useCallback(
-    ({ tone, message, title, durationMs }: NotifyOptions) => {
+    ({ tone, message, title, guidance, correlationId, durationMs }: NotifyOptions) => {
       const id = createFeedbackId();
-      const next: FeedbackItem = { id, tone, message, title };
+      const next: FeedbackItem = {
+        id,
+        tone,
+        message,
+        title,
+        guidance,
+        correlationId
+      };
       setItems((current) => [next, ...current].slice(0, 6));
 
       const timeoutMs = durationMs ?? (tone === "error" ? 7000 : 4500);
@@ -127,6 +138,10 @@ export function FeedbackProvider({ children }: PropsWithChildren) {
               </Button>
             </div>
             <Text>{item.message}</Text>
+            {item.guidance ? <Text>{item.guidance}</Text> : null}
+            {item.correlationId ? (
+              <Text>{`Correlation ID: ${item.correlationId}`}</Text>
+            ) : null}
           </article>
         ))}
       </section>

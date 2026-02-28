@@ -8,7 +8,8 @@ import {
 function withBudgetItTokens(theme: Theme): Theme {
   return {
     ...theme,
-    fontFamilyBase: '"Segoe UI", Tahoma, Geneva, Verdana, sans-serif',
+    fontFamilyBase: '"Roboto", "Segoe UI", Tahoma, Geneva, Verdana, sans-serif',
+    fontFamilyMonospace: '"JetBrains Mono", "Consolas", "Cascadia Mono", "Courier New", monospace',
     borderRadiusMedium: "8px",
     borderRadiusLarge: "12px"
   };

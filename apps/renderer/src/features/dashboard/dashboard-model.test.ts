@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { DashboardDataset } from "../../reporting";
 import {
   buildDashboardKpiMetrics,
+  filterDashboardDatasetByRange,
   mapDashboardStaleState
 } from "./dashboard-model";
 
@@ -83,5 +84,57 @@ describe("dashboard model", () => {
 
     expect(staleState.isStale).toBe(true);
     expect(staleState.message).toContain("stale");
+  });
+
+  it("filters dashboard dataset to the selected monthly range", () => {
+    const filtered = filterDashboardDatasetByRange(
+      {
+        ...fixtureDataset,
+        spendTrend: [
+          { month: "2025-11", forecastMinor: 4000, actualMinor: 4500 },
+          { month: "2025-12", forecastMinor: 8000, actualMinor: 7800 },
+          ...fixtureDataset.spendTrend
+        ],
+        variance: [
+          {
+            month: "2025-11",
+            forecastMinor: 4000,
+            actualMinor: 4500,
+            varianceMinor: 500,
+            unmatchedActualMinor: 0,
+            unmatchedCount: 0
+          },
+          {
+            month: "2025-12",
+            forecastMinor: 8000,
+            actualMinor: 7800,
+            varianceMinor: -200,
+            unmatchedActualMinor: 0,
+            unmatchedCount: 0
+          },
+          ...fixtureDataset.variance
+        ],
+        renewals: [
+          { month: "2025-12", count: 1 },
+          ...fixtureDataset.renewals
+        ],
+        growth: [
+          { month: "2025-11", forecastMinor: 4000, growthPct: null },
+          { month: "2025-12", forecastMinor: 8000, growthPct: 100 },
+          ...fixtureDataset.growth
+        ]
+      },
+      "3m"
+    );
+
+    expect(filtered.spendTrend).toHaveLength(3);
+    expect(filtered.spendTrend.map((row) => row.month)).toEqual([
+      "2026-01",
+      "2026-02",
+      "2026-03"
+    ]);
+    expect(filtered.variance).toHaveLength(3);
+    expect(filtered.growth).toHaveLength(3);
+    expect(filtered.renewals).toHaveLength(3);
   });
 });

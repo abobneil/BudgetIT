@@ -9,6 +9,11 @@ export function LoadingState({
   label = "Loading...",
   rows = 4
 }: LoadingStateProps) {
+  const prefersReducedMotion =
+    typeof window !== "undefined" &&
+    typeof window.matchMedia === "function" &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
   return (
     <Card
       aria-live="polite"
@@ -33,9 +38,12 @@ export function LoadingState({
               height: "0.7rem",
               borderRadius: "999px",
               width: index % 3 === 0 ? "82%" : index % 2 === 0 ? "65%" : "100%",
-              background: "linear-gradient(90deg, #e5e7eb 0%, #f3f4f6 45%, #e5e7eb 100%)",
+              background:
+                "linear-gradient(90deg, var(--colorNeutralBackground4) 0%, var(--colorNeutralBackground3) 45%, var(--colorNeutralBackground4) 100%)",
               backgroundSize: "220% 100%",
-              animation: "budgetit-loading-wave 1.3s ease-in-out infinite"
+              animation: prefersReducedMotion
+                ? "none"
+                : "budgetit-loading-wave 1.3s ease-in-out infinite"
             }}
           />
         ))}

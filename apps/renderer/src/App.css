@@ -8,16 +8,52 @@ body,
   overflow: hidden;
 }
 
+body {
+  font-family: "Roboto", "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+}
+
 *,
 *::before,
 *::after {
   box-sizing: border-box;
 }
 
+.budgetit-theme {
+  --status-success: #16a34a;
+  --status-warning: #d97706;
+  --status-danger: #dc2626;
+  --status-info: #2563eb;
+  --status-muted: #6b7280;
+}
+
+.budgetit-theme--light {
+  color-scheme: light;
+}
+
+.budgetit-theme--dark {
+  color-scheme: dark;
+  --status-success: #22c55e;
+  --status-warning: #f59e0b;
+  --status-danger: #ef4444;
+  --status-info: #60a5fa;
+  --status-muted: #9ca3af;
+}
+
+.budgetit-theme--highContrast {
+  color-scheme: dark;
+}
+
+code,
+pre,
+kbd,
+samp {
+  font-family: "JetBrains Mono", "Consolas", "Cascadia Mono", "Courier New", monospace;
+}
+
 .app-shell {
-  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  font-family: "Roboto", "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
   padding: 2rem;
-  color: #222;
+  color: var(--colorNeutralForeground1);
   display: grid;
   gap: 1.5rem;
 }
@@ -49,7 +85,7 @@ p {
 
 .status {
   font-size: 0.9rem;
-  color: #555;
+  color: var(--colorNeutralForeground3);
 }
 
 .crud-grid {
@@ -59,7 +95,7 @@ p {
 }
 
 .crud-card {
-  border: 1px solid #ddd;
+  border: 1px solid var(--colorNeutralStroke2);
   border-radius: 8px;
   padding: 0.75rem;
   display: grid;
@@ -97,6 +133,17 @@ p {
   }
   100% {
     background-position: -200% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
   }
 }
 
