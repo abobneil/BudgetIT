@@ -85,9 +85,12 @@ export function toUsdMinorUnits(value: number | string): number {
     throw new Error(`Invalid USD amount: ${value}`);
   }
 
-  const [whole, fractional = ""] = text.split(".");
+  const isNegative = text.startsWith("-");
+  const normalized = isNegative ? text.slice(1) : text;
+  const [whole, fractional = ""] = normalized.split(".");
   const cents = `${fractional}00`.slice(0, 2);
-  return Number.parseInt(whole, 10) * 100 + Number.parseInt(cents, 10);
+  const minorUnits = Number.parseInt(whole, 10) * 100 + Number.parseInt(cents, 10);
+  return isNegative ? -minorUnits : minorUnits;
 }
 
 export class BudgetCrudRepository {

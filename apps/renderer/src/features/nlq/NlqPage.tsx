@@ -114,7 +114,7 @@ export function NlqPage() {
         scenarioId: selectedScenarioId,
         reportType: "nlq.results",
         formats: [exportFormat],
-        destinationPath: exportPath,
+        outputDir: exportPath,
         filterSpec: result.filterSpec
       });
       const output = exported.files[exportFormat];

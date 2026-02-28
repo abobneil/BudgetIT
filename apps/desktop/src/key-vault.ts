@@ -28,9 +28,16 @@ export class FileSecretVault {
       return null;
     }
 
-    const payload = JSON.parse(fs.readFileSync(this.secretPath, "utf8")) as StoredSecretPayload;
-    const encrypted = Buffer.from(payload.encryptedBase64, "base64");
-    return this.cipher.decrypt(encrypted);
+    try {
+      const payload = JSON.parse(fs.readFileSync(this.secretPath, "utf8")) as Partial<StoredSecretPayload>;
+      if (payload?.version !== 1 || typeof payload.encryptedBase64 !== "string") {
+        return null;
+      }
+      const encrypted = Buffer.from(payload.encryptedBase64, "base64");
+      return this.cipher.decrypt(encrypted);
+    } catch {
+      return null;
+    }
   }
 
   writeSecret(secret: string): void {

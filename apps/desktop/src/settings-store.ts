@@ -8,9 +8,13 @@ export function readRuntimeSettings(filePath: string): RuntimeSettings {
     return DEFAULT_RUNTIME_SETTINGS;
   }
 
-  const raw = fs.readFileSync(filePath, "utf8");
-  const parsed = JSON.parse(raw) as Partial<RuntimeSettings>;
-  return mergeRuntimeSettings(DEFAULT_RUNTIME_SETTINGS, parsed);
+  try {
+    const raw = fs.readFileSync(filePath, "utf8");
+    const parsed = JSON.parse(raw) as Partial<RuntimeSettings>;
+    return mergeRuntimeSettings(DEFAULT_RUNTIME_SETTINGS, parsed);
+  } catch {
+    return DEFAULT_RUNTIME_SETTINGS;
+  }
 }
 
 export function writeRuntimeSettings(filePath: string, settings: RuntimeSettings): void {

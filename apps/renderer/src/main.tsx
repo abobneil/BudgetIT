@@ -1,7 +1,7 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { FluentProvider } from "@fluentui/react-components";
-import { BrowserRouter } from "react-router-dom";
+import { HashRouter } from "react-router-dom";
 
 import { AppShell } from "./app/AppShell";
 import { AppRoutes } from "./app/routes";
@@ -15,11 +15,11 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
     <ScenarioProvider>
       <FluentProvider theme={budgetItLightTheme}>
         <FeedbackProvider>
-          <BrowserRouter>
+          <HashRouter>
             <AppShell>
               <AppRoutes />
             </AppShell>
-          </BrowserRouter>
+          </HashRouter>
         </FeedbackProvider>
       </FluentProvider>
     </ScenarioProvider>

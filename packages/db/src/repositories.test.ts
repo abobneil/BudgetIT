@@ -137,6 +137,9 @@ describe("budget CRUD repository", () => {
 
       expect(toUsdMinorUnits(0.1 + 0.2)).toBe(30);
       expect(toUsdMinorUnits("123.45")).toBe(12345);
+      expect(toUsdMinorUnits("-1.23")).toBe(-123);
+      expect(toUsdMinorUnits(-1.23)).toBe(-123);
+      expect(toUsdMinorUnits("-0.09")).toBe(-9);
     } finally {
       boot.db.close();
     }

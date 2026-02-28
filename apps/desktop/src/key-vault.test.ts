@@ -66,5 +66,14 @@ describe("secure key vault", () => {
     vault.writeSecret(imported);
     expect(vault.readSecret()).toBe(sourceKey);
   });
+
+  it("returns null when secret file payload is corrupted", () => {
+    const root = createTempRoot();
+    const secretPath = path.join(root, "db-key.json");
+    fs.writeFileSync(secretPath, "{broken", "utf8");
+
+    const vault = new FileSecretVault(secretPath, createFakeCipher());
+    expect(vault.readSecret()).toBeNull();
+  });
 });
 

@@ -144,6 +144,7 @@ describe("ReportsPage", () => {
         expect.objectContaining({
           scenarioId: "baseline",
           reportType: "spend.byVendor",
+          outputDir: "C:\\exports\\reports",
           formats: ["csv"]
         })
       );
@@ -158,6 +159,7 @@ describe("ReportsPage", () => {
         expect.objectContaining({
           scenarioId: "baseline",
           reportType: "spend.byVendor",
+          outputDir: "C:\\exports\\reports",
           formats: ["pdf"]
         })
       );

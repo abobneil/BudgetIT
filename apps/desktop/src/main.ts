@@ -5,7 +5,7 @@ import path from "node:path";
 
 import {
   bootstrapEncryptedDatabase,
-  buildDashboardDataset,
+  buildReportPresetDataset,
   buildMonthlyVarianceDataset,
   createEncryptedBackup,
   getReplacementPlanDetail,
@@ -16,6 +16,9 @@ import {
   restoreEncryptedBackup,
   runMigrations,
   type AlertEventRecord,
+  type FilterSpec,
+  type ReportDatasetFilters,
+  type ReportPresetQuery,
   type RestoreEncryptedBackupResult
 } from "@budgetit/db";
 import {
@@ -79,7 +82,9 @@ import {
 } from "./actuals-import";
 import {
   exportDashboardReport,
+  exportNlqResultsReport,
   type ExportFormat,
+  type NlqExportFormat,
   type ReportRenderers
 } from "./report-export";
 
@@ -102,6 +107,9 @@ const BACKUP_HEALTH_FILE_NAME = "backup-health.json";
 const BACKUP_STALE_THRESHOLD_DAYS = 7;
 const IMPORT_TEMPLATE_FILE_NAME = "import-mappings.json";
 const AUTO_TAG_RULES_FILE_NAME = "auto-tag-rules.json";
+const TRAY_ICON_FILE_NAME = "tray-icon.png";
+const DIAGNOSTICS_LOG_DIR_NAME = "logs";
+const DIAGNOSTICS_LOG_FILE_NAME = "desktop.log";
 
 const IMPORT_FIELDS = new Set([
   "scenarioId",
@@ -123,6 +131,41 @@ const IMPORT_FIELDS = new Set([
   "description",
   "costCenter"
 ]);
+
+export type ReportsQueryValue =
+  | ReportPresetQuery
+  | "variance.monthly"
+  | "replacement.detail"
+  | "maintenance.materialize"
+  | "maintenance.diagnostics";
+
+const REPORT_PRESET_QUERY_SET = new Set<ReportPresetQuery>([
+  "dashboard.summary",
+  "renewals.timeline",
+  "spend.byTag",
+  "spend.byVendor",
+  "replacement.pipeline",
+  "tagging.completeness",
+  "nlq.saved"
+]);
+
+const REPORT_QUERY_SET = new Set<ReportsQueryValue>([
+  ...REPORT_PRESET_QUERY_SET,
+  "variance.monthly",
+  "replacement.detail",
+  "maintenance.materialize",
+  "maintenance.diagnostics"
+]);
+
+export const DIAGNOSTICS_TRACKED_TABLES = [
+  "vendor",
+  "service",
+  "contract",
+  "expense_line",
+  "occurrence",
+  "spend_transaction",
+  "alert_event"
+] as const;
 
 export function getMainWindowOptions(preloadPath: string): BrowserWindowConstructorOptions {
   return {
@@ -204,6 +247,8 @@ let alertStore: AlertStore | null = null;
 let schedulerTimer: NodeJS.Timeout | null = null;
 let lastRestoreSummary: RestoreEncryptedBackupResult | null = null;
 let backupHealthState: BackupHealthState = createEmptyBackupHealthState();
+let diagnosticsLogFilePath: string | null = null;
+let diagnosticsLoggingInitialized = false;
 const teamsChannel = createTeamsWorkflowChannel();
 
 function toIsoDate(value: Date): string {
@@ -238,6 +283,72 @@ function getImportTemplateStorePath(): string {
 
 function getAutoTagRulesPath(): string {
   return path.join(app.getPath("userData"), AUTO_TAG_RULES_FILE_NAME);
+}
+
+function serializeDiagnosticDetails(details: unknown): string {
+  if (details instanceof Error) {
+    const stack = details.stack ? `\n${details.stack}` : "";
+    return `${details.name}: ${details.message}${stack}`;
+  }
+  if (typeof details === "string") {
+    return details;
+  }
+  try {
+    return JSON.stringify(details);
+  } catch {
+    return String(details);
+  }
+}
+
+function appendDiagnosticLog(level: "INFO" | "WARN" | "ERROR", message: string, details?: unknown): void {
+  if (!diagnosticsLogFilePath) {
+    return;
+  }
+
+  const detailText = details === undefined ? "" : ` | ${serializeDiagnosticDetails(details)}`;
+  const line = `${new Date().toISOString()} [${level}] ${message}${detailText}\n`;
+
+  try {
+    fs.appendFileSync(diagnosticsLogFilePath, line, "utf8");
+  } catch (error) {
+    console.error("Failed to append desktop diagnostics log.", error);
+  }
+}
+
+function initializeDiagnosticsLogging(): void {
+  if (diagnosticsLoggingInitialized) {
+    return;
+  }
+  diagnosticsLoggingInitialized = true;
+
+  const logDir = path.join(app.getPath("userData"), DIAGNOSTICS_LOG_DIR_NAME);
+  fs.mkdirSync(logDir, { recursive: true });
+  diagnosticsLogFilePath = path.join(logDir, DIAGNOSTICS_LOG_FILE_NAME);
+  appendDiagnosticLog("INFO", "Desktop diagnostics logging initialized.", {
+    platform: process.platform,
+    appVersion: app.getVersion()
+  });
+
+  process.on("uncaughtException", (error) => {
+    appendDiagnosticLog("ERROR", "Uncaught exception in main process.", error);
+    console.error("Uncaught exception in main process.", error);
+  });
+
+  process.on("unhandledRejection", (reason) => {
+    appendDiagnosticLog("ERROR", "Unhandled rejection in main process.", reason);
+    console.error("Unhandled rejection in main process.", reason);
+  });
+
+  app.on("render-process-gone", (_event, webContents, details) => {
+    appendDiagnosticLog("ERROR", "Renderer process exited unexpectedly.", {
+      details,
+      webContentsId: webContents.id
+    });
+  });
+
+  app.on("child-process-gone", (_event, details) => {
+    appendDiagnosticLog("ERROR", "Electron child process exited unexpectedly.", details);
+  });
 }
 
 function createDatabaseVault(secretPath: string): FileSecretVault {
@@ -469,11 +580,44 @@ function parseImportPayload(payload: unknown): {
   };
 }
 
-function parseReportsQueryPayload(payload: unknown): {
-  query: string;
+function parseReportFilters(payload: unknown): ReportDatasetFilters | undefined {
+  if (!payload || typeof payload !== "object") {
+    return undefined;
+  }
+
+  const value = payload as { dateFrom?: unknown; dateTo?: unknown; tag?: unknown };
+  const dateFrom =
+    typeof value.dateFrom === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value.dateFrom)
+      ? value.dateFrom
+      : undefined;
+  const dateTo =
+    typeof value.dateTo === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value.dateTo)
+      ? value.dateTo
+      : undefined;
+  const tag =
+    typeof value.tag === "string" && value.tag.trim().length > 0 ? value.tag.trim() : undefined;
+
+  if (!dateFrom && !dateTo && !tag) {
+    return undefined;
+  }
+
+  return {
+    dateFrom,
+    dateTo,
+    tag
+  };
+}
+
+function isReportPresetQuery(value: ReportsQueryValue): value is ReportPresetQuery {
+  return REPORT_PRESET_QUERY_SET.has(value as ReportPresetQuery);
+}
+
+export function parseReportsQueryPayload(payload: unknown): {
+  query: ReportsQueryValue;
   scenarioId: string;
   servicePlanId?: string;
   horizonMonths?: number;
+  filters?: ReportDatasetFilters;
 } {
   if (!payload || typeof payload !== "object") {
     throw new Error("reports.query requires payload with query.");
@@ -483,9 +627,14 @@ function parseReportsQueryPayload(payload: unknown): {
     scenarioId?: unknown;
     servicePlanId?: unknown;
     horizonMonths?: unknown;
+    filters?: unknown;
   };
   if (typeof value.query !== "string" || value.query.trim().length === 0) {
     throw new Error("reports.query requires a non-empty query.");
+  }
+  const query = value.query.trim() as ReportsQueryValue;
+  if (!REPORT_QUERY_SET.has(query)) {
+    throw new Error(`Unsupported reports.query value: ${value.query}`);
   }
   const parsedHorizon =
     typeof value.horizonMonths === "number" && Number.isFinite(value.horizonMonths)
@@ -494,61 +643,102 @@ function parseReportsQueryPayload(payload: unknown): {
   const horizonMonths =
     parsedHorizon && parsedHorizon > 0 && parsedHorizon <= 60 ? parsedHorizon : undefined;
   return {
-    query: value.query,
+    query,
     scenarioId: typeof value.scenarioId === "string" && value.scenarioId.trim().length > 0 ? value.scenarioId : "baseline",
     servicePlanId:
       typeof value.servicePlanId === "string" && value.servicePlanId.trim().length > 0
         ? value.servicePlanId
         : undefined,
-    horizonMonths
+    horizonMonths,
+    filters: parseReportFilters(value.filters)
   };
 }
 
-function parseExportReportPayload(payload: unknown): {
+type ExportReportType = ReportPresetQuery | "nlq.results";
+
+export function parseExportReportPayload(payload: unknown, defaultOutputDir: string = path.join(app.getPath("documents"), DEFAULT_EXPORT_SUBDIR)): {
   scenarioId: string;
+  reportType: ExportReportType;
   outputDir: string;
   baseFileName?: string;
   formats?: ExportFormat[];
+  filters?: ReportDatasetFilters;
+  filterSpec?: FilterSpec;
 } {
-  const defaultOutputDir = path.join(app.getPath("documents"), DEFAULT_EXPORT_SUBDIR);
   if (!payload || typeof payload !== "object") {
     return {
       scenarioId: "baseline",
+      reportType: "dashboard.summary",
       outputDir: defaultOutputDir
     };
   }
 
   const value = payload as {
     scenarioId?: unknown;
+    reportType?: unknown;
     outputDir?: unknown;
+    destinationPath?: unknown;
     baseFileName?: unknown;
     formats?: unknown;
+    filters?: unknown;
+    filterSpec?: unknown;
   };
 
   const scenarioId =
     typeof value.scenarioId === "string" && value.scenarioId.trim().length > 0
       ? value.scenarioId
       : "baseline";
+  const reportTypeCandidate =
+    typeof value.reportType === "string" && value.reportType.trim().length > 0
+      ? value.reportType.trim()
+      : "dashboard.summary";
+  const reportTypeValues = new Set<string>([...REPORT_PRESET_QUERY_SET, "nlq.results"]);
+  if (!reportTypeValues.has(reportTypeCandidate)) {
+    throw new Error(`Unsupported export.report reportType: ${reportTypeCandidate}`);
+  }
+  const reportType = reportTypeCandidate as ExportReportType;
+  const legacyDestinationPath =
+    typeof value.destinationPath === "string" && value.destinationPath.trim().length > 0
+      ? value.destinationPath
+      : undefined;
   const outputDir =
     typeof value.outputDir === "string" && value.outputDir.trim().length > 0
       ? value.outputDir
-      : defaultOutputDir;
+      : legacyDestinationPath ?? defaultOutputDir;
   const baseFileName =
     typeof value.baseFileName === "string" && value.baseFileName.trim().length > 0
       ? value.baseFileName
       : undefined;
 
   const allowedFormats = new Set<ExportFormat>(["html", "pdf", "excel", "csv", "png"]);
-  const formats =
-    Array.isArray(value.formats) && value.formats.every((entry) => typeof entry === "string")
-      ? (value.formats.filter((entry): entry is ExportFormat => allowedFormats.has(entry as ExportFormat)) as ExportFormat[])
-      : undefined;
+  let formats: ExportFormat[] | undefined;
+  if (value.formats !== undefined) {
+    if (!Array.isArray(value.formats) || !value.formats.every((entry) => typeof entry === "string")) {
+      throw new Error("export.report formats must be an array of strings.");
+    }
+
+    const parsedFormats: ExportFormat[] = [];
+    for (const entry of value.formats) {
+      const normalized = entry.trim() as ExportFormat;
+      if (!allowedFormats.has(normalized)) {
+        throw new Error(`Unsupported export.report format: ${entry}`);
+      }
+      parsedFormats.push(normalized);
+    }
+    formats = parsedFormats;
+  }
+  const filters = parseReportFilters(value.filters);
+  const filterSpec =
+    value.filterSpec && typeof value.filterSpec === "object" ? (value.filterSpec as FilterSpec) : undefined;
 
   return {
     scenarioId,
+    reportType,
     outputDir,
     baseFileName,
-    formats
+    formats,
+    filters,
+    filterSpec
   };
 }
 
@@ -874,8 +1064,8 @@ function setupIpcHandlers(requestExit: () => void): void {
   ipcMain.handle("reports.query", async (_event, payload: unknown) => {
     const parsed = parseReportsQueryPayload(payload);
     const handle = requireDatabaseHandle();
-    if (parsed.query === "dashboard.summary") {
-      return buildDashboardDataset(handle.db, parsed.scenarioId);
+    if (isReportPresetQuery(parsed.query)) {
+      return buildReportPresetDataset(handle.db, parsed.query, parsed.scenarioId, parsed.filters);
     }
     if (parsed.query === "variance.monthly") {
       return buildMonthlyVarianceDataset(handle.db, parsed.scenarioId);
@@ -902,16 +1092,7 @@ function setupIpcHandlers(requestExit: () => void): void {
     }
     if (parsed.query === "maintenance.diagnostics") {
       const tableCounts: Record<string, number> = {};
-      const trackedTables = [
-        "vendor",
-        "service",
-        "contract",
-        "expense_line",
-        "occurrence",
-        "transaction",
-        "alert_event"
-      ];
-      for (const tableName of trackedTables) {
+      for (const tableName of DIAGNOSTICS_TRACKED_TABLES) {
         const row = handle.db
           .prepare(`SELECT COUNT(*) as count FROM ${tableName}`)
           .get() as { count: number } | undefined;
@@ -957,16 +1138,51 @@ function setupIpcHandlers(requestExit: () => void): void {
   ipcMain.handle("export.report", async (_event, payload: unknown) => {
     const parsed = parseExportReportPayload(payload);
     const handle = requireDatabaseHandle();
-    const dataset = buildDashboardDataset(handle.db, parsed.scenarioId);
-    return exportDashboardReport(
-      {
-        dataset,
+    if (parsed.reportType === "nlq.results") {
+      if (!parsed.filterSpec) {
+        throw new Error("export.report nlq.results requires filterSpec.");
+      }
+      const requestedFormats = parsed.formats ?? ["csv", "excel"];
+      const nlqFormats: NlqExportFormat[] = [];
+      for (const format of requestedFormats) {
+        if (format !== "csv" && format !== "excel") {
+          throw new Error("NLQ export supports only csv and excel formats.");
+        }
+        nlqFormats.push(format);
+      }
+
+      const queried = queryExpensesByFilterSpec(handle.db, parsed.filterSpec);
+      return exportNlqResultsReport({
+        rows: queried.rows.map((row) => ({
+          id: row.id,
+          name: row.name,
+          amountMinor: row.amount_minor
+        })),
         outputDir: parsed.outputDir,
         baseFileName: parsed.baseFileName,
-        formats: parsed.formats
-      },
-      createElectronReportRenderers()
-    );
+        formats: nlqFormats
+      });
+    }
+
+    if (isReportPresetQuery(parsed.reportType)) {
+      const dataset = buildReportPresetDataset(
+        handle.db,
+        parsed.reportType,
+        parsed.scenarioId,
+        parsed.filters
+      );
+      return exportDashboardReport(
+        {
+          dataset,
+          outputDir: parsed.outputDir,
+          baseFileName: parsed.baseFileName,
+          formats: parsed.formats
+        },
+        createElectronReportRenderers()
+      );
+    }
+
+    throw new Error(`Unsupported export.report reportType: ${parsed.reportType}`);
   });
   ipcMain.handle("nlq.parse", async (_event, payload: unknown) => {
     const parsed = parseNlqPayload(payload);
@@ -1035,6 +1251,7 @@ function startAlertScheduler(): void {
     try {
       runAlertSchedulerTick();
     } catch (error) {
+      appendDiagnosticLog("ERROR", "Alert scheduler tick failed.", error);
       console.error("Alert scheduler tick failed", error);
     }
   }, ALERT_TICK_INTERVAL_MS);
@@ -1077,12 +1294,40 @@ function getTrayMenuTemplate(requestExit: () => void): MenuItemConstructorOption
   ];
 }
 
+function createFallbackTrayIcon(): Electron.NativeImage {
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+      <circle cx="32" cy="32" r="30" fill="#0c8550"/>
+      <circle cx="32" cy="32" r="27.5" fill="none" stroke="#086039" stroke-width="3"/>
+      <text x="32" y="44" text-anchor="middle" font-size="36" font-family="Segoe UI, Arial" font-weight="700" fill="#ffffff">$</text>
+    </svg>
+  `;
+  return nativeImage.createFromDataURL(
+    `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`
+  );
+}
+
+function createTrayIcon(): Electron.NativeImage {
+  const iconPath = path.join(__dirname, "../assets", TRAY_ICON_FILE_NAME);
+  const iconFromPath = nativeImage.createFromPath(iconPath);
+  if (!iconFromPath.isEmpty()) {
+    return iconFromPath.resize({ width: 16, height: 16, quality: "best" });
+  }
+
+  const fallback = createFallbackTrayIcon();
+  if (!fallback.isEmpty()) {
+    return fallback.resize({ width: 16, height: 16, quality: "best" });
+  }
+
+  return nativeImage.createEmpty();
+}
+
 function ensureTray(requestExit: () => void): Tray {
   if (tray) {
     return tray;
   }
 
-  tray = new Tray(nativeImage.createEmpty());
+  tray = new Tray(createTrayIcon());
   tray.setToolTip("BudgetIT");
   tray.setContextMenu(Menu.buildFromTemplate(getTrayMenuTemplate(requestExit)));
   tray.on("double-click", () => {
@@ -1107,6 +1352,14 @@ function createMainWindow(): BrowserWindow {
     win.show();
   });
 
+  win.webContents.on("did-fail-load", (_event, errorCode, errorDescription, validatedUrl) => {
+    appendDiagnosticLog("ERROR", "Renderer failed to load URL.", {
+      errorCode,
+      errorDescription,
+      validatedUrl
+    });
+  });
+
   win.on("close", (event) => {
     if (shouldMinimizeToTrayOnClose(runtimeSettings, isQuitting)) {
       event.preventDefault();
@@ -1127,6 +1380,7 @@ export async function startDesktopApp(): Promise<void> {
   );
 
   await app.whenReady();
+  initializeDiagnosticsLogging();
 
   runtimeSettings = readRuntimeSettings(getRuntimeSettingsPath());
   app.setLoginItemSettings({ openAtLogin: runtimeSettings.startWithWindows });

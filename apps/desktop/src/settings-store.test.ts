@@ -46,5 +46,18 @@ describe("runtime settings persistence", () => {
     expect(settings.teamsEnabled).toBe(true);
     expect(settings.teamsWebhookUrl).toBe("https://example.invalid/webhook");
   });
+
+  it("falls back to defaults when settings JSON is corrupted", () => {
+    const settingsPath = makeTempSettingsPath();
+    fs.writeFileSync(settingsPath, "{not valid json", "utf8");
+
+    const settings = readRuntimeSettings(settingsPath);
+    expect(settings).toEqual({
+      startWithWindows: true,
+      minimizeToTray: true,
+      teamsEnabled: false,
+      teamsWebhookUrl: ""
+    });
+  });
 });
 

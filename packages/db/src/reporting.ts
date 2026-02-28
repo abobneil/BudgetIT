@@ -53,6 +53,31 @@ export type DashboardDataset = {
   narrativeBlocks: NarrativeBlock[];
 };
 
+export type ReportPresetQuery =
+  | "dashboard.summary"
+  | "renewals.timeline"
+  | "spend.byTag"
+  | "spend.byVendor"
+  | "replacement.pipeline"
+  | "tagging.completeness"
+  | "nlq.saved";
+
+export type ReportDatasetFilters = {
+  dateFrom?: string;
+  dateTo?: string;
+  tag?: string;
+};
+
+type TagSpendBreakdownRow = {
+  tagName: string;
+  totalMinor: number;
+};
+
+type VendorSpendBreakdownRow = {
+  vendorName: string;
+  totalMinor: number;
+};
+
 function buildSpendTrend(variance: MonthlyVarianceRow[]): SpendTrendRow[] {
   return variance.map((row) => ({
     month: row.month,
@@ -78,6 +103,70 @@ function buildGrowthSeries(spendTrend: SpendTrendRow[]): GrowthRow[] {
   });
 }
 
+function toMonthToken(value: string | undefined): string | null {
+  if (!value) {
+    return null;
+  }
+  if (/^\d{4}-\d{2}$/.test(value)) {
+    return value;
+  }
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return value.slice(0, 7);
+  }
+  return null;
+}
+
+function monthWithinRange(month: string, fromMonth: string | null, toMonth: string | null): boolean {
+  if (fromMonth && month < fromMonth) {
+    return false;
+  }
+  if (toMonth && month > toMonth) {
+    return false;
+  }
+  return true;
+}
+
+function applyMonthlyFilters(
+  dataset: DashboardDataset,
+  filters: ReportDatasetFilters | undefined
+): DashboardDataset {
+  if (!filters) {
+    return dataset;
+  }
+
+  const fromMonth = toMonthToken(filters.dateFrom);
+  const toMonth = toMonthToken(filters.dateTo);
+  if (!fromMonth && !toMonth) {
+    return dataset;
+  }
+
+  return {
+    ...dataset,
+    spendTrend: dataset.spendTrend.filter((row) => monthWithinRange(row.month, fromMonth, toMonth)),
+    variance: dataset.variance.filter((row) => monthWithinRange(row.month, fromMonth, toMonth)),
+    renewals: dataset.renewals.filter((row) => monthWithinRange(row.month, fromMonth, toMonth)),
+    growth: dataset.growth.filter((row) => monthWithinRange(row.month, fromMonth, toMonth))
+  };
+}
+
+function withNarrative(dataset: DashboardDataset, block: NarrativeBlock): DashboardDataset {
+  return {
+    ...dataset,
+    narrativeBlocks: [block, ...dataset.narrativeBlocks]
+  };
+}
+
+function normalizeTagFilter(tag: string | undefined): string | null {
+  if (!tag) {
+    return null;
+  }
+  const normalized = tag.trim().toLowerCase();
+  if (normalized.length === 0 || normalized === "all") {
+    return null;
+  }
+  return normalized;
+}
+
 function queryRenewals(db: Database.Database): RenewalRow[] {
   return db
     .prepare(
@@ -90,6 +179,72 @@ function queryRenewals(db: Database.Database): RenewalRow[] {
       `
     )
     .all() as RenewalRow[];
+}
+
+function queryTagSpendBreakdown(
+  db: Database.Database,
+  scenarioId: string,
+  tagFilter: string | null
+): TagSpendBreakdownRow[] {
+  const rows = db
+    .prepare(
+      `
+        SELECT
+          tg.name AS tagName,
+          SUM(e.amount_minor) AS totalMinor
+        FROM expense_line e
+        JOIN tag_assignment ta
+          ON ta.entity_type = 'expense_line'
+         AND ta.entity_id = e.id
+        JOIN tag tg ON tg.id = ta.tag_id
+        WHERE e.scenario_id = ?
+          AND e.deleted_at IS NULL
+          AND (? IS NULL OR lower(tg.name) = ?)
+        GROUP BY tg.id, tg.name
+        ORDER BY totalMinor DESC, tg.name ASC
+      `
+    )
+    .all(scenarioId, tagFilter, tagFilter) as Array<{
+    tagName: string;
+    totalMinor: number;
+  }>;
+
+  return rows.map((row) => ({
+    tagName: row.tagName,
+    totalMinor: row.totalMinor ?? 0
+  }));
+}
+
+function queryVendorSpendBreakdown(
+  db: Database.Database,
+  scenarioId: string
+): VendorSpendBreakdownRow[] {
+  const rows = db
+    .prepare(
+      `
+        SELECT
+          v.name AS vendorName,
+          SUM(e.amount_minor) AS totalMinor
+        FROM vendor v
+        JOIN service s ON s.vendor_id = v.id
+        JOIN expense_line e ON e.service_id = s.id
+        WHERE e.scenario_id = ?
+          AND v.deleted_at IS NULL
+          AND s.deleted_at IS NULL
+          AND e.deleted_at IS NULL
+        GROUP BY v.id, v.name
+        ORDER BY totalMinor DESC, v.name ASC
+      `
+    )
+    .all(scenarioId) as Array<{
+    vendorName: string;
+    totalMinor: number;
+  }>;
+
+  return rows.map((row) => ({
+    vendorName: row.vendorName,
+    totalMinor: row.totalMinor ?? 0
+  }));
 }
 
 function queryTaggingCompleteness(
@@ -200,7 +355,8 @@ function buildNarratives(input: {
 
 export function buildDashboardDataset(
   db: Database.Database,
-  scenarioId: string = "baseline"
+  scenarioId: string = "baseline",
+  filters?: ReportDatasetFilters
 ): DashboardDataset {
   const variance = buildMonthlyVarianceDataset(db, scenarioId);
   const spendTrend = buildSpendTrend(variance);
@@ -213,7 +369,7 @@ export function buildDashboardDataset(
     .get() as { forecast_stale: number | null } | undefined;
   const staleForecast = (metaRow?.forecast_stale ?? 0) === 1;
 
-  return {
+  const base: DashboardDataset = {
     scenarioId,
     staleForecast,
     spendTrend,
@@ -230,4 +386,110 @@ export function buildDashboardDataset(
       replacementStatus
     })
   };
+
+  return applyMonthlyFilters(base, filters);
+}
+
+export function buildRenewalsTimelineDataset(
+  db: Database.Database,
+  scenarioId: string = "baseline",
+  filters?: ReportDatasetFilters
+): DashboardDataset {
+  const base = buildDashboardDataset(db, scenarioId, filters);
+  const renewalCount = base.renewals.reduce((sum, row) => sum + row.count, 0);
+  return withNarrative(base, {
+    id: "renewals-timeline-focus",
+    title: "Renewals Timeline Focus",
+    body: `Renewals timeline view includes ${renewalCount} scheduled renewals in the active window.`
+  });
+}
+
+export function buildSpendByTagDataset(
+  db: Database.Database,
+  scenarioId: string = "baseline",
+  filters?: ReportDatasetFilters
+): DashboardDataset {
+  const base = buildDashboardDataset(db, scenarioId, filters);
+  const tagFilter = normalizeTagFilter(filters?.tag);
+  const breakdown = queryTagSpendBreakdown(db, scenarioId, tagFilter);
+  const top = breakdown.slice(0, 3);
+  const breakdownSummary =
+    top.length === 0
+      ? "No tag spend rows were found for the selected scope."
+      : top.map((row) => `${row.tagName}: ${(row.totalMinor / 100).toFixed(2)} USD`).join("; ");
+
+  return withNarrative(base, {
+    id: "spend-by-tag-focus",
+    title: "Spend by Tag Focus",
+    body: breakdownSummary
+  });
+}
+
+export function buildSpendByVendorDataset(
+  db: Database.Database,
+  scenarioId: string = "baseline",
+  filters?: ReportDatasetFilters
+): DashboardDataset {
+  const base = buildDashboardDataset(db, scenarioId, filters);
+  const top = queryVendorSpendBreakdown(db, scenarioId).slice(0, 3);
+  const summary =
+    top.length === 0
+      ? "No vendor spend rows were found for the selected scope."
+      : top.map((row) => `${row.vendorName}: ${(row.totalMinor / 100).toFixed(2)} USD`).join("; ");
+
+  return withNarrative(base, {
+    id: "spend-by-vendor-focus",
+    title: "Spend by Vendor Focus",
+    body: summary
+  });
+}
+
+export function buildReplacementPipelineDataset(
+  db: Database.Database,
+  scenarioId: string = "baseline",
+  filters?: ReportDatasetFilters
+): DashboardDataset {
+  const base = buildDashboardDataset(db, scenarioId, filters);
+  return withNarrative(base, {
+    id: "replacement-pipeline-focus",
+    title: "Replacement Pipeline Focus",
+    body: `${base.replacementStatus.replacementRequiredOpen} replacement-required plan(s) remain open.`
+  });
+}
+
+export function buildTaggingCompletenessDataset(
+  db: Database.Database,
+  scenarioId: string = "baseline",
+  filters?: ReportDatasetFilters
+): DashboardDataset {
+  const base = buildDashboardDataset(db, scenarioId, filters);
+  return withNarrative(base, {
+    id: "tagging-completeness-focus",
+    title: "Tagging Completeness Focus",
+    body: `${(base.taggingCompleteness.completenessRatio * 100).toFixed(1)}% of active expense lines are tagged.`
+  });
+}
+
+export function buildReportPresetDataset(
+  db: Database.Database,
+  query: ReportPresetQuery,
+  scenarioId: string = "baseline",
+  filters?: ReportDatasetFilters
+): DashboardDataset {
+  if (query === "dashboard.summary" || query === "nlq.saved") {
+    return buildDashboardDataset(db, scenarioId, filters);
+  }
+  if (query === "renewals.timeline") {
+    return buildRenewalsTimelineDataset(db, scenarioId, filters);
+  }
+  if (query === "spend.byTag") {
+    return buildSpendByTagDataset(db, scenarioId, filters);
+  }
+  if (query === "spend.byVendor") {
+    return buildSpendByVendorDataset(db, scenarioId, filters);
+  }
+  if (query === "replacement.pipeline") {
+    return buildReplacementPipelineDataset(db, scenarioId, filters);
+  }
+  return buildTaggingCompletenessDataset(db, scenarioId, filters);
 }

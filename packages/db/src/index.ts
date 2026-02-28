@@ -63,10 +63,18 @@ export {
   type ServicePlanReasonCode
 } from "./replacement-planning";
 export {
+  buildReportPresetDataset,
   buildDashboardDataset,
+  buildRenewalsTimelineDataset,
+  buildReplacementPipelineDataset,
+  buildSpendByTagDataset,
+  buildSpendByVendorDataset,
+  buildTaggingCompletenessDataset,
   type DashboardDataset,
   type GrowthRow,
   type NarrativeBlock,
+  type ReportDatasetFilters,
+  type ReportPresetQuery,
   type RenewalRow,
   type ReplacementStatusSummary,
   type SpendTrendRow,

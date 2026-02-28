@@ -53,6 +53,18 @@ describe("deterministic nlq parser", () => {
       amountMaxMinor: 25050,
       tagNames: ["finance"]
     });
+
+    const parsedC = parseNlqToFilterSpec("expenses between 100 and 200 usd");
+    expect(parsedC.filterSpec).toEqual({
+      amountMinMinor: 10000,
+      amountMaxMinor: 20000
+    });
+
+    const parsedD = parseNlqToFilterSpec("expenses between 1,000 and 2,500 dollars");
+    expect(parsedD.filterSpec).toEqual({
+      amountMinMinor: 100000,
+      amountMaxMinor: 250000
+    });
   });
 
   it("rejects unknown fields and SQL-like tokens in compiler input", () => {

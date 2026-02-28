@@ -7,7 +7,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { bootstrapEncryptedDatabase } from "./encrypted-db";
 import { materializeScenarioOccurrences, markForecastStale } from "./forecast-engine";
 import { runMigrations } from "./migrations";
-import { buildDashboardDataset } from "./reporting";
+import { buildDashboardDataset, buildReportPresetDataset } from "./reporting";
 import {
   createServicePlan,
   setReplacementSelection,
@@ -204,6 +204,35 @@ describe("dashboard reporting datasets", () => {
 
       const dashboard = buildDashboardDataset(boot.db, "baseline");
       expect(dashboard.staleForecast).toBe(true);
+    } finally {
+      boot.db.close();
+    }
+  });
+
+  it("builds datasets for all supported report presets", () => {
+    const dataDir = createTempDir();
+    const boot = bootstrapEncryptedDatabase(dataDir);
+    try {
+      runMigrations(boot.db);
+      const presets = [
+        "dashboard.summary",
+        "renewals.timeline",
+        "spend.byTag",
+        "spend.byVendor",
+        "replacement.pipeline",
+        "tagging.completeness",
+        "nlq.saved"
+      ] as const;
+
+      for (const query of presets) {
+        const dataset = buildReportPresetDataset(boot.db, query, "baseline", {
+          dateFrom: "2026-01-01",
+          dateTo: "2026-12-31",
+          tag: "all"
+        });
+        expect(dataset.scenarioId).toBe("baseline");
+        expect(Array.isArray(dataset.narrativeBlocks)).toBe(true);
+      }
     } finally {
       boot.db.close();
     }

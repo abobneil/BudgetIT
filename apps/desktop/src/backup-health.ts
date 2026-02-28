@@ -60,8 +60,13 @@ export function loadBackupHealthState(filePath: string): BackupHealthState {
   if (!fs.existsSync(filePath)) {
     return createEmptyBackupHealthState();
   }
-  const parsed = JSON.parse(fs.readFileSync(filePath, "utf8")) as Partial<BackupHealthState>;
-  return normalizeState(parsed);
+
+  try {
+    const parsed = JSON.parse(fs.readFileSync(filePath, "utf8")) as Partial<BackupHealthState>;
+    return normalizeState(parsed);
+  } catch {
+    return createEmptyBackupHealthState();
+  }
 }
 
 export function saveBackupHealthState(filePath: string, state: BackupHealthState): void {

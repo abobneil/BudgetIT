@@ -252,7 +252,9 @@ export function App() {
     setExportingDashboard(true);
     try {
       const result = await exportReport({
+        reportType: "dashboard.summary",
         scenarioId: "baseline",
+        outputDir: "C:\\exports",
         formats: ["html", "pdf", "excel", "csv", "png"]
       });
       setExportResult(result);

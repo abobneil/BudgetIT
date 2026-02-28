@@ -27,6 +27,26 @@ export type ReportExportResult = {
   files: Partial<Record<ExportFormat, string>>;
 };
 
+export type NlqExportFormat = "csv" | "excel";
+
+export type NlqResultRow = {
+  id: string;
+  name: string;
+  amountMinor: number;
+};
+
+export type NlqReportExportInput = {
+  rows: NlqResultRow[];
+  outputDir: string;
+  baseFileName?: string;
+  formats?: NlqExportFormat[];
+};
+
+export type NlqReportExportResult = {
+  rowCount: number;
+  files: Partial<Record<NlqExportFormat, string>>;
+};
+
 function formatUsd(minor: number): string {
   return `$${(minor / 100).toFixed(2)}`;
 }
@@ -155,6 +175,24 @@ async function writeExcel(dataset: DashboardDataset, filePath: string): Promise<
   await workbook.xlsx.writeFile(filePath);
 }
 
+function writeNlqCsv(rows: NlqResultRow[], filePath: string): void {
+  const lines = [
+    "id,name,amount_minor",
+    ...rows.map((row) => `${row.id},${JSON.stringify(row.name)},${row.amountMinor}`)
+  ];
+  fs.writeFileSync(filePath, `${lines.join("\n")}\n`, "utf8");
+}
+
+async function writeNlqExcel(rows: NlqResultRow[], filePath: string): Promise<void> {
+  const workbook = new ExcelJS.Workbook();
+  const sheet = workbook.addWorksheet("NLQ Results");
+  sheet.addRow(["ID", "Name", "Amount Minor"]);
+  for (const row of rows) {
+    sheet.addRow([row.id, row.name, row.amountMinor]);
+  }
+  await workbook.xlsx.writeFile(filePath);
+}
+
 function resolveFormats(input: ReportExportInput): ExportFormat[] {
   if (!input.formats || input.formats.length === 0) {
     return ["html", "pdf", "excel", "csv", "png"];
@@ -211,6 +249,40 @@ export async function exportDashboardReport(
 
   return {
     totals: computeReportTotals(input.dataset),
+    files
+  };
+}
+
+export async function exportNlqResultsReport(
+  input: NlqReportExportInput
+): Promise<NlqReportExportResult> {
+  fs.mkdirSync(input.outputDir, { recursive: true });
+  const requestedFormats = input.formats?.length ? input.formats : ["csv", "excel"];
+  const formats = requestedFormats.filter(
+    (format): format is NlqExportFormat => format === "csv" || format === "excel"
+  );
+  if (formats.length === 0) {
+    throw new Error("NLQ export supports only csv and excel formats.");
+  }
+
+  const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+  const baseName = input.baseFileName?.trim() || `budgetit-nlq-${stamp}`;
+  const files: Partial<Record<NlqExportFormat, string>> = {};
+
+  if (formats.includes("csv")) {
+    const csvPath = path.join(input.outputDir, `${baseName}.csv`);
+    writeNlqCsv(input.rows, csvPath);
+    files.csv = csvPath;
+  }
+
+  if (formats.includes("excel")) {
+    const excelPath = path.join(input.outputDir, `${baseName}.xlsx`);
+    await writeNlqExcel(input.rows, excelPath);
+    files.excel = excelPath;
+  }
+
+  return {
+    rowCount: input.rows.length,
     files
   };
 }

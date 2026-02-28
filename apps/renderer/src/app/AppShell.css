@@ -1,7 +1,9 @@
 .desktop-shell {
   display: grid;
-  grid-template-columns: 240px 1fr;
-  min-height: 100vh;
+  grid-template-columns: 240px minmax(0, 1fr);
+  height: 100vh;
+  max-height: 100vh;
+  overflow: hidden;
   font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
   color: #1f2328;
 }
@@ -13,6 +15,7 @@
   display: grid;
   align-content: start;
   gap: 0.25rem;
+  overflow-y: auto;
 }
 
 .desktop-shell__brand {
@@ -41,11 +44,16 @@
 
 .desktop-shell__content {
   min-width: 0;
+  min-height: 0;
   display: grid;
-  grid-template-rows: auto 1fr;
+  grid-template-rows: auto minmax(0, 1fr);
+  overflow: hidden;
 }
 
 .desktop-shell__topbar {
+  position: sticky;
+  top: 0;
+  z-index: 5;
   border-bottom: 1px solid #d1d9e0;
   padding: 0.75rem 1rem;
   display: grid;
@@ -133,6 +141,7 @@
 }
 
 .desktop-shell__page {
+  min-height: 0;
   overflow: auto;
   background: #ffffff;
 }
@@ -140,6 +149,7 @@
 @media (max-width: 900px) {
   .desktop-shell {
     grid-template-columns: 1fr;
+    grid-template-rows: auto minmax(0, 1fr);
   }
 
   .desktop-shell__nav {
@@ -147,6 +157,7 @@
     border-bottom: 1px solid #d1d9e0;
     grid-auto-flow: column;
     overflow-x: auto;
+    overflow-y: hidden;
   }
 
   .desktop-shell__topbar {

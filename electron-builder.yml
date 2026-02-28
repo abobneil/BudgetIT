@@ -7,8 +7,11 @@ directories:
 
 files:
   - apps/desktop/dist/**/*
+  - apps/desktop/assets/**/*
   - apps/renderer/dist/**/*
   - packages/core/dist/**/*
+  - packages/db/dist/**/*
+  - packages/db/package.json
   - package.json
 
 extraMetadata:

@@ -66,6 +66,50 @@ export type MaintenanceDiagnosticsResult = {
   counts: Record<string, number>;
 };
 
+export type ReportPresetQuery =
+  | "dashboard.summary"
+  | "renewals.timeline"
+  | "spend.byTag"
+  | "spend.byVendor"
+  | "replacement.pipeline"
+  | "tagging.completeness"
+  | "nlq.saved";
+
+export type ReportsQueryValue =
+  | ReportPresetQuery
+  | "variance.monthly"
+  | "replacement.detail"
+  | "maintenance.materialize"
+  | "maintenance.diagnostics";
+
+export type ReportFilters = {
+  dateFrom?: string;
+  dateTo?: string;
+  tag?: string;
+};
+
+export type QueryReportPayload = {
+  query: ReportsQueryValue;
+  scenarioId?: string;
+  servicePlanId?: string;
+  horizonMonths?: number;
+  filters?: ReportFilters;
+};
+
+export type ExportReportType = ReportPresetQuery | "nlq.results";
+
+export type ExportReportPayload = {
+  scenarioId?: string;
+  reportType: ExportReportType;
+  outputDir?: string;
+  // Backward compatibility for one release window.
+  destinationPath?: string;
+  baseFileName?: string;
+  formats?: Array<"html" | "pdf" | "excel" | "csv" | "png">;
+  filters?: ReportFilters;
+  filterSpec?: Record<string, unknown>;
+};
+
 export type AlertRecord = {
   id: string;
   entityType: string;
@@ -291,7 +335,7 @@ export async function commitImport(input: {
   return invokeIpc<ImportCommitResult>("import.commit", input);
 }
 
-export async function queryReport(payload: unknown): Promise<unknown> {
+export async function queryReport(payload: QueryReportPayload): Promise<unknown> {
   return invokeIpc<unknown>("reports.query", payload);
 }
 
@@ -315,7 +359,7 @@ export async function runDiagnostics(payload: {
   });
 }
 
-export async function exportReport(payload: unknown): Promise<{
+export async function exportReport(payload: ExportReportPayload): Promise<{
   files: Partial<Record<"html" | "pdf" | "excel" | "csv" | "png", string>>;
 }> {
   return invokeIpc<{

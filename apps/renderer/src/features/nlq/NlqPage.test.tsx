@@ -153,4 +153,56 @@ describe("NlqPage", () => {
       screen.getByRole("button", { name: "Open Security Variance Report" })
     ).toBeInTheDocument();
   });
+
+  it("exports NLQ results with canonical payload keys", async () => {
+    renderNlqStandalone();
+
+    fireEvent.change(screen.getByLabelText("NLQ prompt input"), {
+      target: { value: "show microsoft spend over 50000 in next 90 days" }
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Run query" }));
+    await screen.findByText(/Parsed filters:/i);
+
+    fireEvent.change(screen.getByLabelText("NLQ export format"), {
+      target: { value: "excel" }
+    });
+    fireEvent.change(screen.getByLabelText("NLQ export path"), {
+      target: { value: "C:\\exports\\nlq" }
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Export results" }));
+
+    await waitFor(() => {
+      expect(exportReportMock).toHaveBeenCalledWith({
+        scenarioId: "baseline",
+        reportType: "nlq.results",
+        outputDir: "C:\\exports\\nlq",
+        formats: ["excel"],
+        filterSpec: {
+          dateWindow: "next_90_days",
+          vendor: "Microsoft",
+          amount: { op: ">", value: 50000 }
+        }
+      });
+    });
+    expect(await screen.findByText(/Exported to C:\\exports\\nlq-results\.xlsx/i)).toBeInTheDocument();
+  });
+
+  it("surfaces NLQ export format restriction errors from backend", async () => {
+    exportReportMock.mockRejectedValueOnce(
+      new Error("NLQ export supports only csv and excel formats.")
+    );
+    renderNlqStandalone();
+
+    fireEvent.change(screen.getByLabelText("NLQ prompt input"), {
+      target: { value: "show microsoft spend over 50000 in next 90 days" }
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Run query" }));
+    await screen.findByText(/Parsed filters:/i);
+
+    fireEvent.click(screen.getByRole("button", { name: "Export results" }));
+
+    expect(
+      await screen.findByText(/Export failed: NLQ export supports only csv and excel formats\./i)
+    ).toBeInTheDocument();
+  });
 });

@@ -123,7 +123,7 @@ export function parseNlqToFilterSpec(query: string, options: ParseOptions = {}):
   }
 
   const amountBetweenMatch = normalized.match(/between\s+\$?([\d,.]+)\s+and\s+\$?([\d,.]+)\s+(usd|dollars|\$)?/);
-  if (amountBetweenMatch && normalized.includes("$")) {
+  if (amountBetweenMatch) {
     filterSpec.amountMinMinor = parseUsdMinor(amountBetweenMatch[1]);
     filterSpec.amountMaxMinor = parseUsdMinor(amountBetweenMatch[2]);
     explanationParts.push(

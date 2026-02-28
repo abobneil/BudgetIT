@@ -1,8 +1,10 @@
+import type { ReportPresetQuery } from "../../lib/ipcClient";
+
 export type ReportPreset = {
   id: string;
   title: string;
   description: string;
-  query: string;
+  query: ReportPresetQuery;
   visualizations: {
     table: boolean;
     chart: boolean;

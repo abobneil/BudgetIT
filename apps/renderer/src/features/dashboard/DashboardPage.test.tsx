@@ -130,7 +130,9 @@ describe("DashboardPage", () => {
 
     await waitFor(() => {
       expect(exportReportMock).toHaveBeenCalledWith({
+        reportType: "dashboard.summary",
         scenarioId: "baseline",
+        outputDir: "C:\\exports",
         formats: ["csv"]
       });
     });
@@ -160,7 +162,9 @@ describe("DashboardPage", () => {
 
     await waitFor(() => {
       expect(exportReportMock).toHaveBeenCalledWith({
+        reportType: "dashboard.summary",
         scenarioId: "baseline",
+        outputDir: "C:\\exports",
         formats: ["html"]
       });
     });

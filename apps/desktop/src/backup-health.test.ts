@@ -1,14 +1,33 @@
-import { describe, expect, it } from "vitest";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+
+import { afterEach, describe, expect, it } from "vitest";
 
 import {
   createEmptyBackupHealthState,
   evaluateBackupFreshness,
+  loadBackupHealthState,
   recordBackupCreated,
   recordBackupVerificationFailure,
   recordBackupVerificationSuccess
 } from "./backup-health";
 
+function createTempFilePath(): string {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "budgetit-backup-health-"));
+  tempRoots.push(root);
+  return path.join(root, "backup-health.json");
+}
+
+const tempRoots: string[] = [];
+
 describe("backup health monitoring", () => {
+  afterEach(() => {
+    for (const root of tempRoots.splice(0)) {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   it("triggers stale backup alert when age exceeds threshold", () => {
     const withBackup = recordBackupCreated(createEmptyBackupHealthState(), {
       checkedAt: "2026-03-01T00:00:00.000Z",
@@ -47,5 +66,12 @@ describe("backup health monitoring", () => {
     });
 
     expect(verified.lastVerifiedAt).toBe("2026-03-20T12:34:56.000Z");
+  });
+
+  it("falls back to empty state when persisted JSON is corrupted", () => {
+    const statePath = createTempFilePath();
+    fs.writeFileSync(statePath, "{", "utf8");
+
+    expect(loadBackupHealthState(statePath)).toEqual(createEmptyBackupHealthState());
   });
 });

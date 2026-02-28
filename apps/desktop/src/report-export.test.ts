@@ -8,7 +8,8 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   computeReportTotals,
   createDashboardHtml,
-  exportDashboardReport
+  exportDashboardReport,
+  exportNlqResultsReport
 } from "./report-export";
 
 const tempRoots: string[] = [];
@@ -160,5 +161,32 @@ describe("report export engine", () => {
       .values.filter((value) => typeof value === "string") as string[];
     expect(titles).toContain("Spend Summary");
     expect(titles).toContain("Risk Notes");
+  });
+
+  it("exports NLQ tabular rows to csv and excel only", async () => {
+    const outputDir = createTempDir();
+    const exported = await exportNlqResultsReport({
+      rows: [
+        { id: "exp-1", name: "Cloud", amountMinor: 10000 },
+        { id: "exp-2", name: "Security", amountMinor: 25000 }
+      ],
+      outputDir,
+      baseFileName: "nlq-export",
+      formats: ["csv", "excel"]
+    });
+
+    expect(exported.rowCount).toBe(2);
+    expect(exported.files.csv).toBe(path.join(outputDir, "nlq-export.csv"));
+    expect(exported.files.excel).toBe(path.join(outputDir, "nlq-export.xlsx"));
+    expect(fs.existsSync(exported.files.csv as string)).toBe(true);
+    expect(fs.existsSync(exported.files.excel as string)).toBe(true);
+
+    await expect(
+      exportNlqResultsReport({
+        rows: [{ id: "exp-1", name: "Cloud", amountMinor: 10000 }],
+        outputDir,
+        formats: ["pdf" as unknown as "csv"]
+      })
+    ).rejects.toThrow(/supports only csv and excel/);
   });
 });

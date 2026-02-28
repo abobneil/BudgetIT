@@ -187,7 +187,7 @@ export function ReportsPage() {
         scenarioId: selectedScenarioId,
         formats: [exportFormat],
         reportType: selectedPreset.query,
-        destinationPath: destinationPath.trim(),
+        outputDir: destinationPath.trim(),
         filters: {
           dateFrom,
           dateTo,
