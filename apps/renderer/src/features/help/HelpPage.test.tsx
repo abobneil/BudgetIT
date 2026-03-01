@@ -32,8 +32,8 @@ const BASE_HELP_MARKDOWN = `
 Dashboard content paragraph.
 `.trim();
 
-function renderHelp(path: string): void {
-  render(
+function renderHelp(path: string) {
+  return render(
     <FluentProvider theme={budgetItLightTheme}>
       <MemoryRouter initialEntries={[path]}>
         <Routes>
@@ -67,15 +67,27 @@ describe("HelpPage", () => {
       sourcePath: "docs/help-system.md"
     });
 
-    renderHelp("/help?topic=quick-start");
+    const view = renderHelp("/help?topic=quick-start");
 
     expect(
       await screen.findByRole("heading", { name: "Quick Start (First Launch)" })
     ).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Help Center" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Selected help topic")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Filter help topics")).not.toBeInTheDocument();
+    expect(screen.queryByText("Choose Help Topic")).not.toBeInTheDocument();
+    expect(screen.queryByText(/^Guide section:/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/^Source:/)).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(
+        "Use this first-run guide to learn the dual-window workflow and set up BudgetIT safely."
+      )
+    ).not.toBeInTheDocument();
     expect(
       screen.getByText((_content, element) => element?.textContent?.trim() === "Open Settings")
     ).toBeInTheDocument();
     expect(screen.queryByText("## Quick Start (First Launch)")).not.toBeInTheDocument();
+    expect(view.container.querySelector(".help-page__prose")).not.toBeInTheDocument();
   });
 
   it("updates rendered section when the selected topic changes", async () => {

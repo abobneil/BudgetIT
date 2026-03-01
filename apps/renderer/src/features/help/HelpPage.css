@@ -1,40 +1,37 @@
 .help-page {
   display: grid;
-  gap: 1rem;
-  padding: 1rem;
+  gap: 0.75rem;
+  padding: 0.75rem;
   max-width: 1100px;
   margin: 0 auto;
 }
 
-.help-page__chooser,
-.help-page__content-card {
-  display: grid;
-  gap: 0.75rem;
-}
-
-.help-page__topic-controls {
-  display: grid;
-  grid-template-columns: 1fr minmax(240px, 320px);
-  gap: 0.75rem;
+.help-page__header {
+  display: flex;
   align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
 }
 
-.help-page__topic-meta {
-  display: grid;
-  gap: 0.4rem;
+.help-page__title {
+  margin: 0;
+}
+
+.help-page__topic-select {
+  width: min(320px, 100%);
+  min-width: 180px;
 }
 
 .help-page__fallback-note {
+  display: block;
+  margin-bottom: 0.5rem;
   color: var(--status-warning);
 }
 
-.help-page__source-path {
-  color: var(--colorNeutralForeground3);
-}
-
-.help-page__prose {
+.help-page__content-card {
+  display: block;
   margin: 0;
-  max-height: calc(100vh - 20rem);
+  max-height: calc(100vh - 8.25rem);
   overflow: auto;
   padding: 1rem;
   border-radius: 0.5rem;
@@ -43,61 +40,61 @@
   line-height: 1.55;
 }
 
-.help-page__prose > :first-child {
+.help-page__content-card > :first-child {
   margin-top: 0;
 }
 
-.help-page__prose h1,
-.help-page__prose h2,
-.help-page__prose h3,
-.help-page__prose h4,
-.help-page__prose h5,
-.help-page__prose h6 {
+.help-page__content-card h1,
+.help-page__content-card h2,
+.help-page__content-card h3,
+.help-page__content-card h4,
+.help-page__content-card h5,
+.help-page__content-card h6 {
   margin: 1.1rem 0 0.5rem;
   line-height: 1.3;
 }
 
-.help-page__prose p {
+.help-page__content-card p {
   margin: 0.5rem 0;
 }
 
-.help-page__prose ul,
-.help-page__prose ol {
+.help-page__content-card ul,
+.help-page__content-card ol {
   margin: 0.5rem 0 0.8rem;
   padding-left: 1.25rem;
 }
 
-.help-page__prose li {
+.help-page__content-card li {
   margin: 0.25rem 0;
 }
 
-.help-page__prose a {
+.help-page__content-card a {
   color: var(--colorBrandForegroundLink);
 }
 
-.help-page__prose blockquote {
+.help-page__content-card blockquote {
   margin: 0.75rem 0;
   padding: 0.65rem 0.85rem;
   border-left: 3px solid var(--colorNeutralStroke1);
   background: color-mix(in srgb, var(--colorNeutralBackground3) 65%, transparent);
 }
 
-.help-page__prose table {
+.help-page__content-card table {
   width: 100%;
   border-collapse: collapse;
   margin: 0.75rem 0;
   font-size: 0.92rem;
 }
 
-.help-page__prose th,
-.help-page__prose td {
+.help-page__content-card th,
+.help-page__content-card td {
   border: 1px solid var(--colorNeutralStroke2);
   padding: 0.45rem 0.55rem;
   text-align: left;
   vertical-align: top;
 }
 
-.help-page__prose code {
+.help-page__content-card code {
   font-size: 0.86rem;
   background: color-mix(in srgb, var(--colorNeutralBackground3) 70%, transparent);
   border: 1px solid var(--colorNeutralStroke2);
@@ -105,7 +102,7 @@
   border-radius: 4px;
 }
 
-.help-page__prose pre {
+.help-page__content-card pre {
   margin: 0.75rem 0;
   padding: 0.75rem;
   border-radius: 8px;
@@ -114,7 +111,7 @@
   overflow: auto;
 }
 
-.help-page__prose pre code {
+.help-page__content-card pre code {
   background: transparent;
   border: 0;
   padding: 0;
@@ -122,14 +119,19 @@
 
 @media (max-width: 920px) {
   .help-page {
-    padding: 0.75rem;
+    padding: 0.5rem;
   }
 
-  .help-page__topic-controls {
-    grid-template-columns: 1fr;
+  .help-page__header {
+    flex-direction: column;
+    align-items: stretch;
   }
 
-  .help-page__prose {
+  .help-page__topic-select {
+    width: 100%;
+  }
+
+  .help-page__content-card {
     max-height: none;
   }
 }
