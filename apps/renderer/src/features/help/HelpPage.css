@@ -31,10 +31,99 @@
   min-width: 180px;
 }
 
+.help-page__topic-controls {
+  display: grid;
+  gap: 0.45rem;
+  width: min(420px, 100%);
+}
+
+.help-page__topic-search {
+  width: 100%;
+}
+
 .help-page__fallback-note {
   display: block;
   margin-bottom: 0.5rem;
   color: var(--status-warning);
+}
+
+.help-page__quick-start {
+  margin-bottom: 1rem;
+  padding: 0.8rem;
+  border: 1px solid var(--colorNeutralStroke2);
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, var(--colorBrandBackground2) 26%, transparent);
+}
+
+.help-page__quick-start-heading {
+  margin: 0;
+}
+
+.help-page__quick-start-subtitle {
+  display: block;
+  margin-top: 0.25rem;
+  margin-bottom: 0.55rem;
+}
+
+.help-page__quick-start-list {
+  margin: 0 0 0.75rem;
+  padding: 0;
+  list-style: none;
+}
+
+.help-page__quick-start-list li {
+  margin: 0.35rem 0;
+}
+
+.help-page__journey-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.help-page__search-results {
+  margin-bottom: 1rem;
+  padding: 0.8rem;
+  border: 1px solid var(--colorNeutralStroke2);
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, var(--status-info) 12%, transparent);
+}
+
+.help-page__search-results-heading {
+  margin: 0 0 0.45rem;
+}
+
+.help-page__search-results-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.4rem;
+}
+
+.help-page__search-result-button {
+  width: 100%;
+  text-align: left;
+  border: 1px solid var(--colorNeutralStroke2);
+  border-radius: 8px;
+  background: var(--colorNeutralBackground1);
+  padding: 0.45rem 0.55rem;
+  display: grid;
+  gap: 0.2rem;
+  cursor: pointer;
+}
+
+.help-page__search-result-button:hover {
+  background: color-mix(in srgb, var(--status-info) 10%, var(--colorNeutralBackground1));
+}
+
+.help-page__search-result-title {
+  font-weight: 600;
+}
+
+.help-page__search-result-snippet {
+  color: var(--colorNeutralForeground2);
+  font-size: 0.83rem;
 }
 
 .help-page__content-card {
@@ -161,6 +250,10 @@
   }
 
   .help-page__topic-select {
+    width: 100%;
+  }
+
+  .help-page__topic-controls {
     width: 100%;
   }
 }

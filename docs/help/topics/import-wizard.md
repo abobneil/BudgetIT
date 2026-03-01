@@ -29,3 +29,20 @@ Guided import for expenses and actuals.
   - matched/unmatched counts
   - match rate
   - unmatched queue follow-up list
+
+### Glossary: import statuses and match outcomes
+- `accepted`: row passed validation and is eligible for insert/match processing.
+- `rejected`: row failed validation and is excluded from commit.
+- `duplicate`: row fingerprint matched an earlier row in the same run and is skipped.
+- `matched`: actuals transaction linked to an existing expense occurrence.
+- `unmatched`: transaction has no selected/valid occurrence match and requires queue review.
+- `ignored`: unmatched transaction intentionally left unresolved for current cycle.
+
+### Reconciliation playbook
+1. Run preview and resolve validation/duplicate errors first.
+2. Commit in `actuals` mode and review matched/unmatched counts.
+3. Open unmatched queue follow-up items and decide one action per row:
+   - Match to an existing occurrence.
+   - Reject when source data is invalid.
+   - Ignore when deferring to a later cycle.
+   - Create expense when a new recurring/planned line is required.

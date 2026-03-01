@@ -113,6 +113,13 @@
   margin-top: 0.5rem;
 }
 
+.import-definitions-list {
+  margin: 0;
+  padding-left: 1rem;
+  display: grid;
+  gap: 0.2rem;
+}
+
 .import-nav {
   display: flex;
   gap: 0.5rem;

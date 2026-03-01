@@ -2,13 +2,15 @@
 
 import "@testing-library/jest-dom/vitest";
 import { FluentProvider } from "@fluentui/react-components";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { getHelpDocument } from "../../lib/ipcClient";
 import { budgetItLightTheme } from "../../ui/theme";
 import { HelpPage } from "./HelpPage";
+
+const QUICK_START_CHECKLIST_STORAGE_KEY = "budgetit.help.quick-start-checklist.v1";
 
 vi.mock("../../lib/ipcClient", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../../lib/ipcClient")>();
@@ -30,6 +32,9 @@ const BASE_HELP_MARKDOWN = `
 
 ## 2) Dashboard
 Dashboard content paragraph.
+
+## 6) Vendors Workspace
+Vendor setup guidance paragraph.
 `.trim();
 
 function renderHelp(path: string) {
@@ -50,6 +55,7 @@ describe("HelpPage", () => {
   beforeEach(() => {
     getHelpDocumentMock.mockReset();
     scrollIntoViewMock.mockReset();
+    window.localStorage.clear();
     Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
       configurable: true,
       value: scrollIntoViewMock
@@ -153,5 +159,89 @@ describe("HelpPage", () => {
     await waitFor(() => {
       expect(scrollIntoViewMock).toHaveBeenCalled();
     });
+  });
+
+  it("renders quick-start checklist and journey links", async () => {
+    getHelpDocumentMock.mockResolvedValue({
+      markdown: BASE_HELP_MARKDOWN,
+      sourcePath: "docs/help-system.md"
+    });
+
+    renderHelp("/help?topic=quick-start");
+    await screen.findByRole("heading", { name: "Quick Start (First Launch)" });
+
+    expect(
+      screen.getByRole("heading", { name: "First-Session Journey" })
+    ).toBeInTheDocument();
+    expect(screen.getByText("0/6 setup milestones complete")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Step 1: Vendors setup" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("checkbox", {
+        name: "Configure startup/tray/runtime settings in Settings."
+      })
+    ).toBeInTheDocument();
+  });
+
+  it("persists quick-start checklist completion in local storage", async () => {
+    getHelpDocumentMock.mockResolvedValue({
+      markdown: BASE_HELP_MARKDOWN,
+      sourcePath: "docs/help-system.md"
+    });
+
+    const { unmount } = renderHelp("/help?topic=quick-start");
+    const settingsCheckbox = await screen.findByRole("checkbox", {
+      name: "Configure startup/tray/runtime settings in Settings."
+    });
+
+    fireEvent.click(settingsCheckbox);
+    await waitFor(() => {
+      expect(screen.getByText("1/6 setup milestones complete")).toBeInTheDocument();
+    });
+
+    expect(window.localStorage.getItem(QUICK_START_CHECKLIST_STORAGE_KEY)).toContain(
+      '"configure-settings":true'
+    );
+
+    unmount();
+    renderHelp("/help?topic=quick-start");
+    expect(
+      await screen.findByRole("checkbox", {
+        name: "Configure startup/tray/runtime settings in Settings."
+      })
+    ).toBeChecked();
+  });
+
+  it("opens quick-start journey links by switching topic query", async () => {
+    getHelpDocumentMock.mockResolvedValue({
+      markdown: BASE_HELP_MARKDOWN,
+      sourcePath: "docs/help-system.md"
+    });
+
+    renderHelp("/help?topic=quick-start");
+    await screen.findByRole("heading", { name: "Quick Start (First Launch)" });
+
+    fireEvent.click(screen.getByRole("button", { name: "Step 1: Vendors setup" }));
+
+    expect(await screen.findByRole("heading", { name: "6) Vendors Workspace" })).toBeInTheDocument();
+    expect(screen.getByText("Vendor setup guidance paragraph.")).toBeInTheDocument();
+  });
+
+  it("supports help search index jump results from generated topic metadata", async () => {
+    getHelpDocumentMock.mockResolvedValue({
+      markdown: BASE_HELP_MARKDOWN,
+      sourcePath: "docs/help-system.md"
+    });
+
+    renderHelp("/help?topic=quick-start");
+    await screen.findByRole("heading", { name: "Quick Start (First Launch)" });
+
+    fireEvent.change(screen.getByLabelText("Search help index"), {
+      target: { value: "dashboard" }
+    });
+
+    const jumpResults = screen.getByLabelText("Help jump results");
+    fireEvent.click(within(jumpResults).getByRole("button", { name: /^Dashboard/ }));
+    expect(await screen.findByRole("heading", { name: "2) Dashboard" })).toBeInTheDocument();
+    expect(screen.getByText("Dashboard content paragraph.")).toBeInTheDocument();
   });
 });

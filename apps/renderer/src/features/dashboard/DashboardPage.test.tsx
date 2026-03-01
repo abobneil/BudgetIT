@@ -105,6 +105,8 @@ describe("DashboardPage", () => {
     expect(screen.getAllByText("Variance").length).toBeGreaterThan(0);
     expect(screen.getByText("Renewals Timeline")).toBeInTheDocument();
     expect(screen.getByText("Tagging Completeness")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Help for Forecast" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Help for Variance Trend" })).toBeInTheDocument();
   });
 
   it("shows stale warning and routes maintenance action to settings", async () => {

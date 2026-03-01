@@ -158,6 +158,9 @@ describe("ImportPage", () => {
 
   it("runs full wizard and displays accepted/rejected/duplicate and unmatched queue counts", async () => {
     renderImportPage();
+    expect(screen.getByRole("button", { name: "Import Guide" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Reconciliation Guide" })).toBeInTheDocument();
+    expect(screen.getByTestId("import-definitions-card")).toHaveTextContent("Field & Status Definitions");
 
     fireEvent.change(screen.getByLabelText("Import mode"), {
       target: { value: "actuals" }

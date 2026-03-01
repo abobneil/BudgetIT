@@ -53,3 +53,17 @@ Goal: Compare a draft scenario with baseline and promote if ready.
 6. Review local and database comparison deltas.
 7. If approved by your process, click **Promote**.
 8. Lock scenario when changes should stop.
+
+## Reporting Cadence Checklist
+
+### Weekly
+1. Refresh key report preset(s) with current date/tag filters.
+2. Review unmatched actuals queue and resolve priority transactions.
+3. Validate Data Quality Guardrails and assign metadata remediation.
+4. Queue weekly exports and verify output paths in export metadata.
+
+### Monthly
+1. Run monthly executive export workflow end-to-end.
+2. Validate narrative insights against KPI + chart outputs.
+3. Generate and export showback statements.
+4. Record unresolved exceptions and owners for next cycle.

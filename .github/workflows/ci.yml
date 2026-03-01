@@ -58,6 +58,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Help Integrity Check
+        run: npm run help:check
+
       - name: Lint
         run: npm run lint
 

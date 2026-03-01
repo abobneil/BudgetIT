@@ -24,6 +24,7 @@ import {
   previewImport,
   type ImportTemplateSummary
 } from "../../lib/ipcClient";
+import { buildHelpHashPath } from "../help/help-topics";
 import { InlineError, PageHeader } from "../../ui/primitives";
 import {
   buildImportPayload,
@@ -37,6 +38,7 @@ import {
   type ImportWizardStep
 } from "./import-wizard-model";
 import { useFeedback } from "../../ui/feedback";
+import { useNavigate } from "react-router-dom";
 import "./ImportPage.css";
 
 type PreviewRow = {
@@ -89,6 +91,7 @@ function stepLabel(step: ImportWizardStep): string {
 export function ImportPage() {
   const hasIpc = isIpcAvailable();
   const { notify } = useFeedback();
+  const navigate = useNavigate();
   const [draft, setDraft] = useState(() => createInitialImportWizardDraft());
   const [currentStep, setCurrentStep] = useState<ImportWizardStep>("mode");
   const [errorFilter, setErrorFilter] = useState<ImportErrorFilter>("all");
@@ -238,12 +241,79 @@ export function ImportPage() {
     }
   }
 
+  function openHelpTopic(topic: string, anchor?: string): void {
+    navigate(
+      buildHelpHashPath({
+        topic,
+        anchor
+      })
+    );
+  }
+
   return (
     <section className="import-page">
       <PageHeader
         title="Import Wizard"
         subtitle="Guided stepper for mode, mapping, preview, and commit with deterministic dedupe outcomes."
+        actions={(
+          <div className="import-nav">
+            <Button
+              appearance="secondary"
+              size="small"
+              type="button"
+              onClick={() => openHelpTopic("import-wizard", "5-steps")}
+            >
+              Import Guide
+            </Button>
+            <Button
+              appearance="secondary"
+              size="small"
+              type="button"
+              onClick={() => openHelpTopic("reports-workspace", "unmatched-actuals-review")}
+            >
+              Reconciliation Guide
+            </Button>
+          </div>
+        )}
       />
+
+      <Card data-testid="import-definitions-card">
+        <Title3>Field & Status Definitions</Title3>
+        <ul className="import-definitions-list">
+          <li>
+            <Text>
+              <strong>Accepted</strong>: row passed validation and is eligible for commit.
+            </Text>
+          </li>
+          <li>
+            <Text>
+              <strong>Rejected</strong>: row failed validation and is excluded from commit.
+            </Text>
+          </li>
+          <li>
+            <Text>
+              <strong>Duplicate</strong>: row fingerprint matched an earlier row in this run.
+            </Text>
+          </li>
+          <li>
+            <Text>
+              <strong>Matched / Unmatched</strong>: actuals linked or pending reconciliation.
+            </Text>
+          </li>
+        </ul>
+        <div className="import-nav">
+          <Button
+            appearance="secondary"
+            size="small"
+            type="button"
+            onClick={() =>
+              openHelpTopic("import-wizard", "glossary-import-statuses-and-match-outcomes")
+            }
+          >
+            Open Full Definitions
+          </Button>
+        </div>
+      </Card>
 
       <Card>
         <ol className="import-stepper">

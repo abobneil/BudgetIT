@@ -3,7 +3,8 @@ export type CommandActionId =
   | "run-import"
   | "open-alerts"
   | "backup-now"
-  | "open-shortcuts";
+  | "open-shortcuts"
+  | "open-context-help";
 
 export type CommandIntent =
   | {
@@ -75,6 +76,12 @@ export const COMMAND_REGISTRY: CommandEntry[] = [
     label: "Show Keyboard Shortcuts",
     keywords: ["help", "keyboard", "shortcuts"],
     intent: { kind: "action", actionId: "open-shortcuts" }
+  },
+  {
+    id: "action-open-context-help",
+    label: "Open Contextual Help (F1)",
+    keywords: ["help", "context", "topic", "field definitions", "status definitions"],
+    intent: { kind: "action", actionId: "open-context-help" }
   }
 ];
 

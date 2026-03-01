@@ -74,11 +74,69 @@ Decision summary view for financial and operational signals.
 - Edit layout (toggle card visibility, re-order cards, assign sections, add custom sections)
 - Reset layout defaults
 
-### Major content
-- KPI cards: Forecast, Actual, Variance, Renewals, Tagging Completeness, Replacement Required
-- Chart cards: Spend Trend, Variance, Renewals Timeline, Growth, Replacement Status Breakdown
-- Narrative insights
-- Forecast freshness warning banner (links to Settings)
+### Forecast KPI
+- Definition: sum of forecast spend in the active scenario + selected window.
+- Use: baseline expected spend for comparison against actuals.
+
+### Actual KPI
+- Definition: sum of observed/actual spend in the active scenario + selected window.
+- Use: realized spend used for variance and trend analysis.
+
+### Variance KPI
+- Definition: `actual - forecast` for the active window aggregate.
+- Positive variance (`> 0`): spend above forecast.
+- Negative variance (`< 0`): spend under/within forecast.
+
+### Renewals (Upcoming) KPI
+- Definition: count of renewals in the selected window from renewals timeline data.
+- Use: near-term operational workload signal.
+
+### Tagging Completeness KPI
+- Definition: `(tagged expense lines / total expense lines) * 100`.
+- Use: data quality confidence indicator for reporting and allocations.
+
+### Replacement Required KPI
+- Definition: number of open replacement-required plans in current scenario.
+- Use: highlights technical debt and lifecycle risk backlog.
+
+### Spend Trend Card
+- Shows monthly forecast vs actual bars for the selected window.
+- Use to detect sustained spend drift, not single-point anomalies only.
+
+### Variance Trend Card
+- Shows monthly variance bars (`actual - forecast`) with directionality.
+- Pair with Variance KPI for aggregate + monthly diagnostics.
+
+### Renewals Timeline Card
+- Shows renewal counts by month.
+- Use to schedule owner follow-up and notice-period preparation.
+
+### Growth Trend Card
+- Shows month-over-month growth percentages.
+- `N/A` means prior month baseline was unavailable/zero for growth calculation.
+
+### Replacement Status Breakdown Card
+- Shows count by replacement status category.
+- Use to detect blocked/rework-heavy replacement pipelines.
+
+### Narrative Insights
+- Shows generated analyst summaries from report narrative blocks.
+- Use for executive readouts after KPI/chart review.
+
+### Variance triage workflow
+1. Confirm scope: check selected Scenario and date window first.
+2. Read aggregate signal: compare Forecast, Actual, and Variance KPIs.
+3. Isolate timing: inspect Variance Trend by month to find spike periods.
+4. Validate data quality: review Tagging Completeness and required-tag gaps.
+5. Check operational drivers: review Renewals and Replacement status signals.
+6. Assign next action:
+   - Above forecast + valid data -> cost containment or reforecast update.
+   - Above forecast + poor tagging -> fix metadata before executive reporting.
+   - Under forecast + delayed renewals -> verify execution risk vs savings.
+
+### Forecast freshness warning
+- A stale forecast banner indicates data recency risk.
+- Use **Open Settings** from the banner to reach maintenance controls.
 
 ## 3) Expenses Workspace
 Manage expense lines, status, tags, and recurrence.
@@ -320,6 +378,23 @@ Guided import for expenses and actuals.
   - match rate
   - unmatched queue follow-up list
 
+### Glossary: import statuses and match outcomes
+- `accepted`: row passed validation and is eligible for insert/match processing.
+- `rejected`: row failed validation and is excluded from commit.
+- `duplicate`: row fingerprint matched an earlier row in the same run and is skipped.
+- `matched`: actuals transaction linked to an existing expense occurrence.
+- `unmatched`: transaction has no selected/valid occurrence match and requires queue review.
+- `ignored`: unmatched transaction intentionally left unresolved for current cycle.
+
+### Reconciliation playbook
+1. Run preview and resolve validation/duplicate errors first.
+2. Commit in `actuals` mode and review matched/unmatched counts.
+3. Open unmatched queue follow-up items and decide one action per row:
+   - Match to an existing occurrence.
+   - Reject when source data is invalid.
+   - Ignore when deferring to a later cycle.
+   - Create expense when a new recurring/planned line is required.
+
 ## 11) Reports Workspace
 Flexible reporting, export orchestration, and operational finance tools.
 
@@ -341,6 +416,14 @@ Flexible reporting, export orchestration, and operational finance tools.
 2. Confirm destination path
 3. Preview report and queue export
 
+### Executive export playbook
+1. Select a report preset aligned to the audience (`Dashboard Overview` for exec cadence).
+2. Set reporting period filters and confirm Scenario context.
+3. Keep required visualizations enabled (`Table`, `Chart`, `Gauge`, `Narrative`) for complete briefing.
+4. Confirm destination and run preview before queueing.
+5. Queue export in required format(s) and verify output path in export metadata.
+6. Review Data Quality Guardrails and unresolved unmatched actuals before distribution.
+
 ### Additional reporting operations
 - Save current view as report preset
 - Export job history table
@@ -354,6 +437,35 @@ Flexible reporting, export orchestration, and operational finance tools.
   - Group by (`cost_center`, `team`)
   - Generate statement
   - Export CSV/XLSX
+
+### Unmatched actuals review
+1. Confirm the queue summary (`unmatched count`, `unmatched amount`, `driver mix`).
+2. Pick a suggested match when a valid occurrence exists.
+3. Choose a driver (`timing`, `price`, `scope`) and add analyst comment when needed.
+4. Apply one disposition per row:
+   - `Match`: link to occurrence.
+   - `Reject`: mark invalid source record.
+   - `Ignore`: defer resolution for this cycle.
+   - `Create expense`: open planned-line workflow from actuals evidence.
+
+### Glossary: reconciliation statuses
+- `No match selected`: queue item has not been routed to an occurrence yet.
+- `Match`: transaction is reconciled against an existing planned line.
+- `Reject`: transaction is excluded due to invalid source or business exclusion.
+- `Ignore`: transaction remains unresolved intentionally for follow-up.
+- `Create expense`: promotes unmatched signal into a new expense record candidate.
+
+### Weekly operating checklist
+- Refresh primary report preset(s) with current week filters.
+- Review unmatched actuals queue and clear high-priority rows.
+- Check data quality guardrails and assign fixes for missing metadata.
+- Queue weekly export package and confirm artifact paths.
+
+### Monthly operating checklist
+- Run executive export playbook using month-end filters.
+- Validate narrative block accuracy against KPI/trend signals.
+- Generate showback statements for finance review.
+- Archive/export run outputs and note unresolved reconciliation exceptions.
 
 ## 12) NLQ Workspace
 Natural-language query interface for report-ready data retrieval.
@@ -500,6 +612,20 @@ Goal: Compare a draft scenario with baseline and promote if ready.
 7. If approved by your process, click **Promote**.
 8. Lock scenario when changes should stop.
 
+## Reporting Cadence Checklist
+
+### Weekly
+1. Refresh key report preset(s) with current date/tag filters.
+2. Review unmatched actuals queue and resolve priority transactions.
+3. Validate Data Quality Guardrails and assign metadata remediation.
+4. Queue weekly exports and verify output paths in export metadata.
+
+### Monthly
+1. Run monthly executive export workflow end-to-end.
+2. Validate narrative insights against KPI + chart outputs.
+3. Generate and export showback statements.
+4. Record unresolved exceptions and owners for next cycle.
+
 ## Help Document Maintenance Notes
 - Do not edit generated files directly:
   - `docs/help-system.md`
@@ -515,3 +641,21 @@ Goal: Compare a draft scenario with baseline and promote if ready.
 - Keep shortcut and menu wording aligned with implemented behavior in:
   - `apps/renderer/src/app/AppShell.tsx`
   - `apps/desktop/src/main.ts`
+
+## PR Maintenance Checklist
+1. Update source help files only (`docs/help/**` source-of-truth files).
+2. Run `npm run help:generate`.
+3. Run `npm run help:check`.
+4. Commit source + generated outputs together.
+5. Ensure CI status checks are green before merge.
+
+## Required Status Check Enforcement
+For `main` branch protection, require at minimum:
+- `Help Integrity`
+- `Lint, Typecheck, Test, Build`
+
+If repository rules are managed via GitHub UI:
+1. Open **Settings > Branches > Branch protection rules**.
+2. Edit rule for `main`.
+3. Enable **Require status checks to pass before merging**.
+4. Select both checks above and save.

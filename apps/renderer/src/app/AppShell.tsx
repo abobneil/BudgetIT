@@ -32,6 +32,11 @@ type GlobalSearchEntry = {
   keywords: string[];
 };
 
+type ContextHelpPayload = {
+  topic: string;
+  anchor?: string;
+};
+
 const GLOBAL_SEARCH_ENTRIES: GlobalSearchEntry[] = [
   ...INITIAL_VENDOR_RECORDS.map((vendor) => ({
     id: `vendor-${vendor.id}`,
@@ -83,6 +88,46 @@ function resolveGlobalSearchEntries(query: string): GlobalSearchEntry[] {
         entry.keywords.some((keyword) => keyword.toLowerCase().includes(normalized))
     )
     .slice(0, 10);
+}
+
+function resolveContextHelpPayload(pathname: string): ContextHelpPayload {
+  if (pathname.startsWith("/dashboard")) {
+    return { topic: "dashboard-overview", anchor: "variance-kpi" };
+  }
+  if (pathname.startsWith("/expenses")) {
+    return { topic: "expenses-workspace", anchor: "overview" };
+  }
+  if (pathname.startsWith("/services")) {
+    return { topic: "services-workspace", anchor: "overview" };
+  }
+  if (pathname.startsWith("/contracts")) {
+    return { topic: "contracts-workspace", anchor: "overview" };
+  }
+  if (pathname.startsWith("/vendors")) {
+    return { topic: "vendors-workspace", anchor: "overview" };
+  }
+  if (pathname.startsWith("/tags")) {
+    return { topic: "tags-workspace", anchor: "overview" };
+  }
+  if (pathname.startsWith("/scenarios")) {
+    return { topic: "scenarios-workspace", anchor: "overview" };
+  }
+  if (pathname.startsWith("/alerts")) {
+    return { topic: "alerts-inbox", anchor: "overview" };
+  }
+  if (pathname.startsWith("/import")) {
+    return { topic: "import-wizard", anchor: "5-steps" };
+  }
+  if (pathname.startsWith("/reports")) {
+    return { topic: "reports-workspace", anchor: "export-orchestration" };
+  }
+  if (pathname.startsWith("/nlq")) {
+    return { topic: "nlq-workspace", anchor: "overview" };
+  }
+  if (pathname.startsWith("/settings")) {
+    return { topic: "settings-center", anchor: "overview" };
+  }
+  return { topic: "quick-start" };
 }
 
 export function AppShell({ children }: PropsWithChildren) {
@@ -141,7 +186,7 @@ export function AppShell({ children }: PropsWithChildren) {
       }
       if (event.key === "F1") {
         event.preventDefault();
-        void openHelpWindow({ topic: "quick-start" });
+        void openHelpWindow(resolveContextHelpPayload(location.pathname));
         return;
       }
       if (event.key === "Escape") {
@@ -159,7 +204,7 @@ export function AppShell({ children }: PropsWithChildren) {
     return () => {
       window.removeEventListener("keydown", onKeyDown);
     };
-  }, [commandPaletteOpen, keyboardHelpOpen]);
+  }, [commandPaletteOpen, keyboardHelpOpen, location.pathname]);
 
   async function executeCommand(command: CommandEntry): Promise<void> {
     setCommandPaletteOpen(false);
@@ -198,6 +243,10 @@ export function AppShell({ children }: PropsWithChildren) {
         case "open-shortcuts":
           setKeyboardHelpOpen(true);
           notify({ tone: "info", message: "Keyboard shortcut help opened." });
+          break;
+        case "open-context-help":
+          await openHelpWindow(resolveContextHelpPayload(location.pathname));
+          notify({ tone: "info", message: "Contextual help opened." });
           break;
         default:
           notify({ tone: "error", message: "Unknown command action." });
@@ -335,7 +384,7 @@ export function AppShell({ children }: PropsWithChildren) {
                 appearance="secondary"
                 className="desktop-shell__toolbar-button"
                 onClick={() => {
-                  void openHelpWindow({ topic: "quick-start" });
+                  void openHelpWindow(resolveContextHelpPayload(location.pathname));
                 }}
                 type="button"
               >

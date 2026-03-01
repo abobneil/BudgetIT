@@ -10,18 +10,20 @@ import { AppShell } from "./AppShell";
 import { AppRoutes } from "./routes";
 import { FeedbackProvider } from "../ui/feedback";
 import { budgetItLightTheme } from "../ui/theme";
-import { createBackup } from "../lib/ipcClient";
+import { createBackup, openHelpWindow } from "../lib/ipcClient";
 import { ScenarioProvider } from "../features/scenarios/ScenarioContext";
 
 vi.mock("../lib/ipcClient", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../lib/ipcClient")>();
   return {
     ...actual,
-    createBackup: vi.fn()
+    createBackup: vi.fn(),
+    openHelpWindow: vi.fn()
   };
 });
 
 const createBackupMock = vi.mocked(createBackup);
+const openHelpWindowMock = vi.mocked(openHelpWindow);
 
 function renderWorkspace(initialPath = "/dashboard") {
   return render(
@@ -42,6 +44,7 @@ function renderWorkspace(initialPath = "/dashboard") {
 describe("command palette and keyboard navigation", () => {
   beforeEach(() => {
     createBackupMock.mockReset();
+    openHelpWindowMock.mockReset();
     createBackupMock.mockResolvedValue({
       backupPath: "C:\\Backups\\BudgetIT\\backup.db",
       manifestPath: "C:\\Backups\\BudgetIT\\backup.manifest.json",
@@ -53,6 +56,7 @@ describe("command palette and keyboard navigation", () => {
         destinationKind: "local_or_external"
       }
     });
+    openHelpWindowMock.mockResolvedValue(undefined);
   });
 
   afterEach(() => {
@@ -130,6 +134,30 @@ describe("command palette and keyboard navigation", () => {
 
     await waitFor(() => {
       expect(screen.getByTestId("page-title")).toHaveTextContent("Alerts");
+    });
+  });
+
+  it("opens contextual help via F1 and command palette with topic+anchor seeds", async () => {
+    renderWorkspace("/reports");
+
+    fireEvent.keyDown(window, { key: "F1" });
+    await waitFor(() => {
+      expect(openHelpWindowMock).toHaveBeenCalledWith({
+        topic: "reports-workspace",
+        anchor: "export-orchestration"
+      });
+    });
+
+    fireEvent.keyDown(window, { key: "k", ctrlKey: true });
+    const paletteInput = screen.getByLabelText("Command palette input");
+    fireEvent.change(paletteInput, { target: { value: "contextual help" } });
+    fireEvent.keyDown(paletteInput, { key: "Enter" });
+
+    await waitFor(() => {
+      expect(openHelpWindowMock).toHaveBeenLastCalledWith({
+        topic: "reports-workspace",
+        anchor: "export-orchestration"
+      });
     });
   });
 });

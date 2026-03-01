@@ -26,7 +26,7 @@ Triggers:
 Behavior:
 
 - Runs a dedicated help integrity job (`help:check`) on `windows-latest`.
-- Runs quality gates (`lint`, `typecheck`, `test`, `build`) on `windows-latest`.
+- Runs quality gates on `windows-latest`, including `help:check`, `lint`, `typecheck`, `test`, and `build`.
 - Runs packaging smoke jobs after quality:
   - Windows (`dist:win`, smoke checks, artifact validation)
   - Linux x64 (`dist:linux:x64`, smoke checks, artifact validation)

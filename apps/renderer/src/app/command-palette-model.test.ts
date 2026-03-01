@@ -24,7 +24,8 @@ describe("command palette model", () => {
         "new-expense",
         "run-import",
         "open-alerts",
-        "backup-now"
+        "backup-now",
+        "open-context-help"
       ])
     );
     expect(KEYBOARD_SHORTCUT_MAP.openPalette).toBe("Ctrl+K");

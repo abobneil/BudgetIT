@@ -8,6 +8,9 @@ import {
   type ReactNode
 } from "react";
 import {
+  Button,
+  Checkbox,
+  Input,
   Select,
   Text,
   Title2
@@ -19,6 +22,7 @@ import { useSearchParams } from "react-router-dom";
 import { getHelpDocument } from "../../lib/ipcClient";
 import { InlineError, LoadingState } from "../../ui/primitives";
 import {
+  buildHelpHashPath,
   HELP_TOPICS,
   resolveHelpTopic
 } from "./help-topics";
@@ -28,6 +32,87 @@ type SectionExtraction = {
   markdown: string;
   found: boolean;
 };
+
+type QuickStartChecklistState = Record<string, boolean>;
+
+type QuickStartChecklistItem = {
+  id: string;
+  label: string;
+};
+
+type QuickStartJourneyLink = {
+  topic: string;
+  label: string;
+  anchor?: string;
+};
+
+const QUICK_START_CHECKLIST_STORAGE_KEY = "budgetit.help.quick-start-checklist.v1";
+
+const QUICK_START_CHECKLIST_ITEMS: QuickStartChecklistItem[] = [
+  {
+    id: "configure-settings",
+    label: "Configure startup/tray/runtime settings in Settings."
+  },
+  {
+    id: "create-backup",
+    label: "Create and verify the first backup."
+  },
+  {
+    id: "confirm-scenario",
+    label: "Confirm Scenario is set to Baseline before data setup."
+  },
+  {
+    id: "add-core-records",
+    label: "Add Vendors, Services, Contracts, and Expenses."
+  },
+  {
+    id: "configure-dimensions",
+    label: "Set required dimensions in Tags & Dimensions."
+  },
+  {
+    id: "validate-dashboard",
+    label: "Validate Dashboard KPIs/variance cards after setup."
+  }
+];
+
+const QUICK_START_JOURNEY_LINKS: QuickStartJourneyLink[] = [
+  { topic: "vendors-workspace", label: "Step 1: Vendors setup", anchor: "overview" },
+  { topic: "services-workspace", label: "Step 2: Services setup", anchor: "overview" },
+  { topic: "contracts-workspace", label: "Step 3: Contracts setup", anchor: "overview" },
+  { topic: "expenses-workspace", label: "Step 4: Expenses setup", anchor: "overview" },
+  { topic: "tags-workspace", label: "Step 5: Tags & dimensions", anchor: "overview" },
+  { topic: "dashboard-overview", label: "Step 6: Validate in Dashboard", anchor: "kpi-cards" }
+];
+
+function loadQuickStartChecklistState(): QuickStartChecklistState {
+  if (typeof window === "undefined" || !window.localStorage) {
+    return {};
+  }
+  const raw = window.localStorage.getItem(QUICK_START_CHECKLIST_STORAGE_KEY);
+  if (!raw) {
+    return {};
+  }
+  try {
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object") {
+      return {};
+    }
+    const next: QuickStartChecklistState = {};
+    for (const item of QUICK_START_CHECKLIST_ITEMS) {
+      next[item.id] = parsed[item.id] === true;
+    }
+    return next;
+  } catch {
+    return {};
+  }
+}
+
+function persistQuickStartChecklistState(state: QuickStartChecklistState): void {
+  if (typeof window === "undefined" || !window.localStorage) {
+    return;
+  }
+  window.localStorage.setItem(QUICK_START_CHECKLIST_STORAGE_KEY, JSON.stringify(state));
+}
 
 function decodeAnchorValue(value: string): string {
   try {
@@ -87,6 +172,39 @@ const MARKDOWN_COMPONENTS = {
   h6: createHeadingRenderer("h6")
 };
 
+function getHelpTopicSearchScore(topic: (typeof HELP_TOPICS)[number], query: string): number {
+  const normalizedQuery = query.trim().toLowerCase();
+  if (!normalizedQuery) {
+    return 0;
+  }
+
+  const title = topic.title.toLowerCase();
+  const id = topic.id.toLowerCase();
+  const snippet = topic.inAppSnippet.toLowerCase();
+  const section = topic.docSection.toLowerCase();
+  const keywords = topic.keywords.map((keyword) => keyword.toLowerCase());
+
+  if (title === normalizedQuery || id === normalizedQuery) {
+    return 120;
+  }
+  if (title.startsWith(normalizedQuery) || id.startsWith(normalizedQuery)) {
+    return 100;
+  }
+  if (title.includes(normalizedQuery) || id.includes(normalizedQuery)) {
+    return 80;
+  }
+  if (section.includes(normalizedQuery)) {
+    return 70;
+  }
+  if (keywords.some((keyword) => keyword.includes(normalizedQuery))) {
+    return 60;
+  }
+  if (snippet.includes(normalizedQuery)) {
+    return 40;
+  }
+  return 0;
+}
+
 function extractSection(markdown: string, sectionHeading: string): SectionExtraction {
   const lines = markdown.split(/\r?\n/);
   const headingLine = `## ${sectionHeading}`;
@@ -118,9 +236,35 @@ export function HelpPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [documentMarkdown, setDocumentMarkdown] = useState("");
+  const [quickStartChecklistState, setQuickStartChecklistState] =
+    useState<QuickStartChecklistState>(() => loadQuickStartChecklistState());
+  const [topicSearchQuery, setTopicSearchQuery] = useState("");
   const selectedAnchor = searchParams.get("anchor")?.trim() ?? "";
 
   const selectedTopic = resolveHelpTopic(searchParams.get("topic"));
+  const normalizedTopicSearchQuery = topicSearchQuery.trim().toLowerCase();
+
+  const indexedTopics = useMemo(
+    () =>
+      HELP_TOPICS.map((topic) => ({
+        topic,
+        score: getHelpTopicSearchScore(topic, normalizedTopicSearchQuery)
+      }))
+        .filter((entry) => normalizedTopicSearchQuery.length === 0 || entry.score > 0)
+        .sort((left, right) => right.score - left.score)
+        .map((entry) => entry.topic),
+    [normalizedTopicSearchQuery]
+  );
+
+  const selectableTopics = useMemo(() => {
+    if (normalizedTopicSearchQuery.length === 0) {
+      return HELP_TOPICS;
+    }
+    if (indexedTopics.some((topic) => topic.id === selectedTopic.id)) {
+      return indexedTopics;
+    }
+    return [selectedTopic, ...indexedTopics];
+  }, [indexedTopics, normalizedTopicSearchQuery, selectedTopic]);
 
   const selectedSection = useMemo(
     () => extractSection(documentMarkdown, selectedTopic.docSection),
@@ -208,6 +352,44 @@ export function HelpPage() {
     };
   }, [error, loading, selectedAnchor, selectedSection.markdown]);
 
+  useEffect(() => {
+    persistQuickStartChecklistState(quickStartChecklistState);
+  }, [quickStartChecklistState]);
+
+  const completedQuickStartItemCount = useMemo(
+    () =>
+      QUICK_START_CHECKLIST_ITEMS.filter((item) => quickStartChecklistState[item.id]).length,
+    [quickStartChecklistState]
+  );
+
+  function handleQuickStartChecklistToggle(itemId: string, checked: boolean): void {
+    setQuickStartChecklistState((current) => ({
+      ...current,
+      [itemId]: checked
+    }));
+  }
+
+  function openQuickStartJourneyLink(link: QuickStartJourneyLink): void {
+    setTopicSearchQuery("");
+    setSearchParams(
+      (current) => {
+        const nextPath = buildHelpHashPath({ topic: link.topic, anchor: link.anchor });
+        const queryIndex = nextPath.indexOf("?");
+        const next = new URLSearchParams(current);
+        const incoming = new URLSearchParams(queryIndex >= 0 ? nextPath.slice(queryIndex + 1) : "");
+        next.set("topic", incoming.get("topic") ?? link.topic);
+        const anchor = incoming.get("anchor");
+        if (anchor) {
+          next.set("anchor", anchor);
+        } else {
+          next.delete("anchor");
+        }
+        return next;
+      },
+      { replace: true }
+    );
+  }
+
   if (loading) {
     return (
       <section className="help-page">
@@ -222,33 +404,113 @@ export function HelpPage() {
         <Title2 as="h1" className="help-page__title">
           Help Center
         </Title2>
-        <Select
-          aria-label="Selected help topic"
-          className="help-page__topic-select"
-          value={selectedTopic.id}
-          onChange={(event) =>
-            setSearchParams(
-              (current) => {
-                const next = new URLSearchParams(current);
-                next.set("topic", event.target.value);
-                return next;
-              },
-              { replace: true }
-            )
-          }
-        >
-          {HELP_TOPICS.map((topic) => (
-            <option key={topic.id} value={topic.id}>
-              {topic.title}
-            </option>
-          ))}
-        </Select>
+        <div className="help-page__topic-controls">
+          <Input
+            aria-label="Search help index"
+            className="help-page__topic-search"
+            placeholder="Search topic, keyword, or field..."
+            value={topicSearchQuery}
+            onChange={(_event, data) => setTopicSearchQuery(data.value)}
+          />
+          <Select
+            aria-label="Selected help topic"
+            className="help-page__topic-select"
+            value={selectedTopic.id}
+            onChange={(event) => {
+              const nextTopic = event.target.value;
+              setTopicSearchQuery("");
+              setSearchParams(
+                (current) => {
+                  const next = new URLSearchParams(current);
+                  next.set("topic", nextTopic);
+                  next.delete("anchor");
+                  return next;
+                },
+                { replace: true }
+              );
+            }}
+          >
+            {selectableTopics.map((topic) => (
+              <option key={topic.id} value={topic.id}>
+                {topic.title}
+              </option>
+            ))}
+          </Select>
+        </div>
       </header>
 
       {error ? <InlineError message={error} /> : null}
 
       {!error ? (
         <section className="help-page__content-card" data-testid="help-topic-content">
+          {normalizedTopicSearchQuery.length > 0 ? (
+            <section className="help-page__search-results" aria-label="Help jump results">
+              <h3 className="help-page__search-results-heading">Jump Results</h3>
+              {indexedTopics.length > 0 ? (
+                <ul className="help-page__search-results-list">
+                  {indexedTopics.slice(0, 6).map((topic) => (
+                    <li key={topic.id}>
+                      <button
+                        className="help-page__search-result-button"
+                        type="button"
+                        onClick={() => {
+                          setTopicSearchQuery("");
+                          setSearchParams(
+                            (current) => {
+                              const next = new URLSearchParams(current);
+                              next.set("topic", topic.id);
+                              next.delete("anchor");
+                              return next;
+                            },
+                            { replace: true }
+                          );
+                        }}
+                      >
+                        <span className="help-page__search-result-title">{topic.title}</span>
+                        <span className="help-page__search-result-snippet">{topic.inAppSnippet}</span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <Text size={200}>No help topics match the current search.</Text>
+              )}
+            </section>
+          ) : null}
+          {selectedTopic.id === "quick-start" ? (
+            <section className="help-page__quick-start" aria-label="Quick start journey">
+              <h3 className="help-page__quick-start-heading">First-Session Journey</h3>
+              <Text size={200} className="help-page__quick-start-subtitle">
+                {`${completedQuickStartItemCount}/${QUICK_START_CHECKLIST_ITEMS.length} setup milestones complete`}
+              </Text>
+              <ul className="help-page__quick-start-list">
+                {QUICK_START_CHECKLIST_ITEMS.map((item) => (
+                  <li key={item.id}>
+                    <Checkbox
+                      checked={quickStartChecklistState[item.id] === true}
+                      label={item.label}
+                      onChange={(_event, data) =>
+                        handleQuickStartChecklistToggle(item.id, data.checked === true)
+                      }
+                    />
+                  </li>
+                ))}
+              </ul>
+              <div className="help-page__journey-links">
+                {QUICK_START_JOURNEY_LINKS.map((link) => (
+                  <Button
+                    key={link.label}
+                    appearance="secondary"
+                    size="small"
+                    type="button"
+                    onClick={() => openQuickStartJourneyLink(link)}
+                  >
+                    {link.label}
+                  </Button>
+                ))}
+              </div>
+            </section>
+          ) : null}
           {!selectedSection.found ? (
             <Text size={200} className="help-page__fallback-note">
               {`Couldn't find "${selectedTopic.docSection}" in the guide. Showing the full help document instead.`}

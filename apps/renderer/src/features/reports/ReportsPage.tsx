@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Button,
   Card,
@@ -16,6 +16,7 @@ import {
 } from "@fluentui/react-components";
 import { AgGridReact } from "ag-grid-react";
 import type { ColDef, GridApi, GridReadyEvent } from "ag-grid-community";
+import { useNavigate } from "react-router-dom";
 
 import type { DashboardDataset } from "../../reporting";
 import {
@@ -49,6 +50,7 @@ import {
   saveReportPreset,
   type ReportPreset
 } from "./reports-config-model";
+import { buildHelpHashPath } from "../help/help-topics";
 import "./ReportsPage.css";
 
 type ReportFormat = "html" | "pdf" | "excel" | "csv" | "png";
@@ -82,6 +84,7 @@ type DataQualitySummary = {
 export function ReportsPage() {
   const hasIpc = isIpcAvailable();
   const useAgGrid = isAgGridAvailable();
+  const navigate = useNavigate();
   const { selectedScenarioId, selectedScenario } = useScenarioContext();
   const { notify } = useFeedback();
   const [savedPresets, setSavedPresets] = useState(() => loadSavedReportPresets());
@@ -136,6 +139,8 @@ export function ReportsPage() {
     null
   );
   const [showbackGridApi, setShowbackGridApi] = useState<GridApi<ShowbackStatement> | null>(null);
+  const exportSectionRef = useRef<HTMLElement | null>(null);
+  const narrativeSectionRef = useRef<HTMLElement | null>(null);
 
   const presets = useMemo(() => {
     const byId = new Map<string, ReportPreset>();
@@ -715,6 +720,30 @@ export function ReportsPage() {
     }
   }
 
+  function openHelpTopic(topic: string, anchor?: string): void {
+    navigate(
+      buildHelpHashPath({
+        topic,
+        anchor
+      })
+    );
+  }
+
+  function jumpToSection(section: "export" | "narrative"): void {
+    const target = section === "export" ? exportSectionRef.current : narrativeSectionRef.current;
+    if (!target) {
+      notify({
+        tone: "warning",
+        message:
+          section === "narrative"
+            ? "Narrative section is not visible with current filters/toggles."
+            : "Export section is not currently available."
+      });
+      return;
+    }
+    target.scrollIntoView({ block: "start", behavior: "smooth" });
+  }
+
   return (
     <section className="reports-page">
       <PageHeader
@@ -722,6 +751,42 @@ export function ReportsPage() {
         subtitle={`Report gallery and configurable workspace. Active scenario: ${
           selectedScenario?.name ?? selectedScenarioId
         }.`}
+        actions={(
+          <div className="reports-export-controls__actions">
+            <Button
+              appearance="secondary"
+              size="small"
+              type="button"
+              onClick={() => openHelpTopic("reports-workspace", "unmatched-actuals-review")}
+            >
+              Reports Help
+            </Button>
+            <Button
+              appearance="secondary"
+              size="small"
+              type="button"
+              onClick={() => openHelpTopic("import-wizard", "commit-step")}
+            >
+              Import/Match Help
+            </Button>
+            <Button
+              appearance="secondary"
+              size="small"
+              type="button"
+              onClick={() => jumpToSection("export")}
+            >
+              Jump to Export
+            </Button>
+            <Button
+              appearance="secondary"
+              size="small"
+              type="button"
+              onClick={() => jumpToSection("narrative")}
+            >
+              Jump to Narrative
+            </Button>
+          </div>
+        )}
       />
 
       <Card data-testid="reports-scenario-context">
@@ -825,69 +890,71 @@ export function ReportsPage() {
         </div>
       </Card>
 
-      <Card>
-        <Title3>Export Orchestration</Title3>
-        <div className="reports-export-controls">
-          <section className="reports-export-controls__step">
-            <Text className="reports-export-controls__label" weight="semibold">
-              1. Choose format
-            </Text>
-            <Select
-              aria-label="Export format"
-              value={exportFormat}
-              onChange={(event) => setExportFormat(event.target.value as ReportFormat)}
-            >
-              {EXPORT_FORMATS.map((format) => (
-                <option key={format} value={format}>
-                  {format.toUpperCase()}
-                </option>
-              ))}
-            </Select>
-          </section>
-          <section className="reports-export-controls__step">
-            <Text className="reports-export-controls__label" weight="semibold">
-              2. Confirm destination
-            </Text>
-            <Input
-              aria-label="Export destination"
-              value={destinationPath}
-              onChange={(_event, data) => {
-                setDestinationPath(data.value);
-                setDestinationConfirmed(false);
-              }}
-              placeholder="Leave blank to use system default"
-            />
-            <Button
-              appearance="secondary"
-              onClick={() => {
-                setExportError(null);
-                setDestinationConfirmed(true);
-                notify({
-                  tone: "success",
-                  message: destinationPath.trim()
-                    ? `Export destination confirmed: ${destinationPath.trim()}.`
-                    : "Export destination confirmed: using system default."
-                });
-              }}
-            >
-              Confirm Destination
-            </Button>
-          </section>
-          <section className="reports-export-controls__step">
-            <Text className="reports-export-controls__label" weight="semibold">
-              3. Preview and queue
-            </Text>
-            <div className="reports-export-controls__actions">
-              <Button appearance="secondary" onClick={() => void loadReportPreview()}>
-                Preview Report
+      <section ref={exportSectionRef} data-testid="reports-export-section">
+        <Card>
+          <Title3>Export Orchestration</Title3>
+          <div className="reports-export-controls">
+            <section className="reports-export-controls__step">
+              <Text className="reports-export-controls__label" weight="semibold">
+                1. Choose format
+              </Text>
+              <Select
+                aria-label="Export format"
+                value={exportFormat}
+                onChange={(event) => setExportFormat(event.target.value as ReportFormat)}
+              >
+                {EXPORT_FORMATS.map((format) => (
+                  <option key={format} value={format}>
+                    {format.toUpperCase()}
+                  </option>
+                ))}
+              </Select>
+            </section>
+            <section className="reports-export-controls__step">
+              <Text className="reports-export-controls__label" weight="semibold">
+                2. Confirm destination
+              </Text>
+              <Input
+                aria-label="Export destination"
+                value={destinationPath}
+                onChange={(_event, data) => {
+                  setDestinationPath(data.value);
+                  setDestinationConfirmed(false);
+                }}
+                placeholder="Leave blank to use system default"
+              />
+              <Button
+                appearance="secondary"
+                onClick={() => {
+                  setExportError(null);
+                  setDestinationConfirmed(true);
+                  notify({
+                    tone: "success",
+                    message: destinationPath.trim()
+                      ? `Export destination confirmed: ${destinationPath.trim()}.`
+                      : "Export destination confirmed: using system default."
+                  });
+                }}
+              >
+                Confirm Destination
               </Button>
-              <Button appearance="primary" onClick={() => void queueExportJob()}>
-                Queue Export
-              </Button>
-            </div>
-          </section>
-        </div>
-      </Card>
+            </section>
+            <section className="reports-export-controls__step">
+              <Text className="reports-export-controls__label" weight="semibold">
+                3. Preview and queue
+              </Text>
+              <div className="reports-export-controls__actions">
+                <Button appearance="secondary" onClick={() => void loadReportPreview()}>
+                  Preview Report
+                </Button>
+                <Button appearance="primary" onClick={() => void queueExportJob()}>
+                  Queue Export
+                </Button>
+              </div>
+            </section>
+          </div>
+        </Card>
+      </section>
 
       {previewVisible ? (
         <Card data-testid="reports-export-preview">
@@ -985,6 +1052,39 @@ export function ReportsPage() {
             )}
           </div>
         )}
+      </Card>
+
+      <Card data-testid="reports-definitions-card">
+        <Title3>Field & Status Definitions</Title3>
+        <ul className="reports-narrative">
+          <li>
+            <Text>
+              <strong>Suggested match</strong>: candidate occurrence for reconciliation.
+            </Text>
+          </li>
+          <li>
+            <Text>
+              <strong>Driver</strong>: root-cause tag (`timing`, `price`, `scope`) for unmatched variance.
+            </Text>
+          </li>
+          <li>
+            <Text>
+              <strong>Match / Reject / Ignore / Create expense</strong>: final disposition of unmatched transactions.
+            </Text>
+          </li>
+        </ul>
+        <div className="reports-export-controls__actions">
+          <Button
+            appearance="secondary"
+            size="small"
+            type="button"
+            onClick={() =>
+              openHelpTopic("reports-workspace", "glossary-reconciliation-statuses")
+            }
+          >
+            Open Full Definitions
+          </Button>
+        </div>
       </Card>
 
       <Card>
@@ -1385,17 +1485,19 @@ export function ReportsPage() {
               </Card>
             ) : null}
             {visualizations.narrative ? (
-              <Card>
-                <Title3>Narrative Block</Title3>
-                <ul className="reports-narrative">
-                  {dataset.narrativeBlocks.map((block) => (
-                    <li key={block.id}>
-                      <Text weight="semibold">{block.title}</Text>
-                      <Text>{block.body}</Text>
-                    </li>
-                  ))}
-                </ul>
-              </Card>
+              <section ref={narrativeSectionRef} data-testid="reports-narrative-section">
+                <Card>
+                  <Title3>Narrative Block</Title3>
+                  <ul className="reports-narrative">
+                    {dataset.narrativeBlocks.map((block) => (
+                      <li key={block.id}>
+                        <Text weight="semibold">{block.title}</Text>
+                        <Text>{block.body}</Text>
+                      </li>
+                    ))}
+                  </ul>
+                </Card>
+              </section>
             ) : null}
           </section>
         </ErrorBoundary>

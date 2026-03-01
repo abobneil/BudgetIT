@@ -107,6 +107,11 @@
   gap: 0.5rem;
 }
 
+.dashboard-card__help {
+  display: flex;
+  justify-content: flex-end;
+}
+
 .dashboard-chart {
   display: grid;
   gap: 0.5rem;

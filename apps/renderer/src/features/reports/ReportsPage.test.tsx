@@ -70,8 +70,15 @@ function renderReportsPage() {
 }
 
 describe("ReportsPage", () => {
+  const scrollIntoViewMock = vi.fn();
+
   beforeEach(() => {
     localStorage.clear();
+    scrollIntoViewMock.mockReset();
+    Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
+      configurable: true,
+      value: scrollIntoViewMock
+    });
     queryReportMock.mockReset();
     exportReportMock.mockReset();
     previewReportMock.mockReset();
@@ -98,6 +105,11 @@ describe("ReportsPage", () => {
 
   it("refreshes dataset when filters change and preserves visualization toggle state", async () => {
     renderReportsPage();
+    expect(screen.getByRole("button", { name: "Reports Help" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Import/Match Help" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Jump to Export" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Jump to Narrative" })).toBeInTheDocument();
+    expect(screen.getByTestId("reports-definitions-card")).toBeInTheDocument();
 
     await waitFor(() => {
       expect(queryReportMock).toHaveBeenCalledWith({
@@ -133,6 +145,10 @@ describe("ReportsPage", () => {
         }
       });
     });
+
+    fireEvent.click(screen.getByRole("button", { name: "Jump to Export" }));
+    fireEvent.click(screen.getByRole("button", { name: "Jump to Narrative" }));
+    expect(scrollIntoViewMock).toHaveBeenCalled();
     expect((screen.getByLabelText("Show Chart Block") as HTMLInputElement).checked).toBe(false);
   });
 

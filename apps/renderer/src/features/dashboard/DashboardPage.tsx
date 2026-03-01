@@ -29,6 +29,7 @@ import {
   PageHeader
 } from "../../ui/primitives";
 import { toTitleCaseLabel } from "../../ui/text/labelCase";
+import { buildHelpHashPath } from "../help/help-topics";
 import {
   DASHBOARD_CARD_DEFINITION_MAP,
   buildDashboardKpiMetrics,
@@ -64,6 +65,21 @@ const DASHBOARD_RANGE_OPTIONS: Array<{ id: DashboardRange; label: string }> = [
   { id: "12m", label: "12m" },
   { id: "60m", label: "60m" }
 ];
+
+const DASHBOARD_CARD_HELP_ANCHOR_MAP: Record<DashboardCardId, string> = {
+  "kpi-forecast": "forecast-kpi",
+  "kpi-actual": "actual-kpi",
+  "kpi-variance": "variance-kpi",
+  "kpi-renewals": "renewals-upcoming-kpi",
+  "kpi-tagging": "tagging-completeness-kpi",
+  "kpi-replacement": "replacement-required-kpi",
+  "chart-spend-trend": "spend-trend-card",
+  "chart-variance": "variance-trend-card",
+  "chart-renewals": "renewals-timeline-card",
+  "chart-growth": "growth-trend-card",
+  "chart-replacement-status": "replacement-status-breakdown-card",
+  "insight-narrative": "narrative-insights"
+};
 
 function toPercent(value: number): string {
   return `${value.toFixed(1)}%`;
@@ -499,6 +515,15 @@ export function DashboardPage() {
     notify({ tone: "success", message: "Dashboard section added." });
   }
 
+  function openCardHelp(cardId: DashboardCardId): void {
+    navigate(
+      buildHelpHashPath({
+        topic: "dashboard-overview",
+        anchor: DASHBOARD_CARD_HELP_ANCHOR_MAP[cardId]
+      })
+    );
+  }
+
   return (
     <section className="dashboard-page" aria-live="polite">
       <PageHeader
@@ -722,25 +747,39 @@ export function DashboardPage() {
                       <Text>{`${section.cards.length} card${section.cards.length === 1 ? "" : "s"}`}</Text>
                     </div>
                     <div className="dashboard-section__grid">
-                      {section.cards.map((card) => (
-                        <Card
-                          key={card.id}
-                          className={getDashboardCardClassName(card.id)}
-                          data-testid={`dashboard-card-${card.id}`}
-                        >
-                          {renderDashboardCard(card.id, {
-                            dataset,
-                            visibleDataset,
-                            currency: datasetCurrency,
-                            kpis,
-                            maxSpendMinor,
-                            maxRenewalCount,
-                            maxVarianceMinor,
-                            maxGrowthPct,
-                            maxReplacementStatusCount
-                          })}
-                        </Card>
-                      ))}
+                      {section.cards.map((card) => {
+                        const definition = DASHBOARD_CARD_DEFINITION_MAP[card.id];
+                        return (
+                          <Card
+                            key={card.id}
+                            className={getDashboardCardClassName(card.id)}
+                            data-testid={`dashboard-card-${card.id}`}
+                          >
+                            <div className="dashboard-card__help">
+                              <Button
+                                appearance="subtle"
+                                size="small"
+                                type="button"
+                                aria-label={`Help for ${definition.title}`}
+                                onClick={() => openCardHelp(card.id)}
+                              >
+                                Help
+                              </Button>
+                            </div>
+                            {renderDashboardCard(card.id, {
+                              dataset,
+                              visibleDataset,
+                              currency: datasetCurrency,
+                              kpis,
+                              maxSpendMinor,
+                              maxRenewalCount,
+                              maxVarianceMinor,
+                              maxGrowthPct,
+                              maxReplacementStatusCount
+                            })}
+                          </Card>
+                        );
+                      })}
                     </div>
                   </section>
                 ))}
