@@ -5,6 +5,10 @@ const path = require("node:path");
 const rootDir = process.cwd();
 const releaseDir = path.join(rootDir, "dist", "release");
 const supportedArchitectures = ["x64", "arm64"];
+const linuxArtifactAliasesByArchitecture = {
+  x64: ["x64", "x86_64", "amd64"],
+  arm64: ["arm64", "aarch64"]
+};
 const elfMachineByArchitecture = {
   x64: 0x3e,
   arm64: 0xb7
@@ -150,6 +154,44 @@ function assertFileExists(filePath, label) {
   }
 }
 
+function resolveLinuxArtifactPath(version, architecture, extension) {
+  const aliases = linuxArtifactAliasesByArchitecture[architecture];
+  for (const alias of aliases) {
+    const candidate = path.join(releaseDir, `BudgetIT-${version}-linux-${alias}.${extension}`);
+    if (fs.existsSync(candidate)) {
+      return candidate;
+    }
+  }
+
+  throw new Error(
+    `Unable to find Linux ${extension} artifact for architecture ${architecture} in ${releaseDir}.`
+  );
+}
+
+function normalizeLinuxArtifactNames(version, architecture) {
+  const canonicalAppImagePath = getAppImagePath(version, architecture);
+  const canonicalDebPath = getDebPath(version, architecture);
+
+  const builtAppImagePath = resolveLinuxArtifactPath(version, architecture, "AppImage");
+  const builtDebPath = resolveLinuxArtifactPath(version, architecture, "deb");
+
+  if (builtAppImagePath !== canonicalAppImagePath) {
+    fs.renameSync(builtAppImagePath, canonicalAppImagePath);
+  }
+
+  const builtAppImageBlockMapPath = `${builtAppImagePath}.blockmap`;
+  const canonicalAppImageBlockMapPath = `${canonicalAppImagePath}.blockmap`;
+  if (fs.existsSync(builtAppImageBlockMapPath)) {
+    if (builtAppImageBlockMapPath !== canonicalAppImageBlockMapPath) {
+      fs.renameSync(builtAppImageBlockMapPath, canonicalAppImageBlockMapPath);
+    }
+  }
+
+  if (builtDebPath !== canonicalDebPath) {
+    fs.renameSync(builtDebPath, canonicalDebPath);
+  }
+}
+
 function assertNativeModuleArchitecture(architecture) {
   const nativeModulePath = getNativeModulePath(architecture);
   assertFileExists(nativeModulePath, "Native module binary");
@@ -168,14 +210,18 @@ function assertNativeModuleArchitecture(architecture) {
 }
 
 function packageArchitecture(version, architecture) {
-  const appImagePath = getAppImagePath(version, architecture);
-  const appImageBlockMapPath = `${appImagePath}.blockmap`;
-  const debPath = getDebPath(version, architecture);
+  const aliases = linuxArtifactAliasesByArchitecture[architecture];
   const unpackedDirectoryPath = path.join(releaseDir, getUnpackedDirectory(architecture));
 
-  removeIfExists(appImagePath);
-  removeIfExists(appImageBlockMapPath);
-  removeIfExists(debPath);
+  for (const alias of aliases) {
+    const appImagePath = path.join(releaseDir, `BudgetIT-${version}-linux-${alias}.AppImage`);
+    const appImageBlockMapPath = `${appImagePath}.blockmap`;
+    const debPath = path.join(releaseDir, `BudgetIT-${version}-linux-${alias}.deb`);
+    removeIfExists(appImagePath);
+    removeIfExists(appImageBlockMapPath);
+    removeIfExists(debPath);
+  }
+
   removeIfExists(unpackedDirectoryPath);
 
   runCommand(npmExecutable, ["run", "rebuild:native:electron", "--", `--arch=${architecture}`]);
@@ -191,8 +237,9 @@ function packageArchitecture(version, architecture) {
     "never"
   ]);
 
-  assertFileExists(appImagePath, "AppImage artifact");
-  assertFileExists(debPath, "Deb artifact");
+  normalizeLinuxArtifactNames(version, architecture);
+  assertFileExists(getAppImagePath(version, architecture), "AppImage artifact");
+  assertFileExists(getDebPath(version, architecture), "Deb artifact");
   assertNativeModuleArchitecture(architecture);
 }
 

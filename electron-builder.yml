@@ -40,6 +40,7 @@ win:
 linux:
   icon: apps/desktop/assets/app-icon.png
   category: Utility
+  maintainer: BudgetIT Maintainers <release@budgetit.local>
   artifactName: BudgetIT-${version}-linux-${arch}.${ext}
   target:
     - target: AppImage
