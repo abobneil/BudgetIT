@@ -56,7 +56,7 @@ describe("command palette and keyboard navigation", () => {
         destinationKind: "local_or_external"
       }
     });
-    openHelpWindowMock.mockResolvedValue(undefined);
+    openHelpWindowMock.mockResolvedValue({ ok: true });
   });
 
   afterEach(() => {
