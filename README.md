@@ -1,0 +1,186 @@
+# BudgetIT
+
+A **local-first IT budgeting and reporting desktop app** built as an Electron + React (Vite) monorepo. BudgetIT runs as a Windows desktop application, stores data in an **encrypted SQLite database**, and includes workflows for budgeting scenarios, imports, reports/exports, alerts, and basic natural-language querying (NLQ).
+
+## Project Title and Description
+
+**BudgetIT** is a Windows-focused desktop budgeting app intended for tracking IT spend and contracts locally on a single machine. It uses:
+
+* **Electron (main process)** for desktop runtime, tray/startup behavior, IPC, notifications, packaging, and running background alert checks.
+* **React + Fluent UI (renderer)** for the user interface.
+* **Encrypted SQLite** (via `better-sqlite3-multiple-ciphers`) plus migrations for local storage.
+* A workspace-style UI with routes for **Dashboard, Expenses, Services, Contracts, Vendors, Tags/Dimensions, Scenarios, Alerts, Import, Reports, NLQ, and Settings**.
+
+Key capabilities present in the codebase include:
+
+* **Encrypted DB initialization + migrations** on startup.
+* **Alerts** (list/ack/snooze) and periodic scheduler ticks in the background.
+* **Backups** (create/restore/verify) with a manifest + health state tracking.
+* **Import flows** (expense import + actuals import) with preview/commit steps.
+* **Reporting + exports** (query datasets, preview reports, export report artifacts).
+* **NLQ parsing** into a safe filter specification.
+* **Replacement planning** data structures and queries.
+* Optional **Teams Workflows webhook** alert channel (configurable via Settings).
+
+## Installation Instructions
+
+> This repo is a Node.js **workspaces** monorepo (`apps/*`, `packages/*`). Packaging scripts are currently Windows-oriented.
+
+### Prerequisites
+
+* **Node.js** (required)
+* **npm** (required)
+* Windows build environment suitable for Electron + native modules (needed for `better-sqlite3-multiple-ciphers` and Electron packaging)
+
+### Install
+
+```bash
+# from repo root
+npm install
+```
+
+### Build
+
+```bash
+# builds packages and apps via workspace scripts
+npm run build
+```
+
+### Run (development)
+
+TODO: Add a first-class `dev` workflow.
+
+Notes from the current codebase:
+
+* The Electron main process checks `BUDGETIT_RENDERER_URL` and will load that URL if set; otherwise it loads the built renderer HTML from `apps/renderer/dist/index.html`.
+* There is no `dev` script in the current `package.json` files, so you’ll need to start a renderer dev server manually (and then set `BUDGETIT_RENDERER_URL`) or run the built artifacts.
+
+### Package (Windows installer)
+
+```bash
+npm run dist:win
+```
+
+This runs the workspace build, rebuilds the native SQLite module for Electron, and then uses `electron-builder` with `electron-builder.yml` to produce an NSIS installer under `dist/release`.
+
+Optional packaged checks:
+
+```powershell
+npm run smoke:packaged
+```
+
+## Usage Examples
+
+### Example: Build and create a Windows installer
+
+```bash
+npm install
+npm run build
+npm run dist:win
+```
+
+The installer output is placed under:
+
+```text
+dist/release
+```
+
+### Example: Renderer ↔ Main IPC usage (in-app)
+
+BudgetIT exposes a restricted IPC bridge to the renderer via `preload.ts`. The renderer calls:
+
+```ts
+// In renderer code (running in the browser window):
+const settings = await window.budgetit.invoke("settings.get");
+await window.budgetit.invoke("backup.create", { destinationDir: "C:\\Backups\\BudgetIT" });
+const alerts = await window.budgetit.invoke("alerts.list");
+```
+
+Supported invoke channels are explicitly allow-listed in the preload bridge (e.g., `settings.get`, `db.open`, `backup.create`, `alerts.snooze`, `reports.query`, `export.report`, `nlq.parse`, etc.).
+
+## Dependencies
+
+### Root (workspace-level)
+
+* `typescript`
+* `eslint` (+ `@typescript-eslint/*`)
+* `vitest`
+* `electron-builder`
+* `exceljs`
+* `xlsx`
+
+### `apps/desktop` (Electron main process)
+
+* `electron`
+* `exceljs`
+* `xlsx`
+* Internal workspace packages: `@budgetit/core`, `@budgetit/db`
+
+### `apps/renderer` (React UI)
+
+* `react`, `react-dom`
+* `react-router-dom`
+* `@fluentui/react-components`
+* Dev/test: `vite`, `vitest`, Testing Library, `jsdom`, `vitest-axe`
+
+### `packages/db` (database + domain services)
+
+* `better-sqlite3-multiple-ciphers`
+* `drizzle-orm`
+* `zod`
+
+## Configuration
+
+### Environment variables
+
+* `BUDGETIT_RENDERER_URL`
+  If set, the Electron main process loads this URL (useful for running against a renderer dev server). If unset, it loads the built renderer HTML from `apps/renderer/dist/index.html`.
+
+### Runtime settings (persisted)
+
+The desktop app persists runtime settings in the user data directory (e.g., `runtime-settings.json`). Settings in the UI/tests include:
+
+* `startWithWindows` (controls Electron `openAtLogin`)
+* `minimizeToTray`
+* `teamsEnabled`
+* `teamsWebhookUrl`
+* `lastRestoreSummary` (restore result summary)
+
+### Local data files (persisted)
+
+The desktop app stores:
+
+* Encrypted database under the app’s user data directory (data subfolder)
+* Secrets (DB key material) under a secrets subfolder using Electron `safeStorage`
+* Backup health state (e.g., `backup-health.json`)
+* Import mapping templates and auto-tag rules JSON files
+* Diagnostics logs under a `logs` directory
+
+> TODO: Add a dedicated “Data locations” section with the exact resolved paths for Windows (AppData locations), plus an explanation of how to relocate/override them if desired.
+
+## Contribution Guidelines
+
+Contributions are welcome.
+
+Suggested workflow:
+
+1. Fork the repo and create a feature branch.
+2. Install deps and run the quality gates:
+
+   ```bash
+   npm run lint
+   npm run typecheck
+   npm run test
+   npm run build
+   ```
+3. If touching packaging/release behavior, review:
+
+   * `docs/release-hardening.md`
+   * `docs/operations-runbook.md`
+4. Open a PR with a clear description, screenshots for UI changes, and any operational notes.
+
+TODO: Add `CONTRIBUTING.md` (branch naming, commit conventions, PR checklist, etc.).
+
+## License
+
+TODO: Add license information (no `LICENSE` file was found in the current codebase).
