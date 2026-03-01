@@ -59,7 +59,7 @@ function lastDayOfMonth(value: Date): Date {
 function parseUsdMinor(value: string): number {
   const cleaned = value.replace(/[,$]/g, "");
   if (!/^\d+(\.\d{1,2})?$/.test(cleaned)) {
-    throw new Error(`Invalid USD amount: ${value}`);
+    throw new Error(`Invalid amount: ${value}`);
   }
   const [whole, fractional = ""] = cleaned.split(".");
   const cents = `${fractional}00`.slice(0, 2);
@@ -127,19 +127,19 @@ export function parseNlqToFilterSpec(query: string, options: ParseOptions = {}):
     filterSpec.amountMinMinor = parseUsdMinor(amountBetweenMatch[1]);
     filterSpec.amountMaxMinor = parseUsdMinor(amountBetweenMatch[2]);
     explanationParts.push(
-      `amount between ${(filterSpec.amountMinMinor / 100).toFixed(2)} and ${(filterSpec.amountMaxMinor / 100).toFixed(2)} USD`
+      `amount between ${(filterSpec.amountMinMinor / 100).toFixed(2)} and ${(filterSpec.amountMaxMinor / 100).toFixed(2)}`
     );
   } else {
     const overMatch = normalized.match(/(over|above)\s+\$?([\d,.]+)/);
     if (overMatch) {
       filterSpec.amountMinMinor = parseUsdMinor(overMatch[2]);
-      explanationParts.push(`amount >= ${(filterSpec.amountMinMinor / 100).toFixed(2)} USD`);
+      explanationParts.push(`amount >= ${(filterSpec.amountMinMinor / 100).toFixed(2)}`);
     }
 
     const underMatch = normalized.match(/(under|below)\s+\$?([\d,.]+)/);
     if (underMatch) {
       filterSpec.amountMaxMinor = parseUsdMinor(underMatch[2]);
-      explanationParts.push(`amount <= ${(filterSpec.amountMaxMinor / 100).toFixed(2)} USD`);
+      explanationParts.push(`amount <= ${(filterSpec.amountMaxMinor / 100).toFixed(2)}`);
     }
   }
 

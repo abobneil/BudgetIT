@@ -53,12 +53,53 @@
   gap: 0.5rem;
 }
 
+.contracts-form {
+  display: grid;
+  gap: 1rem;
+}
+
+.contracts-form__section {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.contracts-form__section-header {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.contracts-form__grid {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.contracts-form__grid--two {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.contracts-form__field {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.contracts-form__field--full {
+  grid-column: 1 / -1;
+}
+
+.contracts-form__label {
+  color: var(--colorNeutralForeground2);
+}
+
 @media (max-width: 980px) {
   .contracts-toolbar {
     grid-template-columns: 1fr;
   }
 
   .contracts-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .contracts-form__grid--two {
     grid-template-columns: 1fr;
   }
 }

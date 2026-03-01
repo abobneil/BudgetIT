@@ -17,6 +17,7 @@ import {
 import { useNavigate } from "react-router-dom";
 
 import type { DashboardDataset } from "../../reporting";
+import { formatCurrencyMinor } from "../../lib/currency";
 import { useScenarioContext } from "../scenarios/ScenarioContext";
 import { exportReport, queryReport } from "../../lib/ipcClient";
 import { useFeedback } from "../../ui/feedback";
@@ -47,10 +48,6 @@ import {
 import "./DashboardPage.css";
 
 type ExportFormat = "html" | "pdf" | "excel" | "csv" | "png";
-const CURRENCY_FORMATTER = new Intl.NumberFormat("en-US", {
-  style: "currency",
-  currency: "USD"
-});
 
 const EXPORT_FORMAT_OPTIONS: Array<{ format: ExportFormat; label: string }> = [
   { format: "html", label: "Export HTML" },
@@ -66,10 +63,6 @@ const DASHBOARD_RANGE_OPTIONS: Array<{ id: DashboardRange; label: string }> = [
   { id: "12m", label: "12m" },
   { id: "60m", label: "60m" }
 ];
-
-function formatUsd(minor: number): string {
-  return CURRENCY_FORMATTER.format(minor / 100);
-}
 
 function toPercent(value: number): string {
   return `${value.toFixed(1)}%`;
@@ -89,6 +82,7 @@ function formatMonthWindow(months: number): string {
 type DashboardRenderContext = {
   dataset: DashboardDataset;
   visibleDataset: DashboardDataset;
+  currency: string;
   kpis: ReturnType<typeof buildDashboardKpiMetrics>;
   maxSpendMinor: number;
   maxRenewalCount: number;
@@ -111,6 +105,7 @@ function renderDashboardCard(cardId: DashboardCardId, context: DashboardRenderCo
   const {
     dataset,
     visibleDataset,
+    currency,
     kpis,
     maxSpendMinor,
     maxRenewalCount,
@@ -123,7 +118,7 @@ function renderDashboardCard(cardId: DashboardCardId, context: DashboardRenderCo
     return (
       <>
         <Text>Forecast</Text>
-        <Title3>{formatUsd(kpis.forecastMinor)}</Title3>
+        <Title3>{formatCurrencyMinor(kpis.forecastMinor, currency)}</Title3>
       </>
     );
   }
@@ -132,7 +127,7 @@ function renderDashboardCard(cardId: DashboardCardId, context: DashboardRenderCo
     return (
       <>
         <Text>Actual</Text>
-        <Title3>{formatUsd(kpis.actualMinor)}</Title3>
+        <Title3>{formatCurrencyMinor(kpis.actualMinor, currency)}</Title3>
       </>
     );
   }
@@ -141,7 +136,7 @@ function renderDashboardCard(cardId: DashboardCardId, context: DashboardRenderCo
     return (
       <>
         <Text>Variance</Text>
-        <Title3>{formatUsd(kpis.varianceMinor)}</Title3>
+        <Title3>{formatCurrencyMinor(kpis.varianceMinor, currency)}</Title3>
         <Badge
           appearance="filled"
           color={kpis.varianceMinor > 0 ? "warning" : "success"}
@@ -192,18 +187,20 @@ function renderDashboardCard(cardId: DashboardCardId, context: DashboardRenderCo
                   <div
                     className="dashboard-chart__bar dashboard-chart__bar--forecast"
                     style={{ width: barWidth(row.forecastMinor, maxSpendMinor) }}
-                    title={`Forecast ${formatUsd(row.forecastMinor)}`}
+                    title={`Forecast ${formatCurrencyMinor(row.forecastMinor, currency)}`}
                   />
                 </div>
                 <div className="dashboard-chart__bar-track">
                   <div
                     className="dashboard-chart__bar dashboard-chart__bar--actual"
                     style={{ width: barWidth(row.actualMinor, maxSpendMinor) }}
-                    title={`Actual ${formatUsd(row.actualMinor)}`}
+                    title={`Actual ${formatCurrencyMinor(row.actualMinor, currency)}`}
                   />
                 </div>
               </div>
-              <Text className="dashboard-chart__value">{formatUsd(row.actualMinor)}</Text>
+              <Text className="dashboard-chart__value">
+                {formatCurrencyMinor(row.actualMinor, currency)}
+              </Text>
             </div>
           ))}
         </div>
@@ -229,10 +226,12 @@ function renderDashboardCard(cardId: DashboardCardId, context: DashboardRenderCo
                   style={{
                     width: barWidth(Math.abs(row.varianceMinor), maxVarianceMinor)
                   }}
-                  title={`Variance ${formatUsd(row.varianceMinor)}`}
+                  title={`Variance ${formatCurrencyMinor(row.varianceMinor, currency)}`}
                 />
               </div>
-              <Text className="dashboard-chart__value">{formatUsd(row.varianceMinor)}</Text>
+              <Text className="dashboard-chart__value">
+                {formatCurrencyMinor(row.varianceMinor, currency)}
+              </Text>
             </div>
           ))}
         </div>
@@ -365,6 +364,7 @@ export function DashboardPage() {
   const [layout, setLayout] = useState<DashboardLayout>(() => loadDashboardLayout());
   const [editLayout, setEditLayout] = useState(false);
   const [newSectionName, setNewSectionName] = useState("");
+  const datasetCurrency = dataset?.currency ?? "USD";
 
   const visibleDataset = useMemo(
     () => (dataset ? filterDashboardDatasetByRange(dataset, selectedRange) : null),
@@ -728,6 +728,7 @@ export function DashboardPage() {
                           {renderDashboardCard(card.id, {
                             dataset,
                             visibleDataset,
+                            currency: datasetCurrency,
                             kpis,
                             maxSpendMinor,
                             maxRenewalCount,

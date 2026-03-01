@@ -17,7 +17,13 @@ import { AppRoutes } from "../../app/routes";
 import {
   createBackup,
   getDatabaseSecurityStatus,
+  getScenarioSettings,
   getSettings,
+  listApprovalRecords,
+  listAuditRecords,
+  listCostCenters,
+  listGlAccounts,
+  listNotificationEndpoints,
   materializeForecast,
   rekeyDatabase,
   restoreBackup,
@@ -37,6 +43,12 @@ vi.mock("../../lib/ipcClient", async (importOriginal) => {
     getSettings: vi.fn(),
     saveSettings: vi.fn(),
     getDatabaseSecurityStatus: vi.fn(),
+    getScenarioSettings: vi.fn(),
+    listCostCenters: vi.fn(),
+    listGlAccounts: vi.fn(),
+    listApprovalRecords: vi.fn(),
+    listAuditRecords: vi.fn(),
+    listNotificationEndpoints: vi.fn(),
     sendTeamsTestAlert: vi.fn(),
     createBackup: vi.fn(),
     verifyBackup: vi.fn(),
@@ -50,7 +62,13 @@ vi.mock("../../lib/ipcClient", async (importOriginal) => {
 const getSettingsMock = vi.mocked(getSettings);
 const saveSettingsMock = vi.mocked(saveSettings);
 const getDatabaseSecurityStatusMock = vi.mocked(getDatabaseSecurityStatus);
+const getScenarioSettingsMock = vi.mocked(getScenarioSettings);
 const sendTeamsTestAlertMock = vi.mocked(sendTeamsTestAlert);
+const listCostCentersMock = vi.mocked(listCostCenters);
+const listGlAccountsMock = vi.mocked(listGlAccounts);
+const listApprovalRecordsMock = vi.mocked(listApprovalRecords);
+const listAuditRecordsMock = vi.mocked(listAuditRecords);
+const listNotificationEndpointsMock = vi.mocked(listNotificationEndpoints);
 const createBackupMock = vi.mocked(createBackup);
 const verifyBackupMock = vi.mocked(verifyBackup);
 const restoreBackupMock = vi.mocked(restoreBackup);
@@ -89,7 +107,13 @@ describe("SettingsPage", () => {
     getSettingsMock.mockReset();
     saveSettingsMock.mockReset();
     getDatabaseSecurityStatusMock.mockReset();
+    getScenarioSettingsMock.mockReset();
     sendTeamsTestAlertMock.mockReset();
+    listCostCentersMock.mockReset();
+    listGlAccountsMock.mockReset();
+    listApprovalRecordsMock.mockReset();
+    listAuditRecordsMock.mockReset();
+    listNotificationEndpointsMock.mockReset();
     createBackupMock.mockReset();
     verifyBackupMock.mockReset();
     restoreBackupMock.mockReset();
@@ -110,6 +134,19 @@ describe("SettingsPage", () => {
       keyPresent: true,
       safeStorageAvailable: true
     });
+    getScenarioSettingsMock.mockResolvedValue({
+      scenarioId: "baseline",
+      fiscalYearStartMonth: 1,
+      horizonMonths: 24,
+      defaultCurrency: "USD",
+      createdAt: "2026-02-27T10:00:00.000Z",
+      updatedAt: "2026-02-27T10:00:00.000Z"
+    });
+    listCostCentersMock.mockResolvedValue([]);
+    listGlAccountsMock.mockResolvedValue([]);
+    listApprovalRecordsMock.mockResolvedValue([]);
+    listAuditRecordsMock.mockResolvedValue([]);
+    listNotificationEndpointsMock.mockResolvedValue([]);
     sendTeamsTestAlertMock.mockResolvedValue({
       ok: true,
       attempts: 1,

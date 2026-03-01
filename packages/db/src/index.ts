@@ -8,7 +8,7 @@ export {
 
 export { runMigrations, resolveDefaultMigrationsDir } from "./migrations";
 export { updateExpenseLineAmountWithAudit, type UpdateExpenseAmountInput } from "./audit-service";
-export { BudgetCrudRepository, toUsdMinorUnits } from "./repositories";
+export { BudgetCrudRepository, toCurrencyMinorUnits, toUsdMinorUnits } from "./repositories";
 export { materializeScenarioOccurrences, markForecastStale } from "./forecast-engine";
 export { runAlertSchedulerTick } from "./alert-engine";
 export {

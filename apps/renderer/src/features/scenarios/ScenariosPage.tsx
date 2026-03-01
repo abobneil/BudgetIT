@@ -13,6 +13,7 @@ import {
 } from "@fluentui/react-components";
 
 import { PageHeader, StatusChip } from "../../ui/primitives";
+import { isIpcAvailable, queryReport } from "../../lib/ipcClient";
 import { useScenarioContext } from "./ScenarioContext";
 import { compareScenarioToBaseline } from "./scenario-model";
 import "./ScenariosPage.css";
@@ -36,6 +37,7 @@ function formatCreatedDate(createdAt: string): string {
 }
 
 export function ScenariosPage() {
+  const hasIpc = isIpcAvailable();
   const {
     scenarios,
     selectedScenario,
@@ -46,6 +48,27 @@ export function ScenariosPage() {
     lockScenario
   } = useScenarioContext();
   const [comparisonScenarioId, setComparisonScenarioId] = useState<string | null>(null);
+  const [comparisonError, setComparisonError] = useState<string | null>(null);
+  const [comparisonResult, setComparisonResult] = useState<null | {
+    baselineScenarioId: string;
+    comparisonScenarioId: string;
+    baseline: {
+      expenseCount: number;
+      totalMinor: number;
+      classifiedExpenseCount: number;
+    };
+    comparison: {
+      expenseCount: number;
+      totalMinor: number;
+      classifiedExpenseCount: number;
+    };
+    delta: {
+      expenseCount: number;
+      totalMinor: number;
+      classifiedExpenseCount: number;
+    };
+    generatedAt: string;
+  }>(null);
 
   const scenarioNameById = useMemo(
     () =>
@@ -58,6 +81,13 @@ export function ScenariosPage() {
         comparisonScenarioId
       )
     : null;
+
+  function formatMoney(minor: number): string {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD"
+    }).format(minor / 100);
+  }
 
   return (
     <section className="scenarios-page">
@@ -79,6 +109,15 @@ export function ScenariosPage() {
           <Text>{comparisonText}</Text>
         </Card>
       ) : null}
+      {comparisonResult ? (
+        <Card data-testid="scenario-comparison-db">
+          <Text weight="semibold">Comparison delta (database)</Text>
+          <Text>{`Baseline ${comparisonResult.baselineScenarioId}: ${comparisonResult.baseline.expenseCount} expenses, ${formatMoney(comparisonResult.baseline.totalMinor)}, ${comparisonResult.baseline.classifiedExpenseCount} classified`}</Text>
+          <Text>{`Selected ${comparisonResult.comparisonScenarioId}: ${comparisonResult.comparison.expenseCount} expenses, ${formatMoney(comparisonResult.comparison.totalMinor)}, ${comparisonResult.comparison.classifiedExpenseCount} classified`}</Text>
+          <Text>{`Delta: ${comparisonResult.delta.expenseCount} expenses, ${formatMoney(comparisonResult.delta.totalMinor)}, ${comparisonResult.delta.classifiedExpenseCount} classified`}</Text>
+        </Card>
+      ) : null}
+      {comparisonError ? <Text>{comparisonError}</Text> : null}
 
       <Table aria-label="Scenarios table">
         <TableHeader>
@@ -151,7 +190,48 @@ export function ScenariosPage() {
                     <Button
                       size="small"
                       appearance="secondary"
-                      onClick={() => setComparisonScenarioId(scenario.id)}
+                      onClick={() => {
+                        setComparisonScenarioId(scenario.id);
+                        if (!hasIpc) {
+                          return;
+                        }
+                        void (async () => {
+                          try {
+                            const result = (await queryReport({
+                              query: "scenario.comparison",
+                              baselineScenarioId: "baseline",
+                              comparisonScenarioId: scenario.id,
+                              scenarioId: scenario.id
+                            })) as {
+                              baselineScenarioId: string;
+                              comparisonScenarioId: string;
+                              baseline: {
+                                expenseCount: number;
+                                totalMinor: number;
+                                classifiedExpenseCount: number;
+                              };
+                              comparison: {
+                                expenseCount: number;
+                                totalMinor: number;
+                                classifiedExpenseCount: number;
+                              };
+                              delta: {
+                                expenseCount: number;
+                                totalMinor: number;
+                                classifiedExpenseCount: number;
+                              };
+                              generatedAt: string;
+                            };
+                            setComparisonError(null);
+                            setComparisonResult(result);
+                          } catch (error) {
+                            const message =
+                              error instanceof Error ? error.message : String(error);
+                            setComparisonError(`Comparison failed: ${message}`);
+                            setComparisonResult(null);
+                          }
+                        })();
+                      }}
                     >
                       Compare
                     </Button>

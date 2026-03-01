@@ -3,17 +3,35 @@ import crypto from "node:crypto";
 import type Database from "better-sqlite3-multiple-ciphers";
 import { z } from "zod";
 
+const SCENARIO_APPROVAL_STATUSES = ["draft", "reviewed", "approved"] as const;
+const ISO_4217_CURRENCY_CODE = /^[A-Z]{3}$/;
+
+function normalizeCurrencyCode(value: string): string {
+  return value.trim().toUpperCase();
+}
+
+function isIso4217CurrencyCode(value: string): boolean {
+  return ISO_4217_CURRENCY_CODE.test(value);
+}
+
 const vendorInputSchema = z.object({
   name: z.string().min(1),
   website: z.string().optional(),
-  notes: z.string().optional()
+  notes: z.string().optional(),
+  owner: z.string().optional(),
+  annualSpendMinor: z.number().int().nonnegative().default(0),
+  status: z.enum(["active", "watch", "archived"]).default("active"),
+  risk: z.enum(["low", "medium", "high"]).default("low")
 });
 
 const serviceInputSchema = z.object({
   vendorId: z.string().min(1),
   name: z.string().min(1),
   status: z.enum(["active", "trial", "deprecated", "retiring", "retired"]),
-  ownerTeam: z.string().optional()
+  ownerTeam: z.string().optional(),
+  annualSpendMinor: z.number().int().nonnegative().default(0),
+  risk: z.enum(["low", "medium", "high"]).default("low"),
+  replacementStatus: z.enum(["not-started", "candidate-review", "approved"]).default("not-started")
 });
 
 const contractInputSchema = z.object({
@@ -23,8 +41,19 @@ const contractInputSchema = z.object({
   endDate: z.string().optional(),
   renewalType: z.enum(["auto", "manual", "none"]).optional(),
   renewalDate: z.string().optional(),
-  noticePeriodDays: z.number().int().nonnegative().optional()
+  noticePeriodDays: z.number().int().nonnegative().optional(),
+  owner: z.string().optional(),
+  lifecycleStatus: z.enum(["active", "renewal-window", "notice-window", "expired"]).default("active"),
+  renewalAction: z.enum(["auto-renew", "manual-review", "cancel-window"]).default("manual-review")
 });
+
+const currencyCodeSchema = z
+  .string()
+  .trim()
+  .transform((value) => normalizeCurrencyCode(value))
+  .refine((value) => isIso4217CurrencyCode(value), {
+    message: "currency must be a valid ISO 4217 code."
+  });
 
 const expenseLineInputSchema = z.object({
   scenarioId: z.string().min(1),
@@ -34,7 +63,11 @@ const expenseLineInputSchema = z.object({
   expenseType: z.enum(["recurring", "one_time"]),
   status: z.enum(["planned", "approved", "committed", "actual", "cancelled"]),
   amountMinor: z.number().int().nonnegative(),
-  currency: z.literal("USD"),
+  currency: currencyCodeSchema,
+  capexOpex: z.enum(["capex", "opex"]).nullable().optional(),
+  glAccountCode: z.string().nullable().optional(),
+  costCenterCode: z.string().nullable().optional(),
+  fundingSource: z.string().nullable().optional(),
   startDate: z.string().optional(),
   endDate: z.string().nullable().optional()
 });
@@ -60,6 +93,11 @@ const tagInputSchema = z.object({
   parentTagId: z.string().nullable().optional()
 });
 
+const tagUpdateInputSchema = z.object({
+  name: z.string().min(1),
+  parentTagId: z.string().nullable().optional()
+});
+
 const tagAssignmentInputSchema = z.object({
   entityType: z.string().min(1),
   entityId: z.string().min(1),
@@ -70,19 +108,179 @@ const tagAssignmentInputSchema = z.object({
 const scenarioInputSchema = z.object({
   name: z.string().min(1),
   parentScenarioId: z.string().nullable().optional(),
-  approvalStatus: z.enum(["draft", "reviewed", "approved"]).default("draft")
+  approvalStatus: z.enum(SCENARIO_APPROVAL_STATUSES).default("draft")
 });
+
+const scenarioSettingsInputSchema = z.object({
+  scenarioId: z.string().min(1),
+  fiscalYearStartMonth: z.number().int().min(1).max(12).default(1),
+  horizonMonths: z.number().int().min(1).max(60).default(24),
+  defaultCurrency: currencyCodeSchema.default("USD")
+});
+
+const costCenterInputSchema = z.object({
+  code: z.string().min(1),
+  name: z.string().min(1),
+  active: z.boolean().default(true)
+});
+
+const glAccountInputSchema = z.object({
+  code: z.string().min(1),
+  name: z.string().min(1),
+  active: z.boolean().default(true)
+});
+
+export type VendorRecord = {
+  id: string;
+  name: string;
+  website: string | null;
+  notes: string | null;
+  owner: string | null;
+  annualSpendMinor: number;
+  status: "active" | "watch" | "archived";
+  risk: "low" | "medium" | "high";
+  createdAt: string;
+  updatedAt: string;
+  deletedAt: string | null;
+};
+
+export type ServiceRecord = {
+  id: string;
+  vendorId: string;
+  name: string;
+  status: string;
+  ownerTeam: string | null;
+  annualSpendMinor: number;
+  risk: "low" | "medium" | "high";
+  replacementStatus: "not-started" | "candidate-review" | "approved";
+  createdAt: string;
+  updatedAt: string;
+  deletedAt: string | null;
+};
+
+export type ContractRecord = {
+  id: string;
+  serviceId: string;
+  contractNumber: string | null;
+  startDate: string | null;
+  endDate: string | null;
+  renewalType: "auto" | "manual" | "none" | null;
+  renewalDate: string | null;
+  noticePeriodDays: number | null;
+  owner: string | null;
+  lifecycleStatus: "active" | "renewal-window" | "notice-window" | "expired";
+  renewalAction: "auto-renew" | "manual-review" | "cancel-window";
+  createdAt: string;
+  updatedAt: string;
+  deletedAt: string | null;
+};
+
+export type ExpenseLineRecord = {
+  id: string;
+  scenarioId: string;
+  serviceId: string;
+  contractId: string | null;
+  name: string;
+  expenseType: "recurring" | "one_time";
+  status: "planned" | "approved" | "committed" | "actual" | "cancelled";
+  amountMinor: number;
+  currency: string;
+  capexOpex: "capex" | "opex" | null;
+  glAccountCode: string | null;
+  costCenterCode: string | null;
+  fundingSource: string | null;
+  startDate: string | null;
+  endDate: string | null;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt: string | null;
+};
+
+export type RecurrenceRuleRecord = {
+  id: string;
+  expenseLineId: string;
+  frequency: "monthly" | "quarterly" | "yearly";
+  interval: number;
+  dayOfMonth: number;
+  monthOfYear: number | null;
+  anchorDate: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type DimensionRecord = {
+  id: string;
+  name: string;
+  mode: "single_select" | "multi_select";
+  required: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type TagRecord = {
+  id: string;
+  dimensionId: string;
+  name: string;
+  parentTagId: string | null;
+  createdAt: string;
+  updatedAt: string;
+  archivedAt: string | null;
+};
+
+export type TagAssignmentRecord = {
+  id: string;
+  entityType: string;
+  entityId: string;
+  dimensionId: string;
+  tagId: string;
+  createdAt: string;
+};
+
+export type ScenarioRecord = {
+  id: string;
+  name: string;
+  parentScenarioId: string | null;
+  approvalStatus: "draft" | "reviewed" | "approved";
+  isLocked: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ScenarioSettingsRecord = {
+  scenarioId: string;
+  fiscalYearStartMonth: number;
+  horizonMonths: number;
+  defaultCurrency: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type CostCenterRecord = {
+  code: string;
+  name: string;
+  active: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type GlAccountRecord = {
+  code: string;
+  name: string;
+  active: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
 
 function nowIso(): string {
   return new Date().toISOString();
 }
 
-export function toUsdMinorUnits(value: number | string): number {
+export function toCurrencyMinorUnits(value: number | string): number {
   const text =
     typeof value === "number" ? value.toFixed(2) : value.trim().replace(/^\$/, "");
 
   if (!/^-?\d+(\.\d{1,2})?$/.test(text)) {
-    throw new Error(`Invalid USD amount: ${value}`);
+    throw new Error(`Invalid amount: ${value}`);
   }
 
   const isNegative = text.startsWith("-");
@@ -91,6 +289,10 @@ export function toUsdMinorUnits(value: number | string): number {
   const cents = `${fractional}00`.slice(0, 2);
   const minorUnits = Number.parseInt(whole, 10) * 100 + Number.parseInt(cents, 10);
   return isNegative ? -minorUnits : minorUnits;
+}
+
+export function toUsdMinorUnits(value: number | string): number {
+  return toCurrencyMinorUnits(value);
 }
 
 export class BudgetCrudRepository {
@@ -122,31 +324,68 @@ export class BudgetCrudRepository {
     }
   }
 
-  createVendor(input: z.infer<typeof vendorInputSchema>): string {
+  createVendor(input: z.input<typeof vendorInputSchema>): string {
     const parsed = vendorInputSchema.parse(input);
     const id = crypto.randomUUID();
     this.db
       .prepare(
         `
-          INSERT INTO vendor (id, name, website, notes, created_at, updated_at, deleted_at)
-          VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, NULL)
+          INSERT INTO vendor (
+            id,
+            name,
+            website,
+            notes,
+            owner,
+            annual_spend_minor,
+            status,
+            risk,
+            created_at,
+            updated_at,
+            deleted_at
+          )
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, NULL)
         `
       )
-      .run(id, parsed.name, parsed.website ?? null, parsed.notes ?? null);
+      .run(
+        id,
+        parsed.name,
+        parsed.website ?? null,
+        parsed.notes ?? null,
+        parsed.owner ?? null,
+        parsed.annualSpendMinor,
+        parsed.status,
+        parsed.risk
+      );
     return id;
   }
 
-  updateVendor(id: string, input: z.infer<typeof vendorInputSchema>): void {
+  updateVendor(id: string, input: z.input<typeof vendorInputSchema>): void {
     const parsed = vendorInputSchema.parse(input);
     this.db
       .prepare(
         `
           UPDATE vendor
-          SET name = ?, website = ?, notes = ?, updated_at = CURRENT_TIMESTAMP
+          SET name = ?,
+              website = ?,
+              notes = ?,
+              owner = ?,
+              annual_spend_minor = ?,
+              status = ?,
+              risk = ?,
+              updated_at = CURRENT_TIMESTAMP
           WHERE id = ? AND deleted_at IS NULL
         `
       )
-      .run(parsed.name, parsed.website ?? null, parsed.notes ?? null, id);
+      .run(
+        parsed.name,
+        parsed.website ?? null,
+        parsed.notes ?? null,
+        parsed.owner ?? null,
+        parsed.annualSpendMinor,
+        parsed.status,
+        parsed.risk,
+        id
+      );
   }
 
   deleteVendor(id: string): void {
@@ -155,31 +394,68 @@ export class BudgetCrudRepository {
       .run(id);
   }
 
-  createService(input: z.infer<typeof serviceInputSchema>): string {
+  createService(input: z.input<typeof serviceInputSchema>): string {
     const parsed = serviceInputSchema.parse(input);
     const id = crypto.randomUUID();
     this.db
       .prepare(
         `
-          INSERT INTO service (id, vendor_id, name, status, owner_team, created_at, updated_at, deleted_at)
-          VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, NULL)
+          INSERT INTO service (
+            id,
+            vendor_id,
+            name,
+            status,
+            owner_team,
+            annual_spend_minor,
+            risk,
+            replacement_status,
+            created_at,
+            updated_at,
+            deleted_at
+          )
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, NULL)
         `
       )
-      .run(id, parsed.vendorId, parsed.name, parsed.status, parsed.ownerTeam ?? null);
+      .run(
+        id,
+        parsed.vendorId,
+        parsed.name,
+        parsed.status,
+        parsed.ownerTeam ?? null,
+        parsed.annualSpendMinor,
+        parsed.risk,
+        parsed.replacementStatus
+      );
     return id;
   }
 
-  updateService(id: string, input: z.infer<typeof serviceInputSchema>): void {
+  updateService(id: string, input: z.input<typeof serviceInputSchema>): void {
     const parsed = serviceInputSchema.parse(input);
     this.db
       .prepare(
         `
           UPDATE service
-          SET vendor_id = ?, name = ?, status = ?, owner_team = ?, updated_at = CURRENT_TIMESTAMP
+          SET vendor_id = ?,
+              name = ?,
+              status = ?,
+              owner_team = ?,
+              annual_spend_minor = ?,
+              risk = ?,
+              replacement_status = ?,
+              updated_at = CURRENT_TIMESTAMP
           WHERE id = ? AND deleted_at IS NULL
         `
       )
-      .run(parsed.vendorId, parsed.name, parsed.status, parsed.ownerTeam ?? null, id);
+      .run(
+        parsed.vendorId,
+        parsed.name,
+        parsed.status,
+        parsed.ownerTeam ?? null,
+        parsed.annualSpendMinor,
+        parsed.risk,
+        parsed.replacementStatus,
+        id
+      );
   }
 
   deleteService(id: string): void {
@@ -188,7 +464,7 @@ export class BudgetCrudRepository {
       .run(id);
   }
 
-  createContract(input: z.infer<typeof contractInputSchema>): string {
+  createContract(input: z.input<typeof contractInputSchema>): string {
     const parsed = contractInputSchema.parse(input);
     const id = crypto.randomUUID();
     this.db
@@ -203,10 +479,13 @@ export class BudgetCrudRepository {
             renewal_type,
             renewal_date,
             notice_period_days,
+            owner,
+            lifecycle_status,
+            renewal_action,
             created_at,
             updated_at,
             deleted_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, NULL)
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, NULL)
         `
       )
       .run(
@@ -217,12 +496,15 @@ export class BudgetCrudRepository {
         parsed.endDate ?? null,
         parsed.renewalType ?? null,
         parsed.renewalDate ?? null,
-        parsed.noticePeriodDays ?? null
+        parsed.noticePeriodDays ?? null,
+        parsed.owner ?? null,
+        parsed.lifecycleStatus,
+        parsed.renewalAction
       );
     return id;
   }
 
-  updateContract(id: string, input: z.infer<typeof contractInputSchema>): void {
+  updateContract(id: string, input: z.input<typeof contractInputSchema>): void {
     const parsed = contractInputSchema.parse(input);
     this.db
       .prepare(
@@ -231,12 +513,15 @@ export class BudgetCrudRepository {
           SET service_id = ?,
               contract_number = ?,
               start_date = ?,
-              end_date = ?,
-              renewal_type = ?,
-              renewal_date = ?,
-              notice_period_days = ?,
-              updated_at = CURRENT_TIMESTAMP
-          WHERE id = ? AND deleted_at IS NULL
+               end_date = ?,
+               renewal_type = ?,
+               renewal_date = ?,
+               notice_period_days = ?,
+               owner = ?,
+               lifecycle_status = ?,
+               renewal_action = ?,
+               updated_at = CURRENT_TIMESTAMP
+           WHERE id = ? AND deleted_at IS NULL
         `
       )
       .run(
@@ -247,6 +532,9 @@ export class BudgetCrudRepository {
         parsed.renewalType ?? null,
         parsed.renewalDate ?? null,
         parsed.noticePeriodDays ?? null,
+        parsed.owner ?? null,
+        parsed.lifecycleStatus,
+        parsed.renewalAction,
         id
       );
   }
@@ -258,8 +546,8 @@ export class BudgetCrudRepository {
   }
 
   createExpenseLineWithOptionalRecurrence(
-    expenseInput: z.infer<typeof expenseLineInputSchema>,
-    recurrenceInput?: z.infer<typeof recurrenceRuleInputSchema>
+    expenseInput: z.input<typeof expenseLineInputSchema>,
+    recurrenceInput?: z.input<typeof recurrenceRuleInputSchema>
   ): string {
     const parsedExpense = expenseLineInputSchema.parse(expenseInput);
     this.assertScenarioMutable(parsedExpense.scenarioId);
@@ -284,12 +572,16 @@ export class BudgetCrudRepository {
               status,
               amount_minor,
               currency,
+              capex_opex,
+              gl_account_code,
+              cost_center_code,
+              funding_source,
               start_date,
               end_date,
               created_at,
               updated_at,
               deleted_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)
           `
         )
         .run(
@@ -302,6 +594,10 @@ export class BudgetCrudRepository {
           parsedExpense.status,
           parsedExpense.amountMinor,
           parsedExpense.currency,
+          parsedExpense.capexOpex ?? null,
+          parsedExpense.glAccountCode ?? null,
+          parsedExpense.costCenterCode ?? null,
+          parsedExpense.fundingSource ?? null,
           parsedExpense.startDate ?? null,
           parsedExpense.endDate ?? null,
           now,
@@ -322,7 +618,7 @@ export class BudgetCrudRepository {
     return id;
   }
 
-  updateExpenseLine(id: string, input: z.infer<typeof expenseLineInputSchema>): void {
+  updateExpenseLine(id: string, input: z.input<typeof expenseLineInputSchema>): void {
     const parsed = expenseLineInputSchema.parse(input);
     this.assertScenarioMutable(parsed.scenarioId);
     this.db
@@ -337,6 +633,10 @@ export class BudgetCrudRepository {
               status = ?,
               amount_minor = ?,
               currency = ?,
+              capex_opex = ?,
+              gl_account_code = ?,
+              cost_center_code = ?,
+              funding_source = ?,
               start_date = ?,
               end_date = ?,
               updated_at = ?
@@ -352,6 +652,10 @@ export class BudgetCrudRepository {
         parsed.status,
         parsed.amountMinor,
         parsed.currency,
+        parsed.capexOpex ?? null,
+        parsed.glAccountCode ?? null,
+        parsed.costCenterCode ?? null,
+        parsed.fundingSource ?? null,
         parsed.startDate ?? null,
         parsed.endDate ?? null,
         nowIso(),
@@ -375,7 +679,7 @@ export class BudgetCrudRepository {
     this.touchForecastStale();
   }
 
-  createRecurrenceRule(input: z.infer<typeof recurrenceRuleInputSchema>): string {
+  createRecurrenceRule(input: z.input<typeof recurrenceRuleInputSchema>): string {
     const parsed = recurrenceRuleInputSchema.parse(input);
     const expense = this.db
       .prepare("SELECT scenario_id FROM expense_line WHERE id = ?")
@@ -419,7 +723,7 @@ export class BudgetCrudRepository {
     return id;
   }
 
-  updateRecurrenceRule(id: string, input: z.infer<typeof recurrenceRuleInputSchema>): void {
+  updateRecurrenceRule(id: string, input: z.input<typeof recurrenceRuleInputSchema>): void {
     const parsed = recurrenceRuleInputSchema.parse(input);
     const expense = this.db
       .prepare("SELECT scenario_id FROM expense_line WHERE id = ?")
@@ -479,24 +783,68 @@ export class BudgetCrudRepository {
     this.touchForecastStale();
   }
 
-  createScenario(input: z.infer<typeof scenarioInputSchema>): string {
+  createScenario(input: z.input<typeof scenarioInputSchema>): string {
     const parsed = scenarioInputSchema.parse(input);
     const id = crypto.randomUUID();
-    this.db
-      .prepare(
-        `
-          INSERT INTO scenario (
-            id,
-            name,
-            parent_scenario_id,
-            approval_status,
-            is_locked,
-            created_at,
-            updated_at
-          ) VALUES (?, ?, ?, ?, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-        `
-      )
-      .run(id, parsed.name, parsed.parentScenarioId ?? null, parsed.approvalStatus);
+    const create = this.db.transaction(() => {
+      this.db
+        .prepare(
+          `
+            INSERT INTO scenario (
+              id,
+              name,
+              parent_scenario_id,
+              approval_status,
+              is_locked,
+              created_at,
+              updated_at
+            ) VALUES (?, ?, ?, ?, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+          `
+        )
+        .run(id, parsed.name, parsed.parentScenarioId ?? null, parsed.approvalStatus);
+
+      const parentSettings =
+        parsed.parentScenarioId
+          ? (this.db
+              .prepare(
+                `
+                  SELECT
+                    fiscal_year_start_month,
+                    horizon_months,
+                    default_currency
+                  FROM scenario_settings
+                  WHERE scenario_id = ?
+                `
+              )
+              .get(parsed.parentScenarioId) as
+              | {
+                  fiscal_year_start_month: number;
+                  horizon_months: number;
+                  default_currency: string;
+                }
+              | undefined)
+          : undefined;
+      this.db
+        .prepare(
+          `
+            INSERT INTO scenario_settings (
+              scenario_id,
+              fiscal_year_start_month,
+              horizon_months,
+              default_currency,
+              created_at,
+              updated_at
+            ) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+          `
+        )
+        .run(
+          id,
+          parentSettings?.fiscal_year_start_month ?? 1,
+          parentSettings?.horizon_months ?? 24,
+          parentSettings?.default_currency ?? "USD"
+        );
+    });
+    create();
     return id;
   }
 
@@ -573,6 +921,10 @@ export class BudgetCrudRepository {
               status,
               amount_minor,
               currency,
+              capex_opex,
+              gl_account_code,
+              cost_center_code,
+              funding_source,
               start_date,
               end_date,
               created_at,
@@ -592,6 +944,10 @@ export class BudgetCrudRepository {
         status: string;
         amount_minor: number;
         currency: string;
+        capex_opex: "capex" | "opex" | null;
+        gl_account_code: string | null;
+        cost_center_code: string | null;
+        funding_source: string | null;
         start_date: string | null;
         end_date: string | null;
         created_at: string;
@@ -612,12 +968,16 @@ export class BudgetCrudRepository {
             status,
             amount_minor,
             currency,
+            capex_opex,
+            gl_account_code,
+            cost_center_code,
+            funding_source,
             start_date,
             end_date,
             created_at,
             updated_at,
             deleted_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `
       );
 
@@ -634,6 +994,10 @@ export class BudgetCrudRepository {
           expense.status,
           expense.amount_minor,
           expense.currency,
+          expense.capex_opex,
+          expense.gl_account_code,
+          expense.cost_center_code,
+          expense.funding_source,
           expense.start_date,
           expense.end_date,
           expense.created_at,
@@ -641,6 +1005,44 @@ export class BudgetCrudRepository {
           expense.deleted_at
         );
       }
+
+      const sourceSettings = this.db
+        .prepare(
+          `
+            SELECT
+              fiscal_year_start_month,
+              horizon_months,
+              default_currency
+            FROM scenario_settings
+            WHERE scenario_id = ?
+          `
+        )
+        .get(sourceScenarioId) as
+        | {
+            fiscal_year_start_month: number;
+            horizon_months: number;
+            default_currency: string;
+          }
+        | undefined;
+      this.db
+        .prepare(
+          `
+            INSERT INTO scenario_settings (
+              scenario_id,
+              fiscal_year_start_month,
+              horizon_months,
+              default_currency,
+              created_at,
+              updated_at
+            ) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+          `
+        )
+        .run(
+          newScenarioId,
+          sourceSettings?.fiscal_year_start_month ?? 1,
+          sourceSettings?.horizon_months ?? 24,
+          sourceSettings?.default_currency ?? "USD"
+        );
 
       const sourceRecurrences = this.db
         .prepare(
@@ -699,7 +1101,7 @@ export class BudgetCrudRepository {
     return newScenarioId;
   }
 
-  createDimension(input: z.infer<typeof dimensionInputSchema>): string {
+  createDimension(input: z.input<typeof dimensionInputSchema>): string {
     const parsed = dimensionInputSchema.parse(input);
     const id = crypto.randomUUID();
     this.db
@@ -713,7 +1115,29 @@ export class BudgetCrudRepository {
     return id;
   }
 
-  createTag(input: z.infer<typeof tagInputSchema>): string {
+  updateDimension(id: string, input: z.input<typeof dimensionInputSchema>): void {
+    const parsed = dimensionInputSchema.parse(input);
+    this.db
+      .prepare(
+        `
+          UPDATE dimension
+          SET name = ?, mode = ?, required = ?, updated_at = CURRENT_TIMESTAMP
+          WHERE id = ?
+        `
+      )
+      .run(parsed.name, parsed.mode, parsed.required ? 1 : 0, id);
+  }
+
+  deleteDimension(id: string): void {
+    const run = this.db.transaction(() => {
+      this.db.prepare("DELETE FROM tag_assignment WHERE dimension_id = ?").run(id);
+      this.db.prepare("DELETE FROM tag WHERE dimension_id = ?").run(id);
+      this.db.prepare("DELETE FROM dimension WHERE id = ?").run(id);
+    });
+    run();
+  }
+
+  createTag(input: z.input<typeof tagInputSchema>): string {
     const parsed = tagInputSchema.parse(input);
     const id = crypto.randomUUID();
     this.db
@@ -727,7 +1151,84 @@ export class BudgetCrudRepository {
     return id;
   }
 
-  assignTagToEntity(input: z.infer<typeof tagAssignmentInputSchema>): string {
+  updateTag(id: string, input: z.input<typeof tagUpdateInputSchema>): void {
+    const parsed = tagUpdateInputSchema.parse(input);
+    this.db
+      .prepare(
+        `
+          UPDATE tag
+          SET name = ?, parent_tag_id = ?, updated_at = CURRENT_TIMESTAMP
+          WHERE id = ?
+        `
+      )
+      .run(parsed.name, parsed.parentTagId ?? null, id);
+  }
+
+  archiveTag(id: string, archived: boolean): void {
+    if (archived) {
+      this.db
+        .prepare(
+          `
+            UPDATE tag
+            SET archived_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+          `
+        )
+        .run(id);
+      return;
+    }
+    this.db
+      .prepare(
+        `
+          UPDATE tag
+          SET archived_at = NULL, updated_at = CURRENT_TIMESTAMP
+          WHERE id = ?
+        `
+      )
+      .run(id);
+  }
+
+  mergeTagAssignments(dimensionId: string, sourceTagId: string, targetTagId: string): number {
+    if (sourceTagId === targetTagId) {
+      return 0;
+    }
+    const run = this.db.transaction(() => {
+      const deleted = this.db
+        .prepare(
+          `
+            DELETE FROM tag_assignment
+            WHERE dimension_id = ?
+              AND tag_id = ?
+              AND EXISTS (
+                SELECT 1
+                FROM tag_assignment t2
+                WHERE t2.dimension_id = tag_assignment.dimension_id
+                  AND t2.entity_type = tag_assignment.entity_type
+                  AND t2.entity_id = tag_assignment.entity_id
+                  AND t2.tag_id = ?
+              )
+          `
+        )
+        .run(dimensionId, sourceTagId, targetTagId);
+
+      const updated = this.db
+        .prepare(
+          `
+            UPDATE tag_assignment
+            SET tag_id = ?
+            WHERE dimension_id = ?
+              AND tag_id = ?
+          `
+        )
+        .run(targetTagId, dimensionId, sourceTagId);
+
+      this.archiveTag(sourceTagId, true);
+      return deleted.changes + updated.changes;
+    });
+    return run();
+  }
+
+  assignTagToEntity(input: z.input<typeof tagAssignmentInputSchema>): string {
     const parsed = tagAssignmentInputSchema.parse(input);
     const dimension = this.db
       .prepare("SELECT mode FROM dimension WHERE id = ?")
@@ -830,6 +1331,448 @@ export class BudgetCrudRepository {
       .all(entityType, tagId) as Array<{ entity_id: string }>;
 
     return rows.map((row) => row.entity_id);
+  }
+
+  removeTagAssignment(
+    entityType: string,
+    entityId: string,
+    dimensionId: string,
+    tagId: string
+  ): void {
+    this.db
+      .prepare(
+        `
+          DELETE FROM tag_assignment
+          WHERE entity_type = ?
+            AND entity_id = ?
+            AND dimension_id = ?
+            AND tag_id = ?
+        `
+      )
+      .run(entityType, entityId, dimensionId, tagId);
+  }
+
+  listVendors(includeDeleted: boolean = false): VendorRecord[] {
+    const whereClause = includeDeleted ? "" : "WHERE deleted_at IS NULL";
+    return this.db
+      .prepare(
+        `
+          SELECT
+            id,
+            name,
+            website,
+            notes,
+            owner,
+            annual_spend_minor AS annualSpendMinor,
+            status,
+            risk,
+            created_at AS createdAt,
+            updated_at AS updatedAt,
+            deleted_at AS deletedAt
+          FROM vendor
+          ${whereClause}
+          ORDER BY name
+        `
+      )
+      .all() as VendorRecord[];
+  }
+
+  listServices(includeDeleted: boolean = false): ServiceRecord[] {
+    const whereClause = includeDeleted ? "" : "WHERE deleted_at IS NULL";
+    return this.db
+      .prepare(
+        `
+          SELECT
+            id,
+            vendor_id AS vendorId,
+            name,
+            status,
+            owner_team AS ownerTeam,
+            annual_spend_minor AS annualSpendMinor,
+            risk,
+            replacement_status AS replacementStatus,
+            created_at AS createdAt,
+            updated_at AS updatedAt,
+            deleted_at AS deletedAt
+          FROM service
+          ${whereClause}
+          ORDER BY name
+        `
+      )
+      .all() as ServiceRecord[];
+  }
+
+  listContracts(includeDeleted: boolean = false): ContractRecord[] {
+    const whereClause = includeDeleted ? "" : "WHERE deleted_at IS NULL";
+    return this.db
+      .prepare(
+        `
+          SELECT
+            id,
+            service_id AS serviceId,
+            contract_number AS contractNumber,
+            start_date AS startDate,
+            end_date AS endDate,
+            renewal_type AS renewalType,
+            renewal_date AS renewalDate,
+            notice_period_days AS noticePeriodDays,
+            owner,
+            lifecycle_status AS lifecycleStatus,
+            renewal_action AS renewalAction,
+            created_at AS createdAt,
+            updated_at AS updatedAt,
+            deleted_at AS deletedAt
+          FROM contract
+          ${whereClause}
+          ORDER BY COALESCE(renewal_date, end_date, created_at)
+        `
+      )
+      .all() as ContractRecord[];
+  }
+
+  listExpenseLines(scenarioId?: string, includeDeleted: boolean = false): ExpenseLineRecord[] {
+    const clauses: string[] = [];
+    const params: Array<string> = [];
+    if (!includeDeleted) {
+      clauses.push("deleted_at IS NULL");
+    }
+    if (scenarioId) {
+      clauses.push("scenario_id = ?");
+      params.push(scenarioId);
+    }
+    const whereClause = clauses.length > 0 ? `WHERE ${clauses.join(" AND ")}` : "";
+
+    return this.db
+      .prepare(
+        `
+          SELECT
+            id,
+            scenario_id AS scenarioId,
+            service_id AS serviceId,
+            contract_id AS contractId,
+            name,
+            expense_type AS expenseType,
+            status,
+            amount_minor AS amountMinor,
+            currency,
+            capex_opex AS capexOpex,
+            gl_account_code AS glAccountCode,
+            cost_center_code AS costCenterCode,
+            funding_source AS fundingSource,
+            start_date AS startDate,
+            end_date AS endDate,
+            created_at AS createdAt,
+            updated_at AS updatedAt,
+            deleted_at AS deletedAt
+          FROM expense_line
+          ${whereClause}
+          ORDER BY name
+        `
+      )
+      .all(...params) as ExpenseLineRecord[];
+  }
+
+  listRecurrenceRules(expenseLineId?: string): RecurrenceRuleRecord[] {
+    const whereClause = expenseLineId ? "WHERE expense_line_id = ?" : "";
+    return this.db
+      .prepare(
+        `
+          SELECT
+            id,
+            expense_line_id AS expenseLineId,
+            frequency,
+            interval,
+            day_of_month AS dayOfMonth,
+            month_of_year AS monthOfYear,
+            anchor_date AS anchorDate,
+            created_at AS createdAt,
+            updated_at AS updatedAt
+          FROM recurrence_rule
+          ${whereClause}
+          ORDER BY created_at
+        `
+      )
+      .all(...(expenseLineId ? [expenseLineId] : [])) as RecurrenceRuleRecord[];
+  }
+
+  listDimensions(): DimensionRecord[] {
+    const rows = this.db
+      .prepare(
+        `
+          SELECT
+            id,
+            name,
+            mode,
+            required,
+            created_at AS createdAt,
+            updated_at AS updatedAt
+          FROM dimension
+          ORDER BY name
+        `
+      )
+      .all() as Array<{
+      id: string;
+      name: string;
+      mode: "single_select" | "multi_select";
+      required: number;
+      createdAt: string;
+      updatedAt: string;
+    }>;
+
+    return rows.map((row) => ({
+      ...row,
+      required: row.required === 1
+    }));
+  }
+
+  listTags(dimensionId?: string, includeArchived: boolean = false): TagRecord[] {
+    const clauses: string[] = [];
+    const params: string[] = [];
+    if (dimensionId) {
+      clauses.push("dimension_id = ?");
+      params.push(dimensionId);
+    }
+    if (!includeArchived) {
+      clauses.push("archived_at IS NULL");
+    }
+    const whereClause = clauses.length > 0 ? `WHERE ${clauses.join(" AND ")}` : "";
+
+    return this.db
+      .prepare(
+        `
+          SELECT
+            id,
+            dimension_id AS dimensionId,
+            name,
+            parent_tag_id AS parentTagId,
+            created_at AS createdAt,
+            updated_at AS updatedAt,
+            archived_at AS archivedAt
+          FROM tag
+          ${whereClause}
+          ORDER BY name
+        `
+      )
+      .all(...params) as TagRecord[];
+  }
+
+  listTagAssignments(entityType?: string, entityId?: string): TagAssignmentRecord[] {
+    const clauses: string[] = [];
+    const params: string[] = [];
+    if (entityType) {
+      clauses.push("entity_type = ?");
+      params.push(entityType);
+    }
+    if (entityId) {
+      clauses.push("entity_id = ?");
+      params.push(entityId);
+    }
+    const whereClause = clauses.length > 0 ? `WHERE ${clauses.join(" AND ")}` : "";
+    return this.db
+      .prepare(
+        `
+          SELECT
+            id,
+            entity_type AS entityType,
+            entity_id AS entityId,
+            dimension_id AS dimensionId,
+            tag_id AS tagId,
+            created_at AS createdAt
+          FROM tag_assignment
+          ${whereClause}
+          ORDER BY created_at
+        `
+      )
+      .all(...params) as TagAssignmentRecord[];
+  }
+
+  listScenarios(): ScenarioRecord[] {
+    const rows = this.db
+      .prepare(
+        `
+          SELECT
+            id,
+            name,
+            parent_scenario_id AS parentScenarioId,
+            approval_status AS approvalStatus,
+            is_locked AS isLocked,
+            created_at AS createdAt,
+            updated_at AS updatedAt
+          FROM scenario
+          ORDER BY created_at
+        `
+      )
+      .all() as Array<{
+      id: string;
+      name: string;
+      parentScenarioId: string | null;
+      approvalStatus: "draft" | "reviewed" | "approved";
+      isLocked: number;
+      createdAt: string;
+      updatedAt: string;
+    }>;
+
+    return rows.map((row) => ({
+      ...row,
+      isLocked: row.isLocked === 1
+    }));
+  }
+
+  getScenarioSettings(scenarioId: string): ScenarioSettingsRecord {
+    const existing = this.db
+      .prepare(
+        `
+          SELECT
+            scenario_id AS scenarioId,
+            fiscal_year_start_month AS fiscalYearStartMonth,
+            horizon_months AS horizonMonths,
+            default_currency AS defaultCurrency,
+            created_at AS createdAt,
+            updated_at AS updatedAt
+          FROM scenario_settings
+          WHERE scenario_id = ?
+        `
+      )
+      .get(scenarioId) as ScenarioSettingsRecord | undefined;
+
+    if (existing) {
+      return existing;
+    }
+
+    this.upsertScenarioSettings({
+      scenarioId,
+      fiscalYearStartMonth: 1,
+      horizonMonths: 24,
+      defaultCurrency: "USD"
+    });
+    return this.getScenarioSettings(scenarioId);
+  }
+
+  upsertScenarioSettings(
+    input: z.input<typeof scenarioSettingsInputSchema>
+  ): ScenarioSettingsRecord {
+    const parsed = scenarioSettingsInputSchema.parse(input);
+    this.db
+      .prepare(
+        `
+          INSERT INTO scenario_settings (
+            scenario_id,
+            fiscal_year_start_month,
+            horizon_months,
+            default_currency,
+            created_at,
+            updated_at
+          ) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+          ON CONFLICT(scenario_id) DO UPDATE SET
+            fiscal_year_start_month = excluded.fiscal_year_start_month,
+            horizon_months = excluded.horizon_months,
+            default_currency = excluded.default_currency,
+            updated_at = CURRENT_TIMESTAMP
+        `
+      )
+      .run(
+        parsed.scenarioId,
+        parsed.fiscalYearStartMonth,
+        parsed.horizonMonths,
+        parsed.defaultCurrency
+      );
+    return this.getScenarioSettings(parsed.scenarioId);
+  }
+
+  listCostCenters(): CostCenterRecord[] {
+    const rows = this.db
+      .prepare(
+        `
+          SELECT
+            code,
+            name,
+            active,
+            created_at AS createdAt,
+            updated_at AS updatedAt
+          FROM cost_center
+          ORDER BY code
+        `
+      )
+      .all() as Array<{
+      code: string;
+      name: string;
+      active: number;
+      createdAt: string;
+      updatedAt: string;
+    }>;
+
+    return rows.map((row) => ({
+      ...row,
+      active: row.active === 1
+    }));
+  }
+
+  upsertCostCenter(input: z.input<typeof costCenterInputSchema>): void {
+    const parsed = costCenterInputSchema.parse(input);
+    this.db
+      .prepare(
+        `
+          INSERT INTO cost_center (code, name, active, created_at, updated_at)
+          VALUES (?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+          ON CONFLICT(code) DO UPDATE SET
+            name = excluded.name,
+            active = excluded.active,
+            updated_at = CURRENT_TIMESTAMP
+        `
+      )
+      .run(parsed.code, parsed.name, parsed.active ? 1 : 0);
+  }
+
+  deleteCostCenter(code: string): void {
+    this.db.prepare("DELETE FROM cost_center WHERE code = ?").run(code);
+  }
+
+  listGlAccounts(): GlAccountRecord[] {
+    const rows = this.db
+      .prepare(
+        `
+          SELECT
+            code,
+            name,
+            active,
+            created_at AS createdAt,
+            updated_at AS updatedAt
+          FROM gl_account
+          ORDER BY code
+        `
+      )
+      .all() as Array<{
+      code: string;
+      name: string;
+      active: number;
+      createdAt: string;
+      updatedAt: string;
+    }>;
+
+    return rows.map((row) => ({
+      ...row,
+      active: row.active === 1
+    }));
+  }
+
+  upsertGlAccount(input: z.input<typeof glAccountInputSchema>): void {
+    const parsed = glAccountInputSchema.parse(input);
+    this.db
+      .prepare(
+        `
+          INSERT INTO gl_account (code, name, active, created_at, updated_at)
+          VALUES (?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+          ON CONFLICT(code) DO UPDATE SET
+            name = excluded.name,
+            active = excluded.active,
+            updated_at = CURRENT_TIMESTAMP
+        `
+      )
+      .run(parsed.code, parsed.name, parsed.active ? 1 : 0);
+  }
+
+  deleteGlAccount(code: string): void {
+    this.db.prepare("DELETE FROM gl_account WHERE code = ?").run(code);
   }
 }
 

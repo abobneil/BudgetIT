@@ -22,6 +22,7 @@ function createTempDir(): string {
 
 const dataset = {
   scenarioId: "baseline",
+  currency: "USD",
   staleForecast: false,
   spendTrend: [
     { month: "2026-01", forecastMinor: 10000, actualMinor: 10000 },

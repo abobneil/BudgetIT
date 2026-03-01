@@ -15,6 +15,11 @@ import { ScenarioProvider } from "../scenarios/ScenarioContext";
 import { NlqPage } from "./NlqPage";
 
 vi.mock("../../lib/ipcClient", () => ({
+  isIpcAvailable: vi.fn(() => false),
+  listScenarios: vi.fn(),
+  cloneScenario: vi.fn(),
+  approveScenario: vi.fn(),
+  lockScenario: vi.fn(),
   parseNlq: vi.fn(),
   exportReport: vi.fn(),
   queryReport: vi.fn()

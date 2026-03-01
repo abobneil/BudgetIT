@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from "electron";
 
-const allowedInvokeChannels = new Set<string>([
+const fallbackInvokeChannels = [
   "settings.get",
   "settings.update",
   "app.exit",
@@ -13,13 +13,88 @@ const allowedInvokeChannels = new Set<string>([
   "alerts.ack",
   "alerts.snooze",
   "alerts.sendTest",
+  "notifications.endpoints.list",
   "import.preview",
   "import.commit",
+  "import.templates.list",
+  "import.templates.delete",
   "reports.query",
   "report.preview",
   "export.report",
-  "nlq.parse"
-]);
+  "nlq.parse",
+  "vendors.list",
+  "vendors.create",
+  "vendors.update",
+  "vendors.delete",
+  "services.list",
+  "services.create",
+  "services.update",
+  "services.delete",
+  "contracts.list",
+  "contracts.create",
+  "contracts.update",
+  "contracts.delete",
+  "expenses.list",
+  "expenses.create",
+  "expenses.update",
+  "expenses.delete",
+  "recurrences.list",
+  "recurrences.create",
+  "recurrences.update",
+  "recurrences.delete",
+  "dimensions.list",
+  "dimensions.create",
+  "dimensions.update",
+  "dimensions.delete",
+  "tags.list",
+  "tags.create",
+  "tags.update",
+  "tags.archive",
+  "tags.merge",
+  "tags.assign",
+  "tags.unassign",
+  "scenarios.list",
+  "scenarios.create",
+  "scenarios.clone",
+  "scenarios.approve",
+  "scenarios.lock",
+  "scenarioSettings.get",
+  "scenarioSettings.update",
+  "costCenters.list",
+  "costCenters.create",
+  "costCenters.update",
+  "costCenters.delete",
+  "glAccounts.list",
+  "glAccounts.create",
+  "glAccounts.update",
+  "glAccounts.delete",
+  "actuals.unmatched.list",
+  "actuals.unmatched.review",
+  "actuals.unmatched.createExpense",
+  "showback.generate",
+  "showback.list",
+  "showback.export",
+  "approvals.list",
+  "approvals.create",
+  "audit.list"
+] as const;
+
+function resolveAllowedInvokeChannels(): readonly string[] {
+  try {
+    const core = require("@budgetit/core") as {
+      getAllowedInvokeChannels?: () => readonly string[];
+    };
+    const channels = core.getAllowedInvokeChannels?.();
+    if (channels && Array.isArray(channels) && channels.length > 0) {
+      return channels;
+    }
+  } catch {
+    // Fall back to local allowlist when core package is unavailable in test/dev bootstrap.
+  }
+  return fallbackInvokeChannels;
+}
+
+const allowedInvokeChannels = new Set<string>(resolveAllowedInvokeChannels());
 
 function assertAllowedInvokeChannel(channel: string): void {
   if (!allowedInvokeChannels.has(channel)) {

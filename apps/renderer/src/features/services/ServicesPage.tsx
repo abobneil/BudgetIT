@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Button,
   Card,
@@ -17,7 +17,24 @@ import {
 } from "@fluentui/react-components";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
-import { EmptyState, PageHeader, StatusChip } from "../../ui/primitives";
+import {
+  ConfirmDialog,
+  EmptyState,
+  FormDrawer,
+  InlineError,
+  PageHeader,
+  StatusChip
+} from "../../ui/primitives";
+import {
+  createService as createServiceIpc,
+  deleteService as deleteServiceIpc,
+  isIpcAvailable,
+  listContracts as listContractsIpc,
+  listExpenses as listExpensesIpc,
+  listServices as listServicesIpc,
+  listVendors as listVendorsIpc,
+  updateService as updateServiceIpc
+} from "../../lib/ipcClient";
 import {
   buildVendorFilterOptions,
   matchesVendorFilter
@@ -43,6 +60,22 @@ type ServiceDetailTab =
   | "contracts"
   | "renewals"
   | "replacement";
+
+type ServiceStatusValue = "active" | "trial" | "deprecated" | "retiring" | "retired";
+
+type WorkspaceServiceRecord = ServiceRecord & {
+  status: ServiceStatusValue;
+};
+
+type ServiceFormState = {
+  vendorId: string;
+  name: string;
+  owner: string;
+  annualSpendMinor: string;
+  status: ServiceStatusValue;
+  risk: ServiceRisk;
+  replacementStatus: "not-started" | "candidate-review" | "approved";
+};
 
 const REFERENCE_DATE = "2026-03-01";
 
@@ -90,13 +123,70 @@ function formatDate(isoDate: string): string {
   });
 }
 
-function primaryContractId(service: ServiceRecord): string | null {
+function primaryContractId(service: WorkspaceServiceRecord): string | null {
   return service.linkedContractIds[0] ?? null;
+}
+
+function normalizeServiceId(name: string): string {
+  return `svc-${name
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")}`;
+}
+
+function createDefaultFormState(vendorId: string): ServiceFormState {
+  return {
+    vendorId,
+    name: "",
+    owner: "",
+    annualSpendMinor: "0",
+    status: "active",
+    risk: "low",
+    replacementStatus: "not-started"
+  };
+}
+
+function fromService(service: WorkspaceServiceRecord): ServiceFormState {
+  return {
+    vendorId: service.vendorId,
+    name: service.name,
+    owner: service.owner,
+    annualSpendMinor: String(service.annualSpendMinor),
+    status: service.status,
+    risk: service.risk,
+    replacementStatus: service.replacementStatus
+  };
 }
 
 export function ServicesPage() {
   const navigate = useNavigate();
+  const hasIpc = isIpcAvailable();
   const [searchParams, setSearchParams] = useSearchParams();
+  const [serviceRecords, setServiceRecords] = useState<WorkspaceServiceRecord[]>(
+    SERVICE_RECORDS.map((entry) => ({
+      ...entry,
+      status: "active"
+    }))
+  );
+  const [vendorNameById, setVendorNameById] = useState<Record<string, string>>(
+    Object.fromEntries(SERVICE_RECORDS.map((entry) => [entry.vendorId, entry.vendorName]))
+  );
+  const [contractById, setContractById] = useState<Record<string, { id: string; contractNumber: string; providerName: string }>>(
+    () =>
+      Object.fromEntries(
+        Object.values(CONTRACT_BY_ID).map((contract) => [
+          contract.id,
+          {
+            id: contract.id,
+            contractNumber: contract.contractNumber,
+            providerName: contract.providerName
+          }
+        ])
+      )
+  );
+  const [loading, setLoading] = useState(false);
+  const [pageMessage, setPageMessage] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [vendorFilter, setVendorFilter] = useState<string>(() => {
     return searchParams.get("vendor") ?? "all";
@@ -105,24 +195,131 @@ export function ServicesPage() {
   const [detailTab, setDetailTab] = useState<ServiceDetailTab>(() =>
     resolveDetailTab(searchParams.get("tab"))
   );
-  const [selectedServiceId, setSelectedServiceId] = useState<string>(() => {
-    return searchParams.get("service") ?? SERVICE_RECORDS[0]?.id ?? "";
-  });
+  const [selectedServiceId, setSelectedServiceId] = useState<string>(() => searchParams.get("service") ?? "");
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [drawerMode, setDrawerMode] = useState<"create" | "edit">("create");
+  const [editingServiceId, setEditingServiceId] = useState<string | null>(null);
+  const [formState, setFormState] = useState<ServiceFormState>(() => createDefaultFormState(""));
+  const [formError, setFormError] = useState<string | null>(null);
+  const [deleteServiceId, setDeleteServiceId] = useState<string | null>(null);
+
+  const vendorChoices = useMemo(
+    () =>
+      Object.entries(vendorNameById)
+        .map(([id, name]) => ({ id, name }))
+        .sort((left, right) => left.name.localeCompare(right.name)),
+    [vendorNameById]
+  );
+
+  const loadWorkspaceData = useCallback(async () => {
+    if (!hasIpc) {
+      return;
+    }
+    setLoading(true);
+    try {
+      const [vendors, services, contracts, expenses] = await Promise.all([
+        listVendorsIpc(),
+        listServicesIpc(),
+        listContractsIpc(),
+        listExpensesIpc({ scenarioId: "baseline" })
+      ]);
+      const nextVendorNameById = Object.fromEntries(
+        vendors.map((vendor) => [vendor.id, vendor.name])
+      );
+      setVendorNameById(nextVendorNameById);
+      const contractsByServiceId = new Map<string, typeof contracts>();
+      for (const contract of contracts) {
+        const list = contractsByServiceId.get(contract.serviceId) ?? [];
+        list.push(contract);
+        contractsByServiceId.set(contract.serviceId, list);
+      }
+      const expensesByServiceId = new Map<string, typeof expenses>();
+      for (const expense of expenses) {
+        const list = expensesByServiceId.get(expense.serviceId) ?? [];
+        list.push(expense);
+        expensesByServiceId.set(expense.serviceId, list);
+      }
+      const mappedServices: WorkspaceServiceRecord[] = services.map((service) => {
+        const linkedContracts = contractsByServiceId.get(service.id) ?? [];
+        const linkedExpenses = expensesByServiceId.get(service.id) ?? [];
+        const firstRenewal =
+          linkedContracts
+            .map((contract) => contract.renewalDate)
+            .filter((value): value is string => Boolean(value))
+            .sort()[0] ?? "2026-12-31";
+        return {
+          id: service.id,
+          vendorId: service.vendorId,
+          name: service.name,
+          vendorName: nextVendorNameById[service.vendorId] ?? service.vendorId,
+          owner: service.ownerTeam ?? "",
+          annualSpendMinor: service.annualSpendMinor,
+          renewalDate: firstRenewal,
+          risk: service.risk,
+          replacementStatus: service.replacementStatus,
+          linkedContractIds: linkedContracts.map((contract) => contract.id),
+          expenseLines: linkedExpenses
+            .filter(
+              (
+                expense
+              ): expense is typeof expense & {
+                status: "planned" | "approved" | "committed" | "actual";
+              } => expense.status !== "cancelled"
+            )
+            .map((expense) => ({
+              id: expense.id,
+              name: expense.name,
+              amountMinor: expense.amountMinor,
+              status: expense.status
+            })),
+          status: service.status
+        };
+      });
+      setServiceRecords(mappedServices);
+      setContractById(
+        Object.fromEntries(
+          contracts.map((contract) => [
+            contract.id,
+            {
+              id: contract.id,
+              contractNumber: contract.contractNumber ?? contract.id,
+              providerName:
+                nextVendorNameById[
+                  services.find((service) => service.id === contract.serviceId)?.vendorId ?? ""
+                ] ?? ""
+            }
+          ])
+        )
+      );
+      if (mappedServices.length > 0 && !mappedServices.some((entry) => entry.id === selectedServiceId)) {
+        setSelectedServiceId(mappedServices[0].id);
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      setPageMessage(`Failed to load services workspace: ${message}`);
+    } finally {
+      setLoading(false);
+    }
+  }, [hasIpc, selectedServiceId]);
+
+  useEffect(() => {
+    void loadWorkspaceData();
+  }, [loadWorkspaceData]);
 
   const vendorOptions = useMemo(
     () =>
       buildVendorFilterOptions(
-        SERVICE_RECORDS.map((service) => ({
+        serviceRecords.map((service) => ({
           vendorId: service.vendorId,
           vendorName: service.vendorName
         }))
       ),
-    []
+    [serviceRecords]
   );
 
   const visibleServices = useMemo(() => {
     const normalized = query.trim().toLowerCase();
-    return SERVICE_RECORDS.filter((service) => {
+    return serviceRecords.filter((service) => {
       if (!matchesVendorFilter(vendorFilter, service.vendorId)) {
         return false;
       }
@@ -138,7 +335,7 @@ export function ServicesPage() {
         service.owner.toLowerCase().includes(normalized)
       );
     });
-  }, [query, riskFilter, vendorFilter]);
+  }, [query, riskFilter, vendorFilter, serviceRecords]);
 
   useEffect(() => {
     if (visibleServices.length === 0) {
@@ -165,7 +362,7 @@ export function ServicesPage() {
   }, [detailTab, selectedServiceId, setSearchParams, vendorFilter]);
 
   const selectedService =
-    SERVICE_RECORDS.find((service) => service.id === selectedServiceId) ??
+    serviceRecords.find((service) => service.id === selectedServiceId) ??
     visibleServices[0] ??
     null;
 
@@ -181,11 +378,165 @@ export function ServicesPage() {
     navigate(`/reports?replacementServiceId=${serviceId}`);
   }
 
+  function openCreateDrawer(): void {
+    const defaultVendorId = vendorChoices[0]?.id ?? serviceRecords[0]?.vendorId ?? "";
+    setDrawerMode("create");
+    setEditingServiceId(null);
+    setFormState(createDefaultFormState(defaultVendorId));
+    setFormError(null);
+    setDrawerOpen(true);
+  }
+
+  function openEditDrawer(service: WorkspaceServiceRecord): void {
+    setDrawerMode("edit");
+    setEditingServiceId(service.id);
+    setFormState(fromService(service));
+    setFormError(null);
+    setDrawerOpen(true);
+  }
+
+  function handleSubmitDrawer(): void {
+    const trimmedName = formState.name.trim();
+    const trimmedOwner = formState.owner.trim();
+    const annualSpendMinor = Number.parseInt(formState.annualSpendMinor, 10);
+
+    if (!formState.vendorId) {
+      setFormError("Vendor is required.");
+      return;
+    }
+    if (!trimmedName) {
+      setFormError("Service name is required.");
+      return;
+    }
+    if (!trimmedOwner) {
+      setFormError("Service owner is required.");
+      return;
+    }
+    if (Number.isNaN(annualSpendMinor) || annualSpendMinor < 0) {
+      setFormError("Annual spend (minor units) must be zero or a positive integer.");
+      return;
+    }
+
+    if (hasIpc) {
+      void (async () => {
+        try {
+          if (drawerMode === "create") {
+            const created = await createServiceIpc({
+              vendorId: formState.vendorId,
+              name: trimmedName,
+              status: formState.status,
+              ownerTeam: trimmedOwner,
+              annualSpendMinor,
+              risk: formState.risk,
+              replacementStatus: formState.replacementStatus
+            });
+            if (created) {
+              setSelectedServiceId(created.id);
+            }
+            setPageMessage(`Service ${trimmedName} created.`);
+          } else if (editingServiceId) {
+            await updateServiceIpc({
+              id: editingServiceId,
+              vendorId: formState.vendorId,
+              name: trimmedName,
+              status: formState.status,
+              ownerTeam: trimmedOwner,
+              annualSpendMinor,
+              risk: formState.risk,
+              replacementStatus: formState.replacementStatus
+            });
+            setPageMessage(`Service ${trimmedName} updated.`);
+          }
+          setDrawerOpen(false);
+          setFormError(null);
+          await loadWorkspaceData();
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          setFormError(message);
+        }
+      })();
+      return;
+    }
+
+    const nextService: WorkspaceServiceRecord = {
+      id: editingServiceId ?? normalizeServiceId(trimmedName),
+      vendorId: formState.vendorId,
+      name: trimmedName,
+      vendorName: vendorNameById[formState.vendorId] ?? formState.vendorId,
+      owner: trimmedOwner,
+      annualSpendMinor,
+      renewalDate: "2026-12-31",
+      risk: formState.risk,
+      replacementStatus: formState.replacementStatus,
+      linkedContractIds: [],
+      expenseLines: [],
+      status: formState.status
+    };
+
+    setServiceRecords((current) => {
+      if (drawerMode === "create") {
+        return [...current, nextService];
+      }
+      return current.map((service) =>
+        service.id === nextService.id ? { ...service, ...nextService } : service
+      );
+    });
+    setSelectedServiceId(nextService.id);
+    setDrawerOpen(false);
+    setFormError(null);
+    setPageMessage(
+      drawerMode === "create"
+        ? `Service ${nextService.name} created.`
+        : `Service ${nextService.name} updated.`
+    );
+  }
+
+  function confirmDelete(): void {
+    if (!deleteServiceId) {
+      return;
+    }
+    if (hasIpc) {
+      const deletingId = deleteServiceId;
+      const serviceName =
+        serviceRecords.find((entry) => entry.id === deletingId)?.name ?? deletingId;
+      void (async () => {
+        try {
+          await deleteServiceIpc(deletingId);
+          if (selectedServiceId === deletingId) {
+            setSelectedServiceId("");
+          }
+          setPageMessage(`Service ${serviceName} deleted.`);
+          setDeleteServiceId(null);
+          await loadWorkspaceData();
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          setPageMessage(`Delete failed: ${message}`);
+          setDeleteServiceId(null);
+        }
+      })();
+      return;
+    }
+
+    const deletedName =
+      serviceRecords.find((entry) => entry.id === deleteServiceId)?.name ?? deleteServiceId;
+    setServiceRecords((current) => current.filter((entry) => entry.id !== deleteServiceId));
+    if (selectedServiceId === deleteServiceId) {
+      setSelectedServiceId("");
+    }
+    setDeleteServiceId(null);
+    setPageMessage(`Service ${deletedName} deleted.`);
+  }
+
   return (
     <section className="services-page">
       <PageHeader
         title="Services Workspace"
         subtitle="Lifecycle-focused service management with renewal context and replacement pathways."
+        actions={
+          <Button appearance="primary" onClick={openCreateDrawer}>
+            Create Service
+          </Button>
+        }
       />
 
       <div className="services-toolbar">
@@ -220,6 +571,9 @@ export function ServicesPage() {
           <option value="high">High</option>
         </Select>
       </div>
+
+      {loading ? <Text>Loading services...</Text> : null}
+      {pageMessage ? <Text>{pageMessage}</Text> : null}
 
       <div className="services-layout">
         <section>
@@ -306,6 +660,16 @@ export function ServicesPage() {
                           <Button
                             size="small"
                             appearance="secondary"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              openEditDrawer(service);
+                            }}
+                          >
+                            Edit
+                          </Button>
+                          <Button
+                            size="small"
+                            appearance="secondary"
                             disabled={!firstContractId}
                             onClick={(event) => {
                               event.stopPropagation();
@@ -337,6 +701,16 @@ export function ServicesPage() {
                           >
                             Open replacement
                           </Button>
+                          <Button
+                            size="small"
+                            appearance="secondary"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              setDeleteServiceId(service.id);
+                            }}
+                          >
+                            Delete
+                          </Button>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -353,6 +727,7 @@ export function ServicesPage() {
               <Title3>{selectedService.name}</Title3>
               <Text>{`Owner: ${selectedService.owner}`}</Text>
               <Text>{`Vendor: ${selectedService.vendorName}`}</Text>
+              <Text>{`Status: ${selectedService.status}`}</Text>
               <Text>{`Renewal: ${formatDate(selectedService.renewalDate)} (${renewalWindowLabel(
                 selectedService.renewalDate,
                 REFERENCE_DATE
@@ -398,6 +773,21 @@ export function ServicesPage() {
                   <ul className="services-detail__list">
                     {selectedService.linkedContractIds.map((contractId) => {
                       const contract = CONTRACT_BY_ID[contractId];
+                      const contractFromState = contractById[contractId];
+                      if (contractFromState) {
+                        return (
+                          <li key={contractFromState.id} className="services-linked-contract">
+                            <Text>{`${contractFromState.contractNumber} - ${contractFromState.providerName}`}</Text>
+                            <Button
+                              size="small"
+                              appearance="secondary"
+                              onClick={() => openContract(contractFromState.id, selectedService.id)}
+                            >
+                              {`Open contract ${contractFromState.contractNumber}`}
+                            </Button>
+                          </li>
+                        );
+                      }
                       if (!contract) {
                         return null;
                       }
@@ -454,6 +844,161 @@ export function ServicesPage() {
           )}
         </aside>
       </div>
+
+      <FormDrawer
+        open={drawerOpen}
+        title={drawerMode === "create" ? "Create Service" : "Edit Service"}
+        onOpenChange={setDrawerOpen}
+        onSubmit={handleSubmitDrawer}
+        submitLabel={drawerMode === "create" ? "Create" : "Save"}
+      >
+        <div className="services-form">
+          <section className="services-form__section">
+            <div className="services-form__section-header">
+              <Text weight="semibold">Core details</Text>
+              <Text size={200}>Primary service identity, ownership, and lifecycle posture.</Text>
+            </div>
+            <div className="services-form__grid services-form__grid--two">
+              <div className="services-form__field services-form__field--full">
+                <Text className="services-form__label" size={200} weight="medium">
+                  Service name
+                </Text>
+                <Input
+                  aria-label="Service name"
+                  value={formState.name}
+                  onChange={(_event, data) =>
+                    setFormState((current) => ({ ...current, name: data.value }))
+                  }
+                  placeholder="Service name"
+                />
+              </div>
+              <div className="services-form__field services-form__field--full">
+                <Text className="services-form__label" size={200} weight="medium">
+                  Vendor
+                </Text>
+                <Select
+                  aria-label="Service vendor"
+                  value={formState.vendorId}
+                  onChange={(event) =>
+                    setFormState((current) => ({ ...current, vendorId: event.target.value }))
+                  }
+                >
+                  <option value="">Select vendor</option>
+                  {vendorChoices.map((entry) => (
+                    <option key={entry.id} value={entry.id}>
+                      {entry.name}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+              <div className="services-form__field">
+                <Text className="services-form__label" size={200} weight="medium">
+                  Owner
+                </Text>
+                <Input
+                  aria-label="Service owner"
+                  value={formState.owner}
+                  onChange={(_event, data) =>
+                    setFormState((current) => ({ ...current, owner: data.value }))
+                  }
+                  placeholder="Owner team"
+                />
+              </div>
+              <div className="services-form__field">
+                <Text className="services-form__label" size={200} weight="medium">
+                  Annual spend (minor units)
+                </Text>
+                <Input
+                  aria-label="Service annual spend minor units"
+                  type="number"
+                  min="0"
+                  value={formState.annualSpendMinor}
+                  onChange={(_event, data) =>
+                    setFormState((current) => ({ ...current, annualSpendMinor: data.value }))
+                  }
+                  placeholder="50000"
+                />
+              </div>
+              <div className="services-form__field">
+                <Text className="services-form__label" size={200} weight="medium">
+                  Status
+                </Text>
+                <Select
+                  aria-label="Service status"
+                  value={formState.status}
+                  onChange={(event) =>
+                    setFormState((current) => ({
+                      ...current,
+                      status: event.target.value as ServiceStatusValue
+                    }))
+                  }
+                >
+                  <option value="active">active</option>
+                  <option value="trial">trial</option>
+                  <option value="deprecated">deprecated</option>
+                  <option value="retiring">retiring</option>
+                  <option value="retired">retired</option>
+                </Select>
+              </div>
+              <div className="services-form__field">
+                <Text className="services-form__label" size={200} weight="medium">
+                  Risk
+                </Text>
+                <Select
+                  aria-label="Service risk"
+                  value={formState.risk}
+                  onChange={(event) =>
+                    setFormState((current) => ({
+                      ...current,
+                      risk: event.target.value as ServiceRisk
+                    }))
+                  }
+                >
+                  <option value="low">low</option>
+                  <option value="medium">medium</option>
+                  <option value="high">high</option>
+                </Select>
+              </div>
+              <div className="services-form__field services-form__field--full">
+                <Text className="services-form__label" size={200} weight="medium">
+                  Replacement status
+                </Text>
+                <Select
+                  aria-label="Service replacement status"
+                  value={formState.replacementStatus}
+                  onChange={(event) =>
+                    setFormState((current) => ({
+                      ...current,
+                      replacementStatus: event.target.value as
+                        | "not-started"
+                        | "candidate-review"
+                        | "approved"
+                    }))
+                  }
+                >
+                  <option value="not-started">not-started</option>
+                  <option value="candidate-review">candidate-review</option>
+                  <option value="approved">approved</option>
+                </Select>
+              </div>
+            </div>
+          </section>
+        </div>
+        {formError ? <InlineError message={formError} /> : null}
+      </FormDrawer>
+
+      <ConfirmDialog
+        open={deleteServiceId !== null}
+        title="Delete service?"
+        message="Delete removes this service from active planning workflows."
+        onOpenChange={(open) => {
+          if (!open) {
+            setDeleteServiceId(null);
+          }
+        }}
+        onConfirm={confirmDelete}
+        confirmLabel="Delete"
+      />
     </section>
   );
 }

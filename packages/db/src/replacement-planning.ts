@@ -70,6 +70,17 @@ const TRANSITIONS: Record<ServicePlanDecisionStatus, ServicePlanDecisionStatus[]
   rejected: ["draft"]
 };
 
+const SERVICE_PLAN_ACTION_SET = new Set<string>(["keep", "replace", "retire"]);
+const SERVICE_PLAN_REASON_CODE_SET = new Set<string>([
+  "cost",
+  "security",
+  "eol",
+  "consolidation",
+  "performance",
+  "other"
+]);
+const DECISION_STATUS_SET = new Set<string>(["draft", "reviewed", "approved", "rejected"]);
+
 function assertScore(value: number, field: string): void {
   if (!Number.isFinite(value) || value < 0 || value > 100) {
     throw new Error(`${field} must be a number between 0 and 100.`);
@@ -115,6 +126,9 @@ export function createServicePlan(
     mustReplaceBy?: string;
   }
 ): string {
+  if (!SERVICE_PLAN_ACTION_SET.has(input.plannedAction)) {
+    throw new Error(`Invalid service plan action: ${input.plannedAction}`);
+  }
   const id = crypto.randomUUID();
   db.prepare(
     `
@@ -191,6 +205,12 @@ export function transitionServicePlan(
 
   if (!current) {
     throw new Error(`Service plan not found: ${input.servicePlanId}`);
+  }
+  if (!DECISION_STATUS_SET.has(current.decision_status)) {
+    throw new Error(`Service plan ${input.servicePlanId} has invalid decision status: ${current.decision_status}`);
+  }
+  if (input.reasonCode && !SERVICE_PLAN_REASON_CODE_SET.has(input.reasonCode)) {
+    throw new Error(`Invalid reasonCode: ${input.reasonCode}`);
   }
   if (!TRANSITIONS[current.decision_status].includes(input.nextStatus)) {
     throw new Error(

@@ -1,4 +1,4 @@
-const invokeChannels = [
+export const INVOKE_CHANNELS = [
   "settings.get",
   "settings.update",
   "app.exit",
@@ -11,20 +11,78 @@ const invokeChannels = [
   "alerts.ack",
   "alerts.snooze",
   "alerts.sendTest",
+  "notifications.endpoints.list",
   "import.preview",
   "import.commit",
+  "import.templates.list",
+  "import.templates.delete",
   "reports.query",
   "report.preview",
   "export.report",
-  "nlq.parse"
+  "nlq.parse",
+  "vendors.list",
+  "vendors.create",
+  "vendors.update",
+  "vendors.delete",
+  "services.list",
+  "services.create",
+  "services.update",
+  "services.delete",
+  "contracts.list",
+  "contracts.create",
+  "contracts.update",
+  "contracts.delete",
+  "expenses.list",
+  "expenses.create",
+  "expenses.update",
+  "expenses.delete",
+  "recurrences.list",
+  "recurrences.create",
+  "recurrences.update",
+  "recurrences.delete",
+  "dimensions.list",
+  "dimensions.create",
+  "dimensions.update",
+  "dimensions.delete",
+  "tags.list",
+  "tags.create",
+  "tags.update",
+  "tags.archive",
+  "tags.merge",
+  "tags.assign",
+  "tags.unassign",
+  "scenarios.list",
+  "scenarios.create",
+  "scenarios.clone",
+  "scenarios.approve",
+  "scenarios.lock",
+  "scenarioSettings.get",
+  "scenarioSettings.update",
+  "costCenters.list",
+  "costCenters.create",
+  "costCenters.update",
+  "costCenters.delete",
+  "glAccounts.list",
+  "glAccounts.create",
+  "glAccounts.update",
+  "glAccounts.delete",
+  "actuals.unmatched.list",
+  "actuals.unmatched.review",
+  "actuals.unmatched.createExpense",
+  "showback.generate",
+  "showback.list",
+  "showback.export",
+  "approvals.list",
+  "approvals.create",
+  "audit.list"
 ] as const;
 
-export type InvokeChannel = (typeof invokeChannels)[number];
+export type InvokeChannel = (typeof INVOKE_CHANNELS)[number];
 
-const invokeChannelSet = new Set<string>(invokeChannels);
+const invokeChannelSet = new Set<string>(INVOKE_CHANNELS);
 
 export function getAllowedInvokeChannels(): readonly InvokeChannel[] {
-  return invokeChannels;
+  return INVOKE_CHANNELS;
 }
 
 export function isAllowedInvokeChannel(value: string): value is InvokeChannel {

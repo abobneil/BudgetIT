@@ -11,20 +11,36 @@ import {
 
 import { formatRestoreBanner, type RestoreSummary } from "../../restore-banner";
 import {
+  createCostCenter,
+  createGlAccount,
   createBackup,
   defaultSettings,
   getDatabaseSecurityStatus,
+  getScenarioSettings,
   getSettings,
+  isIpcAvailable,
+  listApprovalRecords,
+  listAuditRecords,
+  listCostCenters,
+  listGlAccounts,
+  listNotificationEndpoints,
   materializeForecast,
   rekeyDatabase,
   restoreBackup,
   runDiagnostics,
   saveSettings,
   sendTeamsTestAlert,
+  updateScenarioSettings,
+  updateCostCenter,
+  updateGlAccount,
   verifyBackup,
+  type ApprovalRecord,
   type BackupVerifyResult,
+  type CostCenterRecord,
   type DatabaseSecurityStatus,
+  type GlAccountRecord,
   type MaintenanceDiagnosticsResult,
+  type NotificationEndpointRecord,
   type RuntimeSettings
 } from "../../lib/ipcClient";
 import { ConfirmDialog, InlineError, LoadingState, PageHeader } from "../../ui/primitives";
@@ -64,6 +80,33 @@ export function SettingsPage() {
   const [backupVerifyResult, setBackupVerifyResult] = useState<BackupVerifyResult | null>(null);
   const [securityStatus, setSecurityStatus] = useState<DatabaseSecurityStatus | null>(null);
   const [diagnostics, setDiagnostics] = useState<MaintenanceDiagnosticsResult | null>(null);
+  const [scenarioSettings, setScenarioSettings] = useState<{
+    fiscalYearStartMonth: string;
+    horizonMonths: string;
+    defaultCurrency: string;
+  }>({
+    fiscalYearStartMonth: "1",
+    horizonMonths: "24",
+    defaultCurrency: "USD"
+  });
+  const [financeRefsLoading, setFinanceRefsLoading] = useState(false);
+  const [costCenters, setCostCenters] = useState<CostCenterRecord[]>([]);
+  const [glAccounts, setGlAccounts] = useState<GlAccountRecord[]>([]);
+  const [newCostCenterCode, setNewCostCenterCode] = useState("");
+  const [newCostCenterName, setNewCostCenterName] = useState("");
+  const [newGlAccountCode, setNewGlAccountCode] = useState("");
+  const [newGlAccountName, setNewGlAccountName] = useState("");
+  const [approvalRecords, setApprovalRecords] = useState<ApprovalRecord[]>([]);
+  const [notificationEndpoints, setNotificationEndpoints] = useState<NotificationEndpointRecord[]>(
+    []
+  );
+  const [auditRecords, setAuditRecords] = useState<
+    Array<{ id: string; action: string; entityType: string; entityId: string; createdAt: string }>
+  >([]);
+  const [teamsTestEvidence, setTeamsTestEvidence] = useState<{
+    testedAt: string;
+    status: "ok" | "failed";
+  } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [openRekeyDialog, setOpenRekeyDialog] = useState(false);
@@ -93,6 +136,73 @@ export function SettingsPage() {
     notify({ tone, message });
   }
 
+  async function loadScenarioPlanningSettings(): Promise<void> {
+    try {
+      const current = await getScenarioSettings({ scenarioId: selectedScenarioId });
+      setScenarioSettings({
+        fiscalYearStartMonth: String(current.fiscalYearStartMonth),
+        horizonMonths: String(current.horizonMonths),
+        defaultCurrency: current.defaultCurrency
+      });
+    } catch (loadError) {
+      const detail = loadError instanceof Error ? loadError.message : String(loadError);
+      pushError(`Failed to load scenario settings: ${detail}`);
+    }
+  }
+
+  async function loadFinanceReferences(): Promise<void> {
+    setFinanceRefsLoading(true);
+    try {
+      const [centers, gls] = await Promise.all([listCostCenters(), listGlAccounts()]);
+      setCostCenters(centers);
+      setGlAccounts(gls);
+    } catch (loadError) {
+      const detail = loadError instanceof Error ? loadError.message : String(loadError);
+      pushError(`Failed to load finance reference data: ${detail}`);
+    } finally {
+      setFinanceRefsLoading(false);
+    }
+  }
+
+  async function loadAuditEvidence(): Promise<void> {
+    try {
+      const [approvals, audit] = await Promise.all([
+        listApprovalRecords({ scenarioId: selectedScenarioId, limit: 20 }),
+        listAuditRecords({ limit: 20 })
+      ]);
+      setApprovalRecords(approvals);
+      setAuditRecords(
+        audit.map((entry) => ({
+          id: entry.id,
+          action: entry.action,
+          entityType: entry.entityType,
+          entityId: entry.entityId,
+          createdAt: entry.createdAt
+        }))
+      );
+    } catch (loadError) {
+      const detail = loadError instanceof Error ? loadError.message : String(loadError);
+      pushError(`Failed to load approval/audit evidence: ${detail}`);
+    }
+  }
+
+  async function loadNotificationEvidence(): Promise<void> {
+    if (!isIpcAvailable()) {
+      setNotificationEndpoints([]);
+      return;
+    }
+    try {
+      const endpoints = await listNotificationEndpoints({
+        endpointType: "teams",
+        limit: 20
+      });
+      setNotificationEndpoints(endpoints);
+    } catch (loadError) {
+      const detail = loadError instanceof Error ? loadError.message : String(loadError);
+      pushError(`Failed to load notification endpoint health: ${detail}`);
+    }
+  }
+
   async function loadSettingsCenter(): Promise<void> {
     setLoading(true);
     setError(null);
@@ -112,6 +222,12 @@ export function SettingsPage() {
       setDraftSettings(runtime);
       setRestoreSummary(settingsResponse.lastRestoreSummary ?? null);
       setSecurityStatus(nextSecurityStatus);
+      await Promise.all([
+        loadScenarioPlanningSettings(),
+        loadFinanceReferences(),
+        loadAuditEvidence(),
+        loadNotificationEvidence()
+      ]);
       pushStatus("Settings loaded.", "info");
     } catch (loadError) {
       const detail = loadError instanceof Error ? loadError.message : String(loadError);
@@ -124,6 +240,12 @@ export function SettingsPage() {
   useEffect(() => {
     void loadSettingsCenter();
   }, []);
+
+  useEffect(() => {
+    void (async () => {
+      await Promise.all([loadScenarioPlanningSettings(), loadAuditEvidence()]);
+    })();
+  }, [selectedScenarioId]);
 
   async function applyRuntimeSettings(): Promise<void> {
     setError(null);
@@ -177,12 +299,25 @@ export function SettingsPage() {
       const result = await sendTeamsTestAlert();
       if (result.ok) {
         pushStatus("Teams test notification sent.");
+        setTeamsTestEvidence({
+          testedAt: new Date().toISOString(),
+          status: "ok"
+        });
       } else {
         pushStatus(`Teams test failed (${result.health.status}).`, "warning");
+        setTeamsTestEvidence({
+          testedAt: new Date().toISOString(),
+          status: "failed"
+        });
       }
+      await loadNotificationEvidence();
     } catch (sendError) {
       const detail = sendError instanceof Error ? sendError.message : String(sendError);
       pushError(`Teams test failed: ${detail}`);
+      setTeamsTestEvidence({
+        testedAt: new Date().toISOString(),
+        status: "failed"
+      });
     } finally {
       setSendingTeamsTest(false);
     }
@@ -315,6 +450,103 @@ export function SettingsPage() {
       pushError(`Diagnostics failed: ${detail}`);
     } finally {
       setMaintenanceBusy(null);
+    }
+  }
+
+  async function handleSaveScenarioSettings(): Promise<void> {
+    const fiscalYearStartMonth = Number.parseInt(scenarioSettings.fiscalYearStartMonth, 10);
+    const horizonMonths = Number.parseInt(scenarioSettings.horizonMonths, 10);
+    if (Number.isNaN(fiscalYearStartMonth) || fiscalYearStartMonth < 1 || fiscalYearStartMonth > 12) {
+      pushError("Fiscal year start month must be between 1 and 12.");
+      return;
+    }
+    if (Number.isNaN(horizonMonths) || horizonMonths < 1 || horizonMonths > 60) {
+      pushError("Horizon months must be between 1 and 60.");
+      return;
+    }
+
+    try {
+      const updated = await updateScenarioSettings({
+        scenarioId: selectedScenarioId,
+        fiscalYearStartMonth,
+        horizonMonths,
+        defaultCurrency: scenarioSettings.defaultCurrency
+      });
+      setScenarioSettings({
+        fiscalYearStartMonth: String(updated.fiscalYearStartMonth),
+        horizonMonths: String(updated.horizonMonths),
+        defaultCurrency: updated.defaultCurrency
+      });
+      pushStatus("Scenario planning settings saved.");
+    } catch (saveError) {
+      const detail = saveError instanceof Error ? saveError.message : String(saveError);
+      pushError(`Failed to save scenario planning settings: ${detail}`);
+    }
+  }
+
+  async function handleCreateCostCenter(): Promise<void> {
+    const code = newCostCenterCode.trim();
+    const name = newCostCenterName.trim();
+    if (!code || !name) {
+      pushError("Cost center code and name are required.");
+      return;
+    }
+    try {
+      await createCostCenter({ code, name, active: true });
+      setNewCostCenterCode("");
+      setNewCostCenterName("");
+      await loadFinanceReferences();
+      pushStatus(`Cost center ${code} created.`);
+    } catch (saveError) {
+      const detail = saveError instanceof Error ? saveError.message : String(saveError);
+      pushError(`Failed to create cost center: ${detail}`);
+    }
+  }
+
+  async function handleCreateGlAccount(): Promise<void> {
+    const code = newGlAccountCode.trim();
+    const name = newGlAccountName.trim();
+    if (!code || !name) {
+      pushError("GL account code and name are required.");
+      return;
+    }
+    try {
+      await createGlAccount({ code, name, active: true });
+      setNewGlAccountCode("");
+      setNewGlAccountName("");
+      await loadFinanceReferences();
+      pushStatus(`GL account ${code} created.`);
+    } catch (saveError) {
+      const detail = saveError instanceof Error ? saveError.message : String(saveError);
+      pushError(`Failed to create GL account: ${detail}`);
+    }
+  }
+
+  async function toggleCostCenterActive(entry: CostCenterRecord): Promise<void> {
+    try {
+      await updateCostCenter({
+        code: entry.code,
+        name: entry.name,
+        active: !entry.active
+      });
+      await loadFinanceReferences();
+    } catch (saveError) {
+      const detail = saveError instanceof Error ? saveError.message : String(saveError);
+      pushError(`Failed to update cost center: ${detail}`);
+    }
+  }
+
+  async function toggleGlAccountActive(entry: GlAccountRecord): Promise<void> {
+    try {
+      await updateGlAccount({
+        code: entry.code,
+        name: entry.name,
+        active: !entry.active
+      });
+      await loadFinanceReferences();
+    } catch (saveError) {
+      const detail = saveError instanceof Error ? saveError.message : String(saveError);
+      pushError(`Failed to update GL account: ${detail}`);
     }
   }
 
@@ -597,6 +829,164 @@ export function SettingsPage() {
               <Text>{`Expense rows: ${diagnostics.counts.expense_line ?? 0}`}</Text>
             </div>
           ) : null}
+        </Card>
+
+        <Card className="settings-card">
+          <Title3>Scenario Planning</Title3>
+          <Text>{`Scenario context: ${selectedScenarioId}`}</Text>
+          <Input
+            aria-label="Fiscal year start month"
+            type="number"
+            min="1"
+            max="12"
+            value={scenarioSettings.fiscalYearStartMonth}
+            onChange={(_event, data) =>
+              setScenarioSettings((current) => ({
+                ...current,
+                fiscalYearStartMonth: data.value
+              }))
+            }
+          />
+          <Input
+            aria-label="Scenario horizon months"
+            type="number"
+            min="1"
+            max="60"
+            value={scenarioSettings.horizonMonths}
+            onChange={(_event, data) =>
+              setScenarioSettings((current) => ({
+                ...current,
+                horizonMonths: data.value
+              }))
+            }
+          />
+          <Input
+            aria-label="Scenario default currency"
+            value={scenarioSettings.defaultCurrency}
+            onChange={(_event, data) =>
+              setScenarioSettings((current) => ({
+                ...current,
+                defaultCurrency: data.value.toUpperCase()
+              }))
+            }
+          />
+          <Button appearance="secondary" onClick={() => void handleSaveScenarioSettings()}>
+            Save scenario settings
+          </Button>
+        </Card>
+
+        <Card className="settings-card settings-card--full">
+          <Title3>Finance Reference Data</Title3>
+          {financeRefsLoading ? <Text>Loading reference data...</Text> : null}
+          <div className="settings-card__actions">
+            <Input
+              aria-label="New cost center code"
+              value={newCostCenterCode}
+              onChange={(_event, data) => setNewCostCenterCode(data.value)}
+              placeholder="Cost center code"
+            />
+            <Input
+              aria-label="New cost center name"
+              value={newCostCenterName}
+              onChange={(_event, data) => setNewCostCenterName(data.value)}
+              placeholder="Cost center name"
+            />
+            <Button appearance="secondary" onClick={() => void handleCreateCostCenter()}>
+              Add cost center
+            </Button>
+          </div>
+          <ul>
+            {costCenters.map((entry) => (
+              <li key={entry.code}>
+                <Text>{`${entry.code} - ${entry.name} (${entry.active ? "active" : "inactive"})`}</Text>
+                <Button
+                  size="small"
+                  appearance="secondary"
+                  onClick={() => void toggleCostCenterActive(entry)}
+                >
+                  Toggle active
+                </Button>
+              </li>
+            ))}
+          </ul>
+          <div className="settings-card__actions">
+            <Input
+              aria-label="New GL account code"
+              value={newGlAccountCode}
+              onChange={(_event, data) => setNewGlAccountCode(data.value)}
+              placeholder="GL account code"
+            />
+            <Input
+              aria-label="New GL account name"
+              value={newGlAccountName}
+              onChange={(_event, data) => setNewGlAccountName(data.value)}
+              placeholder="GL account name"
+            />
+            <Button appearance="secondary" onClick={() => void handleCreateGlAccount()}>
+              Add GL account
+            </Button>
+          </div>
+          <ul>
+            {glAccounts.map((entry) => (
+              <li key={entry.code}>
+                <Text>{`${entry.code} - ${entry.name} (${entry.active ? "active" : "inactive"})`}</Text>
+                <Button
+                  size="small"
+                  appearance="secondary"
+                  onClick={() => void toggleGlAccountActive(entry)}
+                >
+                  Toggle active
+                </Button>
+              </li>
+            ))}
+          </ul>
+        </Card>
+
+        <Card className="settings-card settings-card--full">
+          <Title3>Operational Evidence</Title3>
+          <Text weight="semibold">Teams endpoint health</Text>
+          <Text>
+            {teamsTestEvidence
+              ? `${teamsTestEvidence.status} at ${teamsTestEvidence.testedAt}`
+              : "No test evidence captured in this session."}
+          </Text>
+          {notificationEndpoints.length === 0 ? (
+            <Text>No persisted endpoint health records.</Text>
+          ) : (
+            <ul>
+              {notificationEndpoints.map((entry) => (
+                <li key={entry.id}>
+                  <Text>{`${entry.endpointType} | ${entry.enabled ? "enabled" : "disabled"} | ${
+                    entry.lastTestResult ?? "untested"
+                  } | ${entry.lastTestAt ?? "no-test-time"}`}</Text>
+                </li>
+              ))}
+            </ul>
+          )}
+          <Text weight="semibold">Recent approvals</Text>
+          {approvalRecords.length === 0 ? (
+            <Text>No approval records found.</Text>
+          ) : (
+            <ul>
+              {approvalRecords.map((entry) => (
+                <li key={entry.id}>
+                  <Text>{`${entry.createdAt} | ${entry.entityType}:${entry.entityId} | ${entry.action}`}</Text>
+                </li>
+              ))}
+            </ul>
+          )}
+          <Text weight="semibold">Recent audit log</Text>
+          {auditRecords.length === 0 ? (
+            <Text>No audit records found.</Text>
+          ) : (
+            <ul>
+              {auditRecords.map((entry) => (
+                <li key={entry.id}>
+                  <Text>{`${entry.createdAt} | ${entry.action} | ${entry.entityType}:${entry.entityId}`}</Text>
+                </li>
+              ))}
+            </ul>
+          )}
         </Card>
       </section>
 

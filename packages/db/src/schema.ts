@@ -21,11 +21,24 @@ export const scenario = sqliteTable("scenario", {
   updatedAt: text("updated_at").notNull()
 });
 
+export const scenarioSettings = sqliteTable("scenario_settings", {
+  scenarioId: text("scenario_id").primaryKey(),
+  fiscalYearStartMonth: integer("fiscal_year_start_month").notNull(),
+  horizonMonths: integer("horizon_months").notNull(),
+  defaultCurrency: text("default_currency").notNull(),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull()
+});
+
 export const vendor = sqliteTable("vendor", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
   website: text("website"),
   notes: text("notes"),
+  owner: text("owner"),
+  annualSpendMinor: integer("annual_spend_minor").notNull(),
+  status: text("status").notNull(),
+  risk: text("risk").notNull(),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
   deletedAt: text("deleted_at")
@@ -37,6 +50,9 @@ export const service = sqliteTable("service", {
   name: text("name").notNull(),
   status: text("status").notNull(),
   ownerTeam: text("owner_team"),
+  annualSpendMinor: integer("annual_spend_minor").notNull(),
+  risk: text("risk").notNull(),
+  replacementStatus: text("replacement_status").notNull(),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
   deletedAt: text("deleted_at")
@@ -51,6 +67,9 @@ export const contract = sqliteTable("contract", {
   renewalType: text("renewal_type"),
   renewalDate: text("renewal_date"),
   noticePeriodDays: integer("notice_period_days"),
+  owner: text("owner"),
+  lifecycleStatus: text("lifecycle_status").notNull(),
+  renewalAction: text("renewal_action").notNull(),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
   deletedAt: text("deleted_at")
@@ -66,6 +85,10 @@ export const expenseLine = sqliteTable("expense_line", {
   status: text("status").notNull(),
   amountMinor: integer("amount_minor").notNull(),
   currency: text("currency").notNull(),
+  capexOpex: text("capex_opex"),
+  glAccountCode: text("gl_account_code"),
+  costCenterCode: text("cost_center_code"),
+  fundingSource: text("funding_source"),
   startDate: text("start_date"),
   endDate: text("end_date"),
   createdAt: text("created_at").notNull(),
@@ -209,6 +232,88 @@ export const attachment = sqliteTable("attachment", {
   fileName: text("file_name").notNull(),
   filePath: text("file_path").notNull(),
   contentSha256: text("content_sha256"),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull()
+});
+
+export const costCenter = sqliteTable("cost_center", {
+  code: text("code").primaryKey(),
+  name: text("name").notNull(),
+  active: integer("active").notNull(),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull()
+});
+
+export const glAccount = sqliteTable("gl_account", {
+  code: text("code").primaryKey(),
+  name: text("name").notNull(),
+  active: integer("active").notNull(),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull()
+});
+
+export const approvalRecord = sqliteTable("approval_record", {
+  id: text("id").primaryKey(),
+  scenarioId: text("scenario_id"),
+  servicePlanId: text("service_plan_id"),
+  entityType: text("entity_type").notNull(),
+  entityId: text("entity_id").notNull(),
+  action: text("action").notNull(),
+  actor: text("actor").notNull(),
+  comment: text("comment"),
+  createdAt: text("created_at").notNull()
+});
+
+export const unmatchedActualReview = sqliteTable("unmatched_actual_review", {
+  id: text("id").primaryKey(),
+  transactionId: text("transaction_id").notNull(),
+  scenarioId: text("scenario_id").notNull(),
+  disposition: text("disposition").notNull(),
+  driverTag: text("driver_tag"),
+  matchedOccurrenceId: text("matched_occurrence_id"),
+  createdExpenseLineId: text("created_expense_line_id"),
+  reviewer: text("reviewer").notNull(),
+  comment: text("comment"),
+  reviewedAt: text("reviewed_at").notNull(),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull()
+});
+
+export const showbackStatement = sqliteTable("showback_statement", {
+  id: text("id").primaryKey(),
+  scenarioId: text("scenario_id").notNull(),
+  periodStart: text("period_start").notNull(),
+  periodEnd: text("period_end").notNull(),
+  groupBy: text("group_by").notNull(),
+  generatedAt: text("generated_at").notNull(),
+  generatedBy: text("generated_by").notNull(),
+  totalMinor: integer("total_minor").notNull(),
+  currency: text("currency").notNull(),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull()
+});
+
+export const showbackLine = sqliteTable("showback_line", {
+  id: text("id").primaryKey(),
+  statementId: text("statement_id").notNull(),
+  costCenterCode: text("cost_center_code"),
+  ownerTeam: text("owner_team"),
+  serviceId: text("service_id"),
+  expenseLineId: text("expense_line_id"),
+  amountMinor: integer("amount_minor").notNull(),
+  currency: text("currency").notNull(),
+  detailsJson: text("details_json"),
+  createdAt: text("created_at").notNull()
+});
+
+export const notificationEndpoint = sqliteTable("notification_endpoint", {
+  id: text("id").primaryKey(),
+  endpointType: text("endpoint_type").notNull(),
+  endpointUrl: text("endpoint_url").notNull(),
+  enabled: integer("enabled").notNull(),
+  lastTestResult: text("last_test_result"),
+  lastTestAt: text("last_test_at"),
+  lastFailureReason: text("last_failure_reason"),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull()
 });

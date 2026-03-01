@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Badge,
   Button,
@@ -16,7 +16,14 @@ import {
   Title3
 } from "@fluentui/react-components";
 
-import { commitImport, previewImport } from "../../lib/ipcClient";
+import {
+  commitImport,
+  deleteImportTemplate,
+  isIpcAvailable,
+  listImportTemplates,
+  previewImport,
+  type ImportTemplateSummary
+} from "../../lib/ipcClient";
 import { InlineError, PageHeader } from "../../ui/primitives";
 import {
   buildImportPayload,
@@ -80,12 +87,16 @@ function stepLabel(step: ImportWizardStep): string {
   return "Commit";
 }
 export function ImportPage() {
+  const hasIpc = isIpcAvailable();
   const { notify } = useFeedback();
   const [draft, setDraft] = useState(() => createInitialImportWizardDraft());
   const [currentStep, setCurrentStep] = useState<ImportWizardStep>("mode");
   const [errorFilter, setErrorFilter] = useState<ImportErrorFilter>("all");
   const [busy, setBusy] = useState(false);
   const [pageError, setPageError] = useState<string | null>(null);
+  const [savedTemplates, setSavedTemplates] = useState<ImportTemplateSummary[]>([]);
+  const [templateLibraryLoading, setTemplateLibraryLoading] = useState(false);
+  const [templateLibraryBusy, setTemplateLibraryBusy] = useState<string | null>(null);
   const [tagSuggestions, setTagSuggestions] = useState<TagSuggestion[]>(
     DEFAULT_TAG_SUGGESTIONS
   );
@@ -99,6 +110,29 @@ export function ImportPage() {
   const previewRows = PREVIEW_ROWS_BY_MODE[draft.mode];
   const selectedSuggestionCount = tagSuggestions.filter((entry) => entry.selected).length;
   const currentStepIndex = IMPORT_WIZARD_STEPS.indexOf(currentStep);
+
+  async function loadTemplateLibrary(): Promise<void> {
+    if (!hasIpc) {
+      return;
+    }
+    setTemplateLibraryLoading(true);
+    try {
+      const result = await listImportTemplates();
+      setSavedTemplates(result.templates);
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      notify({
+        tone: "warning",
+        message: `Template library load failed: ${detail}`
+      });
+    } finally {
+      setTemplateLibraryLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    void loadTemplateLibrary();
+  }, []);
 
   function onNext(): void {
     if (!canAdvanceStep(currentStep, draft)) {
@@ -132,6 +166,9 @@ export function ImportPage() {
     try {
       const result = await previewImport(buildImportPayload(draft));
       setDraft((current) => ({ ...current, previewResult: result, commitResult: null }));
+      if (result.templateSaved) {
+        await loadTemplateLibrary();
+      }
       notify({
         tone: "success",
         message: `Preview loaded: ${result.acceptedCount} accepted, ${result.rejectedCount} rejected, ${result.duplicateCount} duplicates.`
@@ -152,6 +189,7 @@ export function ImportPage() {
     try {
       const result = await commitImport(buildImportPayload(draft));
       setDraft((current) => ({ ...current, commitResult: result }));
+      await loadTemplateLibrary();
       notify({
         tone: "success",
         message: `Commit completed: ${result.insertedCount} inserted, ${result.rejectedCount} rejected, ${result.duplicateCount} duplicates.`
@@ -170,6 +208,34 @@ export function ImportPage() {
     setTagSuggestions((current) =>
       current.map((entry) => (entry.id === id ? { ...entry, selected: checked } : entry))
     );
+  }
+
+  async function handleDeleteTemplate(name: string): Promise<void> {
+    if (!hasIpc) {
+      return;
+    }
+    setTemplateLibraryBusy(name);
+    try {
+      const result = await deleteImportTemplate(name);
+      if (result.deleted) {
+        notify({ tone: "success", message: `Template ${name} deleted.` });
+      } else {
+        notify({ tone: "info", message: `Template ${name} was already absent.` });
+      }
+      if (draft.templateName === name) {
+        setDraft((current) => ({
+          ...current,
+          templateName: "",
+          useSavedTemplate: false
+        }));
+      }
+      await loadTemplateLibrary();
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      notify({ tone: "error", message: `Template delete failed: ${detail}` });
+    } finally {
+      setTemplateLibraryBusy(null);
+    }
   }
 
   return (
@@ -278,6 +344,30 @@ export function ImportPage() {
                 Keep a consistent name to reuse mapping profiles across imports.
               </Text>
             </div>
+            <div className="import-step-form__field">
+              <Text className="import-step-form__label" size={200} weight="medium">
+                Cloud template pack
+              </Text>
+              <Select
+                aria-label="Cloud template pack"
+                value={draft.templatePack}
+                onChange={(event) =>
+                  setDraft((current) => ({
+                    ...current,
+                    templatePack: event.target.value as
+                      | ""
+                      | "aws-cur"
+                      | "azure-cost"
+                      | "gcp-billing"
+                  }))
+                }
+              >
+                <option value="">No pack</option>
+                <option value="aws-cur">AWS CUR CSV</option>
+                <option value="azure-cost">Azure cost export CSV</option>
+                <option value="gcp-billing">GCP billing export CSV</option>
+              </Select>
+            </div>
             <div className="import-flags">
               <Checkbox
                 label="Use saved template"
@@ -299,7 +389,84 @@ export function ImportPage() {
                   }))
                 }
               />
+              <Checkbox
+                label="Enforce finance metadata"
+                checked={draft.requireFinanceMetadata}
+                onChange={(_event, data) =>
+                  setDraft((current) => ({
+                    ...current,
+                    requireFinanceMetadata: data.checked === true
+                  }))
+                }
+              />
             </div>
+            <Card>
+              <Title3>Template library</Title3>
+              <div className="import-step-form__field">
+                <Text className="import-step-form__hint" size={100}>
+                  Reuse or retire saved mappings. Versions increment on each save.
+                </Text>
+                <div className="import-nav">
+                  <Button
+                    appearance="secondary"
+                    disabled={!hasIpc || templateLibraryLoading || templateLibraryBusy !== null}
+                    onClick={() => void loadTemplateLibrary()}
+                  >
+                    {templateLibraryLoading ? "Refreshing..." : "Refresh templates"}
+                  </Button>
+                </div>
+                {!hasIpc ? (
+                  <Text>Template library unavailable without desktop IPC.</Text>
+                ) : savedTemplates.length === 0 ? (
+                  <Text>No saved templates.</Text>
+                ) : (
+                  <Table aria-label="Template library table">
+                    <TableHeader>
+                      <TableRow>
+                        <TableHeaderCell>Name</TableHeaderCell>
+                        <TableHeaderCell>Version</TableHeaderCell>
+                        <TableHeaderCell>Updated</TableHeaderCell>
+                        <TableHeaderCell>Actions</TableHeaderCell>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {savedTemplates.map((entry) => (
+                        <TableRow key={entry.name}>
+                          <TableCell>{entry.name}</TableCell>
+                          <TableCell>{entry.templateVersion}</TableCell>
+                          <TableCell>{new Date(entry.updatedAt).toLocaleString()}</TableCell>
+                          <TableCell>
+                            <div className="import-nav">
+                              <Button
+                                size="small"
+                                appearance="secondary"
+                                onClick={() =>
+                                  setDraft((current) => ({
+                                    ...current,
+                                    templateName: entry.name,
+                                    useSavedTemplate: true
+                                  }))
+                                }
+                              >
+                                Use template
+                              </Button>
+                              <Button
+                                size="small"
+                                appearance="secondary"
+                                disabled={templateLibraryBusy !== null}
+                                onClick={() => void handleDeleteTemplate(entry.name)}
+                              >
+                                {templateLibraryBusy === entry.name ? "Deleting..." : "Delete"}
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </div>
+            </Card>
           </div>
         </Card>
       ) : null}

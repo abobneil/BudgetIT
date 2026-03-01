@@ -14,9 +14,25 @@ import {
   Text,
   Title3
 } from "@fluentui/react-components";
+import { AgGridReact } from "ag-grid-react";
+import type { ColDef, GridApi, GridReadyEvent } from "ag-grid-community";
 
 import type { DashboardDataset } from "../../reporting";
-import { exportReport, previewReport, queryReport } from "../../lib/ipcClient";
+import {
+  createExpenseFromUnmatchedActual,
+  exportReport,
+  exportShowbackStatement,
+  generateShowbackStatement,
+  isIpcAvailable,
+  listUnmatchedActuals,
+  previewReport,
+  queryReport,
+  reviewUnmatchedActual,
+  type ShowbackStatement,
+  type UnmatchedActualItem
+} from "../../lib/ipcClient";
+import { isAgGridAvailable } from "../../lib/agGrid";
+import { formatCurrencyMinor, resolveDisplayCurrency } from "../../lib/currency";
 import { useFeedback } from "../../ui/feedback";
 import {
   EmptyState,
@@ -46,7 +62,25 @@ type ExportJob = {
 
 const EXPORT_FORMATS: ReportFormat[] = ["html", "pdf", "excel", "csv", "png"];
 
+type UnmatchedSummary = {
+  scenarioId: string;
+  unmatchedCount: number;
+  unmatchedAmountMinor: number;
+  drivers: Array<{ driverTag: string; count: number }>;
+};
+
+type DataQualitySummary = {
+  scenarioId: string;
+  expenseCount: number;
+  missingCostCenterCount: number;
+  missingGlAccountCount: number;
+  missingCapexOpexCount: number;
+  missingRequiredTagCount: number;
+};
+
 export function ReportsPage() {
+  const hasIpc = isIpcAvailable();
+  const useAgGrid = isAgGridAvailable();
   const { selectedScenarioId, selectedScenario } = useScenarioContext();
   const { notify } = useFeedback();
   const [savedPresets, setSavedPresets] = useState(() => loadSavedReportPresets());
@@ -77,6 +111,30 @@ export function ReportsPage() {
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [previewHtml, setPreviewHtml] = useState<string | null>(null);
   const [savePresetName, setSavePresetName] = useState("");
+  const [unmatchedSummary, setUnmatchedSummary] = useState<UnmatchedSummary | null>(null);
+  const [unmatchedItems, setUnmatchedItems] = useState<UnmatchedActualItem[]>([]);
+  const [unmatchedSelectionByTxn, setUnmatchedSelectionByTxn] = useState<Record<string, string>>(
+    {}
+  );
+  const [unmatchedDriverByTxn, setUnmatchedDriverByTxn] = useState<
+    Record<string, "timing" | "price" | "scope">
+  >({});
+  const [unmatchedCommentByTxn, setUnmatchedCommentByTxn] = useState<Record<string, string>>({});
+  const [unmatchedBusyTxn, setUnmatchedBusyTxn] = useState<string | null>(null);
+  const [showbackPeriodStart, setShowbackPeriodStart] = useState("2026-01-01");
+  const [showbackPeriodEnd, setShowbackPeriodEnd] = useState("2026-01-31");
+  const [showbackGroupBy, setShowbackGroupBy] = useState<"cost_center" | "team">("cost_center");
+  const [showbackStatements, setShowbackStatements] = useState<ShowbackStatement[]>([]);
+  const [showbackOutputDir, setShowbackOutputDir] = useState("C:\\exports");
+  const [showbackBusy, setShowbackBusy] = useState<"generate" | "export" | null>(null);
+  const [showbackExportedFiles, setShowbackExportedFiles] = useState<
+    Record<string, Partial<Record<"csv" | "xlsx", string>>>
+  >({});
+  const [dataQualitySummary, setDataQualitySummary] = useState<DataQualitySummary | null>(null);
+  const [unmatchedGridApi, setUnmatchedGridApi] = useState<GridApi<UnmatchedActualItem> | null>(
+    null
+  );
+  const [showbackGridApi, setShowbackGridApi] = useState<GridApi<ShowbackStatement> | null>(null);
 
   const presets = useMemo(() => {
     const byId = new Map<string, ReportPreset>();
@@ -89,6 +147,275 @@ export function ReportsPage() {
     return Array.from(byId.values());
   }, [savedPresets]);
   const selectedPreset = presets.find((preset) => preset.id === selectedPresetId) ?? presets[0];
+  const reportCurrency = dataset?.currency ?? "USD";
+
+  const unmatchedGridColumns = useMemo<ColDef<UnmatchedActualItem>[]>(
+    () => [
+      {
+        headerName: "Date",
+        field: "transactionDate",
+        sortable: true,
+        filter: "agDateColumnFilter",
+        minWidth: 125
+      },
+      {
+        headerName: "Amount",
+        field: "amountMinor",
+        sortable: true,
+        filter: "agNumberColumnFilter",
+        minWidth: 140,
+        valueFormatter: (params) =>
+          formatCurrencyMinor(Number(params.value ?? 0), params.data?.currency, reportCurrency)
+      },
+      {
+        headerName: "Description",
+        field: "description",
+        sortable: true,
+        filter: "agTextColumnFilter",
+        minWidth: 220,
+        valueGetter: (params) => params.data?.description ?? "No description"
+      },
+      {
+        headerName: "Suggested match",
+        field: "id",
+        sortable: false,
+        filter: false,
+        minWidth: 230,
+        cellRenderer: (params: { data?: UnmatchedActualItem }) => {
+          const item = params.data;
+          if (!item) {
+            return null;
+          }
+          return (
+            <Select
+              aria-label={`Unmatched suggestion ${item.id}`}
+              value={unmatchedSelectionByTxn[item.id] ?? ""}
+              onChange={(event) =>
+                setUnmatchedSelectionByTxn((current) => ({
+                  ...current,
+                  [item.id]: event.target.value
+                }))
+              }
+            >
+              <option value="">No match selected</option>
+              {item.suggestions.map((suggestion) => (
+                <option key={suggestion.occurrenceId} value={suggestion.occurrenceId}>
+                  {`${suggestion.occurrenceDate} | ${(suggestion.amountMinor / 100).toFixed(2)} ${suggestion.currency}`}
+                </option>
+              ))}
+            </Select>
+          );
+        }
+      },
+      {
+        headerName: "Driver + comment",
+        field: "id",
+        sortable: false,
+        filter: false,
+        minWidth: 245,
+        cellRenderer: (params: { data?: UnmatchedActualItem }) => {
+          const item = params.data;
+          if (!item) {
+            return null;
+          }
+          return (
+            <div className="reports-grid-cell-stack">
+              <Select
+                aria-label={`Unmatched driver ${item.id}`}
+                value={unmatchedDriverByTxn[item.id] ?? ""}
+                onChange={(event) => {
+                  const nextValue = event.target.value;
+                  setUnmatchedDriverByTxn((current) => {
+                    if (
+                      nextValue !== "timing" &&
+                      nextValue !== "price" &&
+                      nextValue !== "scope"
+                    ) {
+                      const { [item.id]: _omit, ...rest } = current;
+                      return rest;
+                    }
+                    return {
+                      ...current,
+                      [item.id]: nextValue
+                    };
+                  });
+                }}
+              >
+                <option value="">None</option>
+                <option value="timing">timing</option>
+                <option value="price">price</option>
+                <option value="scope">scope</option>
+              </Select>
+              <Input
+                aria-label={`Unmatched comment ${item.id}`}
+                placeholder="Optional comment"
+                value={unmatchedCommentByTxn[item.id] ?? ""}
+                onChange={(_event, data) =>
+                  setUnmatchedCommentByTxn((current) => ({
+                    ...current,
+                    [item.id]: data.value
+                  }))
+                }
+              />
+            </div>
+          );
+        }
+      },
+      {
+        headerName: "Actions",
+        field: "id",
+        sortable: false,
+        filter: false,
+        minWidth: 310,
+        cellRenderer: (params: { data?: UnmatchedActualItem }) => {
+          const item = params.data;
+          if (!item) {
+            return null;
+          }
+          return (
+            <div className="reports-export-controls__actions">
+              <Button
+                size="small"
+                appearance="secondary"
+                disabled={
+                  !hasIpc ||
+                  unmatchedBusyTxn !== null ||
+                  !Boolean(unmatchedSelectionByTxn[item.id])
+                }
+                onClick={() => void resolveUnmatchedActual(item, "matched")}
+              >
+                Match
+              </Button>
+              <Button
+                size="small"
+                appearance="secondary"
+                disabled={!hasIpc || unmatchedBusyTxn !== null}
+                onClick={() => void resolveUnmatchedActual(item, "rejected")}
+              >
+                Reject
+              </Button>
+              <Button
+                size="small"
+                appearance="secondary"
+                disabled={!hasIpc || unmatchedBusyTxn !== null}
+                onClick={() => void resolveUnmatchedActual(item, "ignored")}
+              >
+                Ignore
+              </Button>
+              <Button
+                size="small"
+                appearance="primary"
+                disabled={!hasIpc || unmatchedBusyTxn !== null}
+                onClick={() => void resolveUnmatchedActual(item, "create_expense")}
+              >
+                Create expense
+              </Button>
+            </div>
+          );
+        }
+      }
+    ],
+    [
+      hasIpc,
+      reportCurrency,
+      unmatchedBusyTxn,
+      unmatchedCommentByTxn,
+      unmatchedDriverByTxn,
+      unmatchedSelectionByTxn
+    ]
+  );
+
+  const showbackGridColumns = useMemo<ColDef<ShowbackStatement>[]>(
+    () => [
+      {
+        headerName: "Period",
+        field: "periodStart",
+        sortable: true,
+        filter: "agTextColumnFilter",
+        minWidth: 190,
+        valueGetter: (params) => `${params.data?.periodStart} to ${params.data?.periodEnd}`
+      },
+      {
+        headerName: "Group By",
+        field: "groupBy",
+        sortable: true,
+        filter: "agTextColumnFilter",
+        minWidth: 120
+      },
+      {
+        headerName: "Total",
+        field: "totalMinor",
+        sortable: true,
+        filter: "agNumberColumnFilter",
+        minWidth: 150,
+        valueFormatter: (params) =>
+          formatCurrencyMinor(
+            Number(params.value ?? 0),
+            resolveDisplayCurrency(params.data?.currency, reportCurrency),
+            reportCurrency
+          )
+      },
+      {
+        headerName: "Lines",
+        field: "lineCount",
+        sortable: true,
+        filter: "agNumberColumnFilter",
+        minWidth: 100,
+        valueGetter: (params) => params.data?.lineCount ?? params.data?.lines?.length ?? 0
+      },
+      {
+        headerName: "Actions",
+        field: "id",
+        sortable: false,
+        filter: false,
+        minWidth: 320,
+        cellRenderer: (params: { data?: ShowbackStatement }) => {
+          const statement = params.data;
+          if (!statement) {
+            return null;
+          }
+          return (
+            <div className="reports-grid-cell-stack">
+              <div className="reports-export-controls__actions">
+                <Button
+                  size="small"
+                  appearance="secondary"
+                  disabled={!hasIpc || showbackBusy !== null}
+                  onClick={() => void handleExportShowback(statement, "csv")}
+                >
+                  Export CSV
+                </Button>
+                <Button
+                  size="small"
+                  appearance="secondary"
+                  disabled={!hasIpc || showbackBusy !== null}
+                  onClick={() => void handleExportShowback(statement, "xlsx")}
+                >
+                  Export XLSX
+                </Button>
+              </div>
+              {showbackExportedFiles[statement.id] ? (
+                <Text size={200}>
+                  {showbackExportedFiles[statement.id].csv ??
+                    showbackExportedFiles[statement.id].xlsx ??
+                    ""}
+                </Text>
+              ) : null}
+            </div>
+          );
+        }
+      }
+    ],
+    [hasIpc, reportCurrency, showbackBusy, showbackExportedFiles]
+  );
+
+  function onUnmatchedGridReady(event: GridReadyEvent<UnmatchedActualItem>): void {
+    setUnmatchedGridApi(event.api);
+  }
+
+  function onShowbackGridReady(event: GridReadyEvent<ShowbackStatement>): void {
+    setShowbackGridApi(event.api);
+  }
 
   async function loadWorkspaceData(
     preset: ReportPreset,
@@ -122,12 +449,55 @@ export function ReportsPage() {
     }
   }
 
+  async function loadOperationalData(scenarioId: string): Promise<void> {
+    if (!hasIpc) {
+      return;
+    }
+    try {
+      const [unmatched, unmatchedSummaryResult, showbackSummary, qualitySummary] =
+        await Promise.all([
+          listUnmatchedActuals({ scenarioId }),
+          queryReport({ query: "actuals.unmatched.summary", scenarioId }),
+          queryReport({ query: "showback.summary", scenarioId }),
+          queryReport({ query: "dataQuality.summary", scenarioId })
+        ]);
+      const parsedUnmatchedSummary = unmatchedSummaryResult as Partial<UnmatchedSummary>;
+      const parsedShowbackSummary = showbackSummary as {
+        statements?: ShowbackStatement[];
+      };
+      const parsedQualitySummary = qualitySummary as Partial<DataQualitySummary>;
+      setUnmatchedItems(unmatched.items);
+      setUnmatchedSummary({
+        scenarioId: parsedUnmatchedSummary.scenarioId ?? scenarioId,
+        unmatchedCount: parsedUnmatchedSummary.unmatchedCount ?? unmatched.total,
+        unmatchedAmountMinor: parsedUnmatchedSummary.unmatchedAmountMinor ?? 0,
+        drivers: parsedUnmatchedSummary.drivers ?? []
+      });
+      setShowbackStatements(parsedShowbackSummary.statements ?? []);
+      setDataQualitySummary({
+        scenarioId: parsedQualitySummary.scenarioId ?? scenarioId,
+        expenseCount: parsedQualitySummary.expenseCount ?? 0,
+        missingCostCenterCount: parsedQualitySummary.missingCostCenterCount ?? 0,
+        missingGlAccountCount: parsedQualitySummary.missingGlAccountCount ?? 0,
+        missingCapexOpexCount: parsedQualitySummary.missingCapexOpexCount ?? 0,
+        missingRequiredTagCount: parsedQualitySummary.missingRequiredTagCount ?? 0
+      });
+    } catch (nextError) {
+      const detail = nextError instanceof Error ? nextError.message : String(nextError);
+      notify({ tone: "warning", message: `Operational data refresh failed: ${detail}` });
+    }
+  }
+
   useEffect(() => {
     if (!selectedPreset) {
       return;
     }
     void loadWorkspaceData(selectedPreset, selectedScenarioId, { silent: true });
   }, [dateFrom, dateTo, notify, selectedPreset, selectedScenarioId, tagFilter]);
+
+  useEffect(() => {
+    void loadOperationalData(selectedScenarioId);
+  }, [hasIpc, selectedScenarioId]);
 
   function openPreset(preset: ReportPreset): void {
     setSelectedPresetId(preset.id);
@@ -253,6 +623,93 @@ export function ReportsPage() {
       notify({ tone: "error", message: `Failed to generate preview: ${detail}` });
     } finally {
       setPreviewLoading(false);
+    }
+  }
+
+  async function resolveUnmatchedActual(
+    item: UnmatchedActualItem,
+    disposition: "matched" | "rejected" | "ignored" | "create_expense"
+  ): Promise<void> {
+    setUnmatchedBusyTxn(item.id);
+    try {
+      if (disposition === "create_expense") {
+        await createExpenseFromUnmatchedActual({
+          transactionId: item.id,
+          reviewer: "single-it-user",
+          name: item.description ?? `Imported actual ${item.id.slice(0, 8)}`,
+          status: "planned",
+          expenseType: "recurring",
+          driverTag: unmatchedDriverByTxn[item.id]
+        });
+      } else {
+        await reviewUnmatchedActual({
+          transactionId: item.id,
+          scenarioId: selectedScenarioId,
+          disposition,
+          matchedOccurrenceId:
+            disposition === "matched" ? unmatchedSelectionByTxn[item.id] : undefined,
+          reviewer: "single-it-user",
+          driverTag: unmatchedDriverByTxn[item.id],
+          comment: unmatchedCommentByTxn[item.id]
+        });
+      }
+      notify({
+        tone: "success",
+        message: `Unmatched transaction ${item.id.slice(0, 8)} updated (${disposition}).`
+      });
+      await loadOperationalData(selectedScenarioId);
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      notify({ tone: "error", message: `Unmatched action failed: ${detail}` });
+    } finally {
+      setUnmatchedBusyTxn(null);
+    }
+  }
+
+  async function handleGenerateShowback(): Promise<void> {
+    setShowbackBusy("generate");
+    try {
+      await generateShowbackStatement({
+        scenarioId: selectedScenarioId,
+        periodStart: showbackPeriodStart,
+        periodEnd: showbackPeriodEnd,
+        groupBy: showbackGroupBy,
+        generatedBy: "single-it-user"
+      });
+      notify({ tone: "success", message: "Showback statement generated." });
+      await loadOperationalData(selectedScenarioId);
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      notify({ tone: "error", message: `Showback generation failed: ${detail}` });
+    } finally {
+      setShowbackBusy(null);
+    }
+  }
+
+  async function handleExportShowback(
+    statement: ShowbackStatement,
+    format: "csv" | "xlsx"
+  ): Promise<void> {
+    setShowbackBusy("export");
+    try {
+      const exported = await exportShowbackStatement({
+        statementId: statement.id,
+        format,
+        outputDir: showbackOutputDir
+      });
+      setShowbackExportedFiles((current) => ({
+        ...current,
+        [statement.id]: exported.files
+      }));
+      notify({
+        tone: "success",
+        message: `Showback exported (${format.toUpperCase()}).`
+      });
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      notify({ tone: "error", message: `Showback export failed: ${detail}` });
+    } finally {
+      setShowbackBusy(null);
     }
   }
 
@@ -506,6 +963,351 @@ export function ReportsPage() {
               ))}
             </TableBody>
           </Table>
+        )}
+      </Card>
+
+      <Card>
+        <Title3>Data Quality Guardrails</Title3>
+        {!dataQualitySummary ? (
+          <Text>No data quality summary loaded.</Text>
+        ) : (
+          <div>
+            <Text>{`Expense lines: ${dataQualitySummary.expenseCount}`}</Text>
+            <Text>{`Missing Cost Center: ${dataQualitySummary.missingCostCenterCount}`}</Text>
+            <Text>{`Missing GL Account: ${dataQualitySummary.missingGlAccountCount}`}</Text>
+            <Text>{`Missing CapEx/OpEx: ${dataQualitySummary.missingCapexOpexCount}`}</Text>
+            <Text>{`Missing required tags: ${dataQualitySummary.missingRequiredTagCount}`}</Text>
+            {dataQualitySummary.missingCostCenterCount > 0 ||
+            dataQualitySummary.missingGlAccountCount > 0 ||
+            dataQualitySummary.missingCapexOpexCount > 0 ||
+            dataQualitySummary.missingRequiredTagCount > 0 ? (
+              <InlineError message="Data quality warnings detected. Fix metadata gaps before downstream exports." />
+            ) : (
+              <Text>All quality checks are passing for this scenario.</Text>
+            )}
+          </div>
+        )}
+      </Card>
+
+      <Card>
+        <Title3>Unmatched Actuals Review</Title3>
+        {!hasIpc ? <Text>Desktop IPC unavailable. Operational queue actions are disabled.</Text> : null}
+        {!unmatchedSummary ? (
+          <Text>No unmatched summary loaded.</Text>
+        ) : (
+          <>
+            <Text>{`Unmatched count: ${unmatchedSummary.unmatchedCount}`}</Text>
+            <Text>{`Unmatched amount: ${formatCurrencyMinor(
+              unmatchedSummary.unmatchedAmountMinor,
+              reportCurrency
+            )}`}</Text>
+            <Text>{`Driver mix: ${
+              unmatchedSummary.drivers.length > 0
+                ? unmatchedSummary.drivers
+                    .map((entry) => `${entry.driverTag} (${entry.count})`)
+                    .join(", ")
+                : "none"
+            }`}</Text>
+          </>
+        )}
+        {unmatchedItems.length === 0 ? (
+          <Text>No unmatched transactions in queue.</Text>
+        ) : (
+          useAgGrid ? (
+            <div className="reports-grid-wrapper">
+              <div className="reports-grid-actions">
+                <Button
+                  size="small"
+                  appearance="secondary"
+                  disabled={unmatchedGridApi === null}
+                  onClick={() =>
+                    unmatchedGridApi?.exportDataAsCsv({
+                      fileName: `unmatched-actuals-${selectedScenarioId}.csv`
+                    })
+                  }
+                >
+                  Export queue CSV
+                </Button>
+              </div>
+              <div
+                className="ag-theme-quartz reports-grid reports-grid--tall"
+                role="table"
+                aria-label="Unmatched actuals table"
+              >
+                <AgGridReact<UnmatchedActualItem>
+                  rowData={unmatchedItems}
+                  columnDefs={unmatchedGridColumns}
+                  defaultColDef={{
+                    sortable: true,
+                    filter: true,
+                    resizable: true
+                  }}
+                  onGridReady={onUnmatchedGridReady}
+                  getRowId={(params) => params.data.id}
+                  rowHeight={56}
+                />
+              </div>
+            </div>
+          ) : (
+            <Table aria-label="Unmatched actuals table">
+              <TableHeader>
+                <TableRow>
+                  <TableHeaderCell>Date</TableHeaderCell>
+                  <TableHeaderCell>Amount</TableHeaderCell>
+                  <TableHeaderCell>Description</TableHeaderCell>
+                  <TableHeaderCell>Suggested match</TableHeaderCell>
+                  <TableHeaderCell>Driver</TableHeaderCell>
+                  <TableHeaderCell>Actions</TableHeaderCell>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {unmatchedItems.map((item) => (
+                  <TableRow key={item.id}>
+                    <TableCell>{item.transactionDate}</TableCell>
+                    <TableCell>
+                      {formatCurrencyMinor(item.amountMinor, item.currency, reportCurrency)}
+                    </TableCell>
+                    <TableCell>{item.description ?? "No description"}</TableCell>
+                    <TableCell>
+                      <Select
+                        aria-label={`Unmatched suggestion ${item.id}`}
+                        value={unmatchedSelectionByTxn[item.id] ?? ""}
+                        onChange={(event) =>
+                          setUnmatchedSelectionByTxn((current) => ({
+                            ...current,
+                            [item.id]: event.target.value
+                          }))
+                        }
+                      >
+                        <option value="">No match selected</option>
+                        {item.suggestions.map((suggestion) => (
+                          <option key={suggestion.occurrenceId} value={suggestion.occurrenceId}>
+                            {`${suggestion.occurrenceDate} | ${(suggestion.amountMinor / 100).toFixed(2)} ${suggestion.currency}`}
+                          </option>
+                        ))}
+                      </Select>
+                    </TableCell>
+                    <TableCell>
+                      <Select
+                        aria-label={`Unmatched driver ${item.id}`}
+                        value={unmatchedDriverByTxn[item.id] ?? ""}
+                        onChange={(event) => {
+                          const nextValue = event.target.value;
+                          setUnmatchedDriverByTxn((current) => {
+                            if (
+                              nextValue !== "timing" &&
+                              nextValue !== "price" &&
+                              nextValue !== "scope"
+                            ) {
+                              const { [item.id]: _omit, ...rest } = current;
+                              return rest;
+                            }
+                            return {
+                              ...current,
+                              [item.id]: nextValue
+                            };
+                          });
+                        }}
+                      >
+                        <option value="">None</option>
+                        <option value="timing">timing</option>
+                        <option value="price">price</option>
+                        <option value="scope">scope</option>
+                      </Select>
+                      <Input
+                        aria-label={`Unmatched comment ${item.id}`}
+                        placeholder="Optional comment"
+                        value={unmatchedCommentByTxn[item.id] ?? ""}
+                        onChange={(_event, data) =>
+                          setUnmatchedCommentByTxn((current) => ({
+                            ...current,
+                            [item.id]: data.value
+                          }))
+                        }
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <div className="reports-export-controls__actions">
+                        <Button
+                          size="small"
+                          appearance="secondary"
+                          disabled={
+                            !hasIpc ||
+                            unmatchedBusyTxn !== null ||
+                            !Boolean(unmatchedSelectionByTxn[item.id])
+                          }
+                          onClick={() => void resolveUnmatchedActual(item, "matched")}
+                        >
+                          Match
+                        </Button>
+                        <Button
+                          size="small"
+                          appearance="secondary"
+                          disabled={!hasIpc || unmatchedBusyTxn !== null}
+                          onClick={() => void resolveUnmatchedActual(item, "rejected")}
+                        >
+                          Reject
+                        </Button>
+                        <Button
+                          size="small"
+                          appearance="secondary"
+                          disabled={!hasIpc || unmatchedBusyTxn !== null}
+                          onClick={() => void resolveUnmatchedActual(item, "ignored")}
+                        >
+                          Ignore
+                        </Button>
+                        <Button
+                          size="small"
+                          appearance="primary"
+                          disabled={!hasIpc || unmatchedBusyTxn !== null}
+                          onClick={() => void resolveUnmatchedActual(item, "create_expense")}
+                        >
+                          Create expense
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )
+        )}
+      </Card>
+
+      <Card>
+        <Title3>Showback Statements</Title3>
+        {!hasIpc ? <Text>Desktop IPC unavailable. Showback generation/export is disabled.</Text> : null}
+        <div className="reports-filters">
+          <Input
+            aria-label="Showback period start"
+            type="date"
+            value={showbackPeriodStart}
+            onChange={(_event, data) => setShowbackPeriodStart(data.value)}
+          />
+          <Input
+            aria-label="Showback period end"
+            type="date"
+            value={showbackPeriodEnd}
+            onChange={(_event, data) => setShowbackPeriodEnd(data.value)}
+          />
+          <Select
+            aria-label="Showback group by"
+            value={showbackGroupBy}
+            onChange={(event) =>
+              setShowbackGroupBy(event.target.value as "cost_center" | "team")
+            }
+          >
+            <option value="cost_center">cost_center</option>
+            <option value="team">team</option>
+          </Select>
+          <Input
+            aria-label="Showback output directory"
+            value={showbackOutputDir}
+            onChange={(_event, data) => setShowbackOutputDir(data.value)}
+            placeholder="C:\\exports"
+          />
+          <Button
+            appearance="primary"
+            disabled={!hasIpc || showbackBusy !== null}
+            onClick={() => void handleGenerateShowback()}
+          >
+            {showbackBusy === "generate" ? "Generating..." : "Generate statement"}
+          </Button>
+        </div>
+        {showbackStatements.length === 0 ? (
+          <Text>No showback statements generated yet.</Text>
+        ) : (
+          useAgGrid ? (
+            <div className="reports-grid-wrapper">
+              <div className="reports-grid-actions">
+                <Button
+                  size="small"
+                  appearance="secondary"
+                  disabled={showbackGridApi === null}
+                  onClick={() =>
+                    showbackGridApi?.exportDataAsCsv({
+                      fileName: `showback-${selectedScenarioId}.csv`
+                    })
+                  }
+                >
+                  Export statements CSV
+                </Button>
+              </div>
+              <div
+                className="ag-theme-quartz reports-grid"
+                role="table"
+                aria-label="Showback statements table"
+              >
+                <AgGridReact<ShowbackStatement>
+                  rowData={showbackStatements}
+                  columnDefs={showbackGridColumns}
+                  defaultColDef={{
+                    sortable: true,
+                    filter: true,
+                    resizable: true
+                  }}
+                  getRowId={(params) => params.data.id}
+                  onGridReady={onShowbackGridReady}
+                  rowHeight={56}
+                />
+              </div>
+            </div>
+          ) : (
+            <Table aria-label="Showback statements table">
+              <TableHeader>
+                <TableRow>
+                  <TableHeaderCell>Period</TableHeaderCell>
+                  <TableHeaderCell>Group By</TableHeaderCell>
+                  <TableHeaderCell>Total</TableHeaderCell>
+                  <TableHeaderCell>Lines</TableHeaderCell>
+                  <TableHeaderCell>Actions</TableHeaderCell>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {showbackStatements.map((statement) => (
+                  <TableRow key={statement.id}>
+                    <TableCell>{`${statement.periodStart} to ${statement.periodEnd}`}</TableCell>
+                    <TableCell>{statement.groupBy}</TableCell>
+                    <TableCell>
+                      {formatCurrencyMinor(
+                        statement.totalMinor,
+                        resolveDisplayCurrency(statement.currency, reportCurrency),
+                        reportCurrency
+                      )}
+                    </TableCell>
+                    <TableCell>{statement.lineCount ?? statement.lines?.length ?? 0}</TableCell>
+                    <TableCell>
+                      <div className="reports-export-controls__actions">
+                        <Button
+                          size="small"
+                          appearance="secondary"
+                          disabled={!hasIpc || showbackBusy !== null}
+                          onClick={() => void handleExportShowback(statement, "csv")}
+                        >
+                          Export CSV
+                        </Button>
+                        <Button
+                          size="small"
+                          appearance="secondary"
+                          disabled={!hasIpc || showbackBusy !== null}
+                          onClick={() => void handleExportShowback(statement, "xlsx")}
+                        >
+                          Export XLSX
+                        </Button>
+                      </div>
+                      {showbackExportedFiles[statement.id] ? (
+                        <Text>
+                          {showbackExportedFiles[statement.id].csv ??
+                            showbackExportedFiles[statement.id].xlsx ??
+                            ""}
+                        </Text>
+                      ) : null}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )
         )}
       </Card>
 
