@@ -1,6 +1,6 @@
-# Windows Release Policy
+# Multi-Platform Release Policy
 
-This project publishes Windows `x64` and `arm64` installers for both continuous `main` pushes and semantic version tags (`vX.Y.Z`).
+This project publishes Windows and Linux artifacts for `x64` and `arm64` on both continuous `main` pushes and semantic version tags (`vX.Y.Z`).
 
 ## Versioning
 
@@ -13,35 +13,45 @@ This project publishes Windows `x64` and `arm64` installers for both continuous 
 - Main push release title format: `BudgetIT main latest (v<buildVersion>)`.
 - Installer/package version behavior:
   - Tagged/manual release: `package.json` version is set to the tag version (for example `v0.2.0 -> 0.2.0`).
-  - Main push release: version is derived as `<baseVersion>-main.<runNumber>.<shortsha>` (example: `0.2.0-main.128.a1b2c3d`).
+  - Main push release: version is derived as `<baseVersion>-main.<runNumber>.<shortsha>`.
 
 ## Artifact naming
 
 Configured in `electron-builder.yml`:
 
-- Generic artifact pattern: `BudgetIT-${version}-win-${arch}.${ext}`
-- NSIS installer pattern: `BudgetIT-Setup-${version}-${arch}.${ext}`
+- Windows installer pattern: `BudgetIT-Setup-${version}-${arch}.exe`
+- Linux artifact pattern: `BudgetIT-${version}-linux-${arch}.AppImage`
+- Linux package pattern: `BudgetIT-${version}-linux-${arch}.deb`
 - Output folder: `dist/release`
-- Required installer artifacts per release:
-  - `BudgetIT-Setup-${version}-x64.exe`
-  - `BudgetIT-Setup-${version}-arm64.exe`
+
+Required artifacts per release:
+
+- `BudgetIT-Setup-${version}-x64.exe`
+- `BudgetIT-Setup-${version}-arm64.exe`
+- `BudgetIT-${version}-linux-x64.AppImage`
+- `BudgetIT-${version}-linux-x64.deb`
+- `BudgetIT-${version}-linux-arm64.AppImage`
+- `BudgetIT-${version}-linux-arm64.deb`
 
 ## Packaging commands
 
-- `npm run dist:win` builds and packages both architectures sequentially.
-- `npm run dist:win:x64` packages only the x64 installer.
-- `npm run dist:win:arm64` packages only the ARM64 installer.
+- Windows:
+  - `npm run dist:win`
+  - `npm run dist:win:x64`
+  - `npm run dist:win:arm64`
+- Linux:
+  - `npm run dist:linux`
+  - `npm run dist:linux:x64`
+  - `npm run dist:linux:arm64`
 
-## Installer defaults
+## Runtime defaults
 
-Installer and runtime behavior defaults:
+Runtime settings defaults are persisted in app settings:
 
-- NSIS target with user-selectable install directory (`oneClick: false`).
-- Desktop shortcut creation enabled.
-- Runtime default settings are persisted in app settings:
-  - `startWithWindows = true`
-  - `minimizeToTray = true`
-- Users can change runtime defaults in the app settings page.
+- `startWithWindows = true` (persisted key name retained for compatibility)
+- `minimizeToTray = true`
+
+UI copy for startup is platform-neutral: `Start on system login`.
 
 ## Validation gates
 
@@ -50,6 +60,5 @@ Installer and runtime behavior defaults:
   - typecheck
   - tests
   - build
-  - NSIS packaging smoke check (x64 + arm64 installers exist)
-- Release workflow re-runs quality gates and generates release checksums (`SHA256SUMS.txt`).
-
+  - packaging smoke checks for Windows x64/arm64 and Linux x64/arm64
+- Release workflow re-runs quality gates, builds all platform artifacts, and generates `SHA256SUMS.txt`.

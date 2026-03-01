@@ -12,7 +12,7 @@ It combines vendor/service/contract tracking, expense planning, scenario compari
 
 ### First 10 minutes
 1. Open **Settings** and set core runtime options:
-   - Start with Windows
+   - Start on system login
    - Minimize to tray
    - Teams webhook (optional)
 2. In **Settings > Backup & Restore**, create your first backup and run verification.
@@ -374,7 +374,7 @@ Natural-language query interface for report-ready data retrieval.
 Runtime, security, backup, maintenance, and governance configuration.
 
 ### Runtime
-- Start with Windows
+- Start on system login
 - Minimize to tray on close
 - On Windows, auto-start launches from sign-in open hidden in the tray (manual launches still open the main window)
 - Save runtime settings

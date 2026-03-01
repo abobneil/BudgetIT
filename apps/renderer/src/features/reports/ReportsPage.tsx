@@ -103,7 +103,7 @@ export function ReportsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [exportFormat, setExportFormat] = useState<ReportFormat>("pdf");
-  const [destinationPath, setDestinationPath] = useState("C:\\exports");
+  const [destinationPath, setDestinationPath] = useState("");
   const [destinationConfirmed, setDestinationConfirmed] = useState(false);
   const [exportJobs, setExportJobs] = useState<ExportJob[]>([]);
   const [exportError, setExportError] = useState<string | null>(null);
@@ -126,7 +126,7 @@ export function ReportsPage() {
   const [showbackPeriodEnd, setShowbackPeriodEnd] = useState("2026-01-31");
   const [showbackGroupBy, setShowbackGroupBy] = useState<"cost_center" | "team">("cost_center");
   const [showbackStatements, setShowbackStatements] = useState<ShowbackStatement[]>([]);
-  const [showbackOutputDir, setShowbackOutputDir] = useState("C:\\exports");
+  const [showbackOutputDir, setShowbackOutputDir] = useState("");
   const [showbackBusy, setShowbackBusy] = useState<"generate" | "export" | null>(null);
   const [showbackExportedFiles, setShowbackExportedFiles] = useState<
     Record<string, Partial<Record<"csv" | "xlsx", string>>>
@@ -541,7 +541,7 @@ export function ReportsPage() {
     if (!selectedPreset) {
       return;
     }
-    if (!destinationConfirmed || !destinationPath.trim()) {
+    if (!destinationConfirmed) {
       const message = "Confirm destination path before queueing export.";
       setExportError(message);
       notify({ tone: "warning", message });
@@ -552,7 +552,7 @@ export function ReportsPage() {
     const job: ExportJob = {
       id: jobId,
       format: exportFormat,
-      destination: destinationPath,
+      destination: destinationPath.trim() || "(system default)",
       status: "running",
       outputPath: null,
       error: null
@@ -563,7 +563,7 @@ export function ReportsPage() {
         scenarioId: selectedScenarioId,
         formats: [exportFormat],
         reportType: selectedPreset.query,
-        outputDir: destinationPath.trim(),
+        outputDir: destinationPath.trim() || undefined,
         filters: {
           dateFrom,
           dateTo,
@@ -697,7 +697,7 @@ export function ReportsPage() {
       const exported = await exportShowbackStatement({
         statementId: statement.id,
         format,
-        outputDir: showbackOutputDir
+        outputDir: showbackOutputDir.trim() || undefined
       });
       setShowbackExportedFiles((current) => ({
         ...current,
@@ -855,22 +855,18 @@ export function ReportsPage() {
                 setDestinationPath(data.value);
                 setDestinationConfirmed(false);
               }}
-              placeholder="C:\\exports"
+              placeholder="Leave blank to use system default"
             />
             <Button
               appearance="secondary"
               onClick={() => {
-                if (!destinationPath.trim()) {
-                  const message = "Destination path is required.";
-                  setExportError(message);
-                  notify({ tone: "warning", message });
-                  return;
-                }
                 setExportError(null);
                 setDestinationConfirmed(true);
                 notify({
                   tone: "success",
-                  message: `Export destination confirmed: ${destinationPath}.`
+                  message: destinationPath.trim()
+                    ? `Export destination confirmed: ${destinationPath.trim()}.`
+                    : "Export destination confirmed: using system default."
                 });
               }}
             >
@@ -1207,7 +1203,7 @@ export function ReportsPage() {
             aria-label="Showback output directory"
             value={showbackOutputDir}
             onChange={(_event, data) => setShowbackOutputDir(data.value)}
-            placeholder="C:\\exports"
+            placeholder="Leave blank to use system default"
           />
           <Button
             appearance="primary"

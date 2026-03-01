@@ -229,7 +229,7 @@ describe("SettingsPage", () => {
     renderSettingsPage();
     await screen.findByText("Settings Center");
 
-    fireEvent.click(screen.getByRole("switch", { name: "Start with Windows" }));
+    fireEvent.click(screen.getByRole("switch", { name: "Start on system login" }));
     fireEvent.click(screen.getByRole("switch", { name: "Minimize to tray on close" }));
     fireEvent.click(screen.getByRole("button", { name: "Save Runtime Settings" }));
 
@@ -247,7 +247,7 @@ describe("SettingsPage", () => {
     await waitFor(() => {
       expect(getSettingsMock).toHaveBeenCalledTimes(2);
     });
-    expect(screen.getByRole("switch", { name: "Start with Windows" })).not.toBeChecked();
+    expect(screen.getByRole("switch", { name: "Start on system login" })).not.toBeChecked();
     expect(screen.getByRole("switch", { name: "Minimize to tray on close" })).not.toBeChecked();
   });
 
@@ -277,7 +277,7 @@ describe("SettingsPage", () => {
       expect(screen.getByTestId("page-title")).toHaveTextContent("Settings");
     });
 
-    fireEvent.click(screen.getByRole("switch", { name: "Start with Windows" }));
+    fireEvent.click(screen.getByRole("switch", { name: "Start on system login" }));
     fireEvent.click(screen.getByRole("switch", { name: "Minimize to tray on close" }));
     fireEvent.click(screen.getByRole("button", { name: "Save Runtime Settings" }));
     await waitFor(() => {
@@ -301,7 +301,7 @@ describe("SettingsPage", () => {
       expect(getSettingsMock).toHaveBeenCalledTimes(2);
     });
 
-    expect(screen.getByRole("switch", { name: "Start with Windows" })).not.toBeChecked();
+    expect(screen.getByRole("switch", { name: "Start on system login" })).not.toBeChecked();
     expect(screen.getByRole("switch", { name: "Minimize to tray on close" })).not.toBeChecked();
     expect(screen.getByTestId("restore-asof-banner")).toHaveTextContent(
       "Data current as of 2026-02-27T15:50:00.000Z (restored 2026-02-27T16:20:00.000Z)"

@@ -48,7 +48,7 @@ jobs:
         run: npm run build
 
   package-windows:
-    name: Package Windows Installer (Smoke)
+    name: Package Windows Installers (Smoke)
     needs: quality
     runs-on: windows-latest
     timeout-minutes: 90
@@ -72,7 +72,7 @@ jobs:
         run: npm run dist:win
 
       - name: Run packaged smoke checks
-        run: npm run smoke:packaged
+        run: npm run smoke:packaged:win
 
       - name: Validate artifact exists
         shell: powershell
@@ -97,7 +97,120 @@ jobs:
       - name: Upload installer artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ci-windows-installer-${{ github.run_id }}
+          name: ci-windows-release-${{ github.run_id }}
+          path: dist/release/**
+          if-no-files-found: error
+
+  package-linux-x64:
+    name: Package Linux Artifacts (x64 Smoke)
+    needs: quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            **/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build Linux x64 artifacts
+        run: npm run dist:linux -- --arch=x64
+
+      - name: Run packaged smoke checks
+        run: npm run smoke:packaged:linux -- --arch=x64
+
+      - name: Validate Linux x64 artifacts exist
+        shell: bash
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          if [[ -z "${version}" ]]; then
+            echo "package.json version is missing or invalid." >&2
+            exit 1
+          fi
+
+          required_artifacts=(
+            "dist/release/BudgetIT-${version}-linux-x64.AppImage"
+            "dist/release/BudgetIT-${version}-linux-x64.deb"
+          )
+
+          for artifact in "${required_artifacts[@]}"; do
+            if [[ ! -f "${artifact}" ]]; then
+              echo "Expected Linux artifact was not produced: ${artifact}" >&2
+              exit 1
+            fi
+          done
+
+      - name: Upload Linux x64 artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-linux-x64-release-${{ github.run_id }}
+          path: dist/release/**
+          if-no-files-found: error
+
+  package-linux-arm64:
+    name: Package Linux Artifacts (arm64 Smoke)
+    needs: quality
+    runs-on:
+      - self-hosted
+      - linux
+      - arm64
+    timeout-minutes: 90
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            **/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build Linux arm64 artifacts
+        run: npm run dist:linux -- --arch=arm64
+
+      - name: Run packaged smoke checks
+        run: npm run smoke:packaged:linux -- --arch=arm64
+
+      - name: Validate Linux arm64 artifacts exist
+        shell: bash
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          if [[ -z "${version}" ]]; then
+            echo "package.json version is missing or invalid." >&2
+            exit 1
+          fi
+
+          required_artifacts=(
+            "dist/release/BudgetIT-${version}-linux-arm64.AppImage"
+            "dist/release/BudgetIT-${version}-linux-arm64.deb"
+          )
+
+          for artifact in "${required_artifacts[@]}"; do
+            if [[ ! -f "${artifact}" ]]; then
+              echo "Expected Linux artifact was not produced: ${artifact}" >&2
+              exit 1
+            fi
+          done
+
+      - name: Upload Linux arm64 artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-linux-arm64-release-${{ github.run_id }}
           path: dist/release/**
           if-no-files-found: error
 

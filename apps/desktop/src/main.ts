@@ -115,7 +115,8 @@ const BACKUP_HEALTH_FILE_NAME = "backup-health.json";
 const BACKUP_STALE_THRESHOLD_DAYS = 7;
 const IMPORT_TEMPLATE_FILE_NAME = "import-mappings.json";
 const AUTO_TAG_RULES_FILE_NAME = "auto-tag-rules.json";
-const APP_ICON_FILE_NAME = "app-icon.ico";
+const WINDOWS_APP_ICON_FILE_NAME = "app-icon.ico";
+const LINUX_APP_ICON_FILE_NAME = "app-icon.png";
 const TRAY_ICON_FILE_NAME = "tray-icon.png";
 const DIAGNOSTICS_LOG_DIR_NAME = "logs";
 const DIAGNOSTICS_LOG_FILE_NAME = "desktop.log";
@@ -318,14 +319,16 @@ function getAutoTagRulesPath(): string {
 }
 
 function resolveMainWindowIconPath(): string | undefined {
-  const appIconPath = path.join(__dirname, "../assets", APP_ICON_FILE_NAME);
-  if (fs.existsSync(appIconPath)) {
-    return appIconPath;
-  }
+  const iconCandidates =
+    process.platform === "linux"
+      ? [LINUX_APP_ICON_FILE_NAME, TRAY_ICON_FILE_NAME, WINDOWS_APP_ICON_FILE_NAME]
+      : [WINDOWS_APP_ICON_FILE_NAME, TRAY_ICON_FILE_NAME, LINUX_APP_ICON_FILE_NAME];
 
-  const trayIconPath = path.join(__dirname, "../assets", TRAY_ICON_FILE_NAME);
-  if (fs.existsSync(trayIconPath)) {
-    return trayIconPath;
+  for (const iconFileName of iconCandidates) {
+    const iconPath = path.join(__dirname, "../assets", iconFileName);
+    if (fs.existsSync(iconPath)) {
+      return iconPath;
+    }
   }
 
   return undefined;

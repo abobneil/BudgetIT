@@ -1,10 +1,10 @@
 # BudgetIT
 
-A **local-first IT budgeting and reporting desktop app** built as an Electron + React (Vite) monorepo. BudgetIT runs as a Windows desktop application, stores data in an **encrypted SQLite database**, and includes workflows for budgeting scenarios, imports, reports/exports, alerts, and basic natural-language querying (NLQ).
+A **local-first IT budgeting and reporting desktop app** built as an Electron + React (Vite) monorepo. BudgetIT runs as a Windows and Linux desktop application, stores data in an **encrypted SQLite database**, and includes workflows for budgeting scenarios, imports, reports/exports, alerts, and basic natural-language querying (NLQ).
 
 ## Project Title and Description
 
-**BudgetIT** is a Windows-focused desktop budgeting app intended for tracking IT spend and contracts locally on a single machine. It uses:
+**BudgetIT** is a desktop budgeting app intended for tracking IT spend and contracts locally on a single machine. It uses:
 
 * **Electron (main process)** for desktop runtime, tray/startup behavior, IPC, notifications, packaging, and running background alert checks.
 * **React + Fluent UI (renderer)** for the user interface.
@@ -24,13 +24,13 @@ Key capabilities present in the codebase include:
 
 ## Installation Instructions
 
-> This repo is a Node.js **workspaces** monorepo (`apps/*`, `packages/*`). Packaging scripts are currently Windows-oriented.
+> This repo is a Node.js **workspaces** monorepo (`apps/*`, `packages/*`). Packaging scripts support Windows and Linux targets.
 
 ### Prerequisites
 
 * **Node.js** (required)
 * **npm** (required)
-* Windows build environment suitable for Electron + native modules (needed for `better-sqlite3-multiple-ciphers` and Electron packaging)
+* Build environment suitable for Electron + native modules on the target OS (needed for `better-sqlite3-multiple-ciphers` and Electron packaging)
 
 ### Install
 
@@ -53,7 +53,7 @@ TODO: Add a first-class `dev` workflow.
 Notes from the current codebase:
 
 * The Electron main process checks `BUDGETIT_RENDERER_URL` and will load that URL if set; otherwise it loads the built renderer HTML from `apps/renderer/dist/index.html`.
-* There is no `dev` script in the current `package.json` files, so you’ll need to start a renderer dev server manually (and then set `BUDGETIT_RENDERER_URL`) or run the built artifacts.
+* There is no `dev` script in the current `package.json` files, so you'll need to start a renderer dev server manually (and then set `BUDGETIT_RENDERER_URL`) or run the built artifacts.
 
 ### Package (Windows installer)
 
@@ -70,6 +70,21 @@ npm run dist:win:x64
 npm run dist:win:arm64
 ```
 
+### Package (Linux artifacts)
+
+```bash
+npm run dist:linux
+```
+
+This runs the workspace build once, then performs per-architecture native rebuild + packaging for both `x64` and `arm64` Linux artifacts (`AppImage` + `deb`) under `dist/release`.
+
+Architecture-specific packaging commands:
+
+```bash
+npm run dist:linux:x64
+npm run dist:linux:arm64
+```
+
 Architecture-specific native rebuild commands:
 
 ```bash
@@ -79,8 +94,9 @@ npm run rebuild:native:electron:arm64
 
 Optional packaged checks:
 
-```powershell
-npm run smoke:packaged
+```bash
+npm run smoke:packaged:win
+npm run smoke:packaged:linux
 ```
 
 ## Usage Examples
@@ -106,14 +122,31 @@ BudgetIT-Setup-<version>-x64.exe
 BudgetIT-Setup-<version>-arm64.exe
 ```
 
-### Example: Renderer ↔ Main IPC usage (in-app)
+### Example: Build Linux artifacts (x64 + arm64)
+
+```bash
+npm install
+npm run build
+npm run dist:linux
+```
+
+Expected Linux artifacts:
+
+```text
+BudgetIT-<version>-linux-x64.AppImage
+BudgetIT-<version>-linux-x64.deb
+BudgetIT-<version>-linux-arm64.AppImage
+BudgetIT-<version>-linux-arm64.deb
+```
+
+### Example: Renderer <-> Main IPC usage (in-app)
 
 BudgetIT exposes a restricted IPC bridge to the renderer via `preload.ts`. The renderer calls:
 
 ```ts
 // In renderer code (running in the browser window):
 const settings = await window.budgetit.invoke("settings.get");
-await window.budgetit.invoke("backup.create", { destinationDir: "C:\\Backups\\BudgetIT" });
+await window.budgetit.invoke("backup.create", { destinationDir: "/tmp/BudgetIT-backups" });
 const alerts = await window.budgetit.invoke("alerts.list");
 ```
 
@@ -161,7 +194,7 @@ Supported invoke channels are explicitly allow-listed in the preload bridge (e.g
 
 The desktop app persists runtime settings in the user data directory (e.g., `runtime-settings.json`). Settings in the UI/tests include:
 
-* `startWithWindows` (controls Electron `openAtLogin`)
+* `startWithWindows` (persisted key controlling Electron `openAtLogin`)
 * `minimizeToTray`
 * `teamsEnabled`
 * `teamsWebhookUrl`
@@ -171,13 +204,13 @@ The desktop app persists runtime settings in the user data directory (e.g., `run
 
 The desktop app stores:
 
-* Encrypted database under the app’s user data directory (data subfolder)
+* Encrypted database under the app's user data directory (data subfolder)
 * Secrets (DB key material) under a secrets subfolder using Electron `safeStorage`
 * Backup health state (e.g., `backup-health.json`)
 * Import mapping templates and auto-tag rules JSON files
 * Diagnostics logs under a `logs` directory
 
-> TODO: Add a dedicated “Data locations” section with the exact resolved paths for Windows (AppData locations), plus an explanation of how to relocate/override them if desired.
+> TODO: Add a dedicated "Data locations" section with exact resolved paths per OS, plus an explanation of how to relocate/override them if desired.
 
 ## Contribution Guidelines
 
@@ -205,3 +238,4 @@ TODO: Add `CONTRIBUTING.md` (branch naming, commit conventions, PR checklist, et
 ## License
 
 TODO: Add license information (no `LICENSE` file was found in the current codebase).
+

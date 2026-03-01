@@ -470,7 +470,6 @@ export function DashboardPage() {
       const result = await exportReport({
         reportType: "dashboard.summary",
         scenarioId: selectedScenarioId,
-        outputDir: "C:\\exports",
         formats: [format]
       });
       setExportFiles(result.files);

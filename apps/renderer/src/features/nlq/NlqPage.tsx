@@ -66,7 +66,7 @@ export function NlqPage() {
   const [pageMessage, setPageMessage] = useState<string | null>(null);
   const [saveReportName, setSaveReportName] = useState("");
   const [exportFormat, setExportFormat] = useState<ExportFormat>("csv");
-  const [exportPath, setExportPath] = useState("C:\\exports");
+  const [exportPath, setExportPath] = useState("");
 
   const sortedRows = useMemo(() => {
     if (!result) {
@@ -114,7 +114,7 @@ export function NlqPage() {
         scenarioId: selectedScenarioId,
         reportType: "nlq.results",
         formats: [exportFormat],
-        outputDir: exportPath,
+        outputDir: exportPath.trim() || undefined,
         filterSpec: result.filterSpec
       });
       const output = exported.files[exportFormat];
@@ -285,7 +285,7 @@ export function NlqPage() {
                   aria-label="NLQ export path"
                   value={exportPath}
                   onChange={(_event, data) => setExportPath(data.value)}
-                  placeholder="C:\\exports"
+                  placeholder="Leave blank to use system default"
                 />
               </section>
               <section className="nlq-page__action-panel">

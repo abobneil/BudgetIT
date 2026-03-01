@@ -254,7 +254,6 @@ export function App() {
       const result = await exportReport({
         reportType: "dashboard.summary",
         scenarioId: "baseline",
-        outputDir: "C:\\exports",
         formats: ["html", "pdf", "excel", "csv", "png"]
       });
       setExportResult(result);
@@ -323,7 +322,7 @@ export function App() {
               }));
             }}
           />
-          Start with Windows
+          Start on system login
         </label>
 
         <label>

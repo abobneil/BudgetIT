@@ -1,6 +1,6 @@
 # BudgetIT Operator Runbook
 
-This runbook is for single-device Windows operation of BudgetIT.
+This runbook is for single-device operation of BudgetIT on Windows and Linux.
 
 ## Local Toolchain Baseline
 
@@ -15,7 +15,9 @@ This runbook is for single-device Windows operation of BudgetIT.
 5. Rebuild native module for packaged Electron artifacts when releasing:
    - `npm run rebuild:native:electron -- --arch=x64`
    - `npm run rebuild:native:electron -- --arch=arm64`
-   - or run `npm run dist:win` to package both architectures in one pass.
+6. Package release artifacts:
+   - Windows: `npm run dist:win`
+   - Linux: `npm run dist:linux`
 
 ## Backup
 
@@ -37,22 +39,22 @@ This runbook is for single-device Windows operation of BudgetIT.
 2. Run restore and wait for integrity/schema checks.
 3. Confirm the post-restore banner:
    - restored timestamp
-   - source mutation timestamp (“data current as of”)
+   - source mutation timestamp ("data current as of")
 4. Validate key record counts (vendors, services, contracts, expenses).
 
 ## Rollback Dry-Run
 
-1. Install latest staging build in clean Windows VM.
+1. Install latest staging build in a clean environment.
 2. Seed sample data, create backup, and export report artifacts.
-3. Install previous release build over VM image snapshot.
+3. Install previous release build over a clean snapshot.
 4. Restore backup and verify:
-   - when `Start with Windows` is enabled, sign-in auto-launch starts hidden in tray
+   - when startup is enabled, sign-in auto-launch starts hidden in tray (Windows)
    - manual app launch opens the main window
    - alerts list available
    - reports and exports still load
 5. Record dry-run result before production tag publish.
 
-## ARM64 Release Validation (Manual)
+## Windows ARM64 Release Validation (Manual)
 
 1. Install `dist/release/BudgetIT-Setup-<version>-arm64.exe` on Windows ARM64 hardware.
 2. Launch BudgetIT and verify DB open/create succeeds.
@@ -62,4 +64,20 @@ This runbook is for single-device Windows operation of BudgetIT.
    - create backup and restore it
    - run report/export
 4. Confirm there are no native module load errors.
-5. Record ARM64 validation sign-off with the release checklist.
+5. Record Windows ARM64 validation sign-off with the release checklist.
+
+## Linux Runtime Validation (Manual)
+
+1. Validate Linux x64 artifacts on Linux x64 hardware:
+   - `dist/release/BudgetIT-<version>-linux-x64.AppImage`
+   - `dist/release/BudgetIT-<version>-linux-x64.deb`
+2. Validate Linux arm64 artifacts on Linux arm64 hardware:
+   - `dist/release/BudgetIT-<version>-linux-arm64.AppImage`
+   - `dist/release/BudgetIT-<version>-linux-arm64.deb`
+3. For both architectures, run core checks:
+   - update Settings and restart app
+   - load Alerts list
+   - create backup and restore it
+   - run report/export
+4. Confirm there are no native module load errors.
+5. Record Linux validation sign-off with the release checklist.

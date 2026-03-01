@@ -20,9 +20,15 @@
     "rebuild:native:electron:arm64": "npm run rebuild:native:electron -- --arch=arm64",
     "dist:win:x64": "npm run build && npm run rebuild:native:electron:x64 && electron-builder --config electron-builder.yml --config.npmRebuild=false --win nsis --x64 --publish never",
     "dist:win:arm64": "npm run build && npm run rebuild:native:electron:arm64 && electron-builder --config electron-builder.yml --config.npmRebuild=false --win nsis --arm64 --publish never",
+    "dist:linux:x64": "npm run build && npm run rebuild:native:electron:x64 && electron-builder --config electron-builder.yml --config.npmRebuild=false --linux AppImage deb --x64 --publish never",
+    "dist:linux:arm64": "npm run build && npm run rebuild:native:electron:arm64 && electron-builder --config electron-builder.yml --config.npmRebuild=false --linux AppImage deb --arm64 --publish never",
     "dist:win": "node scripts/dist-win.cjs",
+    "dist:linux": "node scripts/dist-linux.cjs",
     "release:win": "npm run dist:win",
-    "smoke:packaged": "powershell -ExecutionPolicy Bypass -File scripts/release-smoke.ps1"
+    "release:linux": "npm run dist:linux",
+    "smoke:packaged": "node scripts/release-smoke.cjs --platform=all --arch=all",
+    "smoke:packaged:win": "node scripts/release-smoke.cjs --platform=win --arch=all",
+    "smoke:packaged:linux": "node scripts/release-smoke.cjs --platform=linux --arch=all"
   },
   "dependencies": {
     "@budgetit/core": "file:packages/core",

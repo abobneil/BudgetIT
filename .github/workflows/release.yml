@@ -1,4 +1,4 @@
-name: Release (Windows)
+name: Release (Windows + Linux)
 
 on:
   workflow_run:
@@ -118,17 +118,11 @@ jobs:
             exit 1
           fi
 
-  package:
-    name: Build NSIS Installer
+  quality:
+    name: Lint, Typecheck, Test, Build
     needs: preflight
     runs-on: windows-latest
-    timeout-minutes: 90
-    env:
-      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      CSC_LINK: ${{ secrets.CSC_LINK }}
-      CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
-      WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
-      WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
+    timeout-minutes: 45
     steps:
       - name: Checkout tag
         uses: actions/checkout@v4
@@ -165,13 +159,50 @@ jobs:
       - name: Build
         run: npm run build
 
+  package-windows:
+    name: Build Windows Installers
+    needs:
+      - preflight
+      - quality
+    runs-on: windows-latest
+    timeout-minutes: 90
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      CSC_LINK: ${{ secrets.CSC_LINK }}
+      CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+      WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+      WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
+    steps:
+      - name: Checkout tag
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ needs.preflight.outputs.checkout_ref }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            **/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Set build version
+        shell: bash
+        run: |
+          node -e "const fs=require('fs'); const buildVersion='${{ needs.preflight.outputs.build_version }}'; if(!buildVersion||!buildVersion.trim()){throw new Error('Resolved build version is empty.');} const path='package.json'; const pkg=JSON.parse(fs.readFileSync(path,'utf8')); pkg.version=buildVersion; fs.writeFileSync(path, JSON.stringify(pkg, null, 2) + '\n', 'utf8'); console.log('Set package.json version to', buildVersion);"
+
       - name: Build release artifacts
         run: npm run release:win
 
       - name: Run packaged smoke checks
-        run: npm run smoke:packaged
+        run: npm run smoke:packaged:win
 
-      - name: Validate artifacts and create checksum
+      - name: Validate artifacts
         shell: powershell
         run: |
           $packageJson = Get-Content -Raw package.json | ConvertFrom-Json
@@ -191,40 +222,190 @@ jobs:
             }
           }
 
-          $artifacts = Get-ChildItem -Path dist/release -File -ErrorAction SilentlyContinue
-          if (-not $artifacts -or $artifacts.Count -eq 0) {
-            throw "No release artifacts found in dist/release."
-          }
-
-          $checksumPath = "dist/release/SHA256SUMS.txt"
-          if (Test-Path $checksumPath) {
-            Remove-Item $checksumPath -Force
-          }
-
-          foreach ($artifact in ($artifacts | Sort-Object Name)) {
-            $hash = (Get-FileHash -Path $artifact.FullName -Algorithm SHA256).Hash.ToLower()
-            "$hash  $($artifact.Name)" | Add-Content -Path $checksumPath
-          }
-
-      - name: Upload release artifacts
+      - name: Upload Windows artifacts
         uses: actions/upload-artifact@v4
         with:
           name: windows-release-${{ needs.preflight.outputs.tag }}
-          path: dist/release/**
+          path: dist/release/*
+          if-no-files-found: error
+
+  package-linux-x64:
+    name: Build Linux Artifacts (x64)
+    needs:
+      - preflight
+      - quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout tag
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ needs.preflight.outputs.checkout_ref }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            **/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Set build version
+        shell: bash
+        run: |
+          node -e "const fs=require('fs'); const buildVersion='${{ needs.preflight.outputs.build_version }}'; if(!buildVersion||!buildVersion.trim()){throw new Error('Resolved build version is empty.');} const path='package.json'; const pkg=JSON.parse(fs.readFileSync(path,'utf8')); pkg.version=buildVersion; fs.writeFileSync(path, JSON.stringify(pkg, null, 2) + '\n', 'utf8'); console.log('Set package.json version to', buildVersion);"
+
+      - name: Build release artifacts
+        run: npm run release:linux -- --arch=x64
+
+      - name: Run packaged smoke checks
+        run: npm run smoke:packaged:linux -- --arch=x64
+
+      - name: Validate artifacts
+        shell: bash
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          if [[ -z "${version}" ]]; then
+            echo "package.json version is missing or invalid." >&2
+            exit 1
+          fi
+
+          required_artifacts=(
+            "dist/release/BudgetIT-${version}-linux-x64.AppImage"
+            "dist/release/BudgetIT-${version}-linux-x64.deb"
+          )
+
+          for artifact in "${required_artifacts[@]}"; do
+            if [[ ! -f "${artifact}" ]]; then
+              echo "Expected release artifact missing: ${artifact}" >&2
+              exit 1
+            fi
+          done
+
+      - name: Upload Linux x64 artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-x64-release-${{ needs.preflight.outputs.tag }}
+          path: dist/release/*
+          if-no-files-found: error
+
+  package-linux-arm64:
+    name: Build Linux Artifacts (arm64)
+    needs:
+      - preflight
+      - quality
+    runs-on:
+      - self-hosted
+      - linux
+      - arm64
+    timeout-minutes: 90
+    steps:
+      - name: Checkout tag
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ needs.preflight.outputs.checkout_ref }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            **/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Set build version
+        shell: bash
+        run: |
+          node -e "const fs=require('fs'); const buildVersion='${{ needs.preflight.outputs.build_version }}'; if(!buildVersion||!buildVersion.trim()){throw new Error('Resolved build version is empty.');} const path='package.json'; const pkg=JSON.parse(fs.readFileSync(path,'utf8')); pkg.version=buildVersion; fs.writeFileSync(path, JSON.stringify(pkg, null, 2) + '\n', 'utf8'); console.log('Set package.json version to', buildVersion);"
+
+      - name: Build release artifacts
+        run: npm run release:linux -- --arch=arm64
+
+      - name: Run packaged smoke checks
+        run: npm run smoke:packaged:linux -- --arch=arm64
+
+      - name: Validate artifacts
+        shell: bash
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          if [[ -z "${version}" ]]; then
+            echo "package.json version is missing or invalid." >&2
+            exit 1
+          fi
+
+          required_artifacts=(
+            "dist/release/BudgetIT-${version}-linux-arm64.AppImage"
+            "dist/release/BudgetIT-${version}-linux-arm64.deb"
+          )
+
+          for artifact in "${required_artifacts[@]}"; do
+            if [[ ! -f "${artifact}" ]]; then
+              echo "Expected release artifact missing: ${artifact}" >&2
+              exit 1
+            fi
+          done
+
+      - name: Upload Linux arm64 artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-arm64-release-${{ needs.preflight.outputs.tag }}
+          path: dist/release/*
           if-no-files-found: error
 
   publish:
     name: Publish GitHub Release
     needs:
       - preflight
-      - package
+      - package-windows
+      - package-linux-x64
+      - package-linux-arm64
     runs-on: ubuntu-latest
     steps:
-      - name: Download release artifacts
+      - name: Download Windows artifacts
         uses: actions/download-artifact@v4
         with:
           name: windows-release-${{ needs.preflight.outputs.tag }}
           path: dist/release
+
+      - name: Download Linux x64 artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: linux-x64-release-${{ needs.preflight.outputs.tag }}
+          path: dist/release
+
+      - name: Download Linux arm64 artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: linux-arm64-release-${{ needs.preflight.outputs.tag }}
+          path: dist/release
+
+      - name: Validate artifacts and create checksum
+        shell: bash
+        run: |
+          shopt -s nullglob
+          files=(dist/release/*)
+          if (( ${#files[@]} == 0 )); then
+            echo "No release artifacts found in dist/release." >&2
+            exit 1
+          fi
+
+          checksum_path="dist/release/SHA256SUMS.txt"
+          : > "${checksum_path}"
+
+          while IFS= read -r artifact_name; do
+            hash="$(sha256sum "dist/release/${artifact_name}" | awk '{print $1}')"
+            echo "${hash}  ${artifact_name}" >> "${checksum_path}"
+          done < <(find dist/release -maxdepth 1 -type f ! -name "SHA256SUMS.txt" -printf "%f\n" | sort)
 
       - name: Publish release
         if: needs.preflight.outputs.prerelease == 'false' && needs.preflight.outputs.tag != 'main-latest'
@@ -251,4 +432,3 @@ jobs:
           overwrite_files: true
           make_latest: true
           files: dist/release/*
-

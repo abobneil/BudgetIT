@@ -207,7 +207,6 @@ describe("DashboardPage", () => {
       expect(exportReportMock).toHaveBeenCalledWith({
         reportType: "dashboard.summary",
         scenarioId: "baseline",
-        outputDir: "C:\\exports",
         formats: ["csv"]
       });
     });
@@ -239,7 +238,6 @@ describe("DashboardPage", () => {
       expect(exportReportMock).toHaveBeenCalledWith({
         reportType: "dashboard.summary",
         scenarioId: "baseline",
-        outputDir: "C:\\exports",
         formats: ["html"]
       });
     });

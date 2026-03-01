@@ -53,7 +53,7 @@ import {
 import { useFeedback, type FeedbackTone } from "../../ui/feedback";
 import "./SettingsPage.css";
 
-const DEFAULT_BACKUP_DESTINATION = "C:\\Backups\\BudgetIT";
+const DEFAULT_BACKUP_DESTINATION = "";
 
 export function SettingsPage() {
   const { selectedScenarioId } = useScenarioContext();
@@ -325,16 +325,13 @@ export function SettingsPage() {
 
   async function handleCreateBackup(): Promise<void> {
     const destination = backupDestination.trim();
-    if (!destination) {
-      pushError("Backup destination is required.");
-      return;
-    }
-
     setError(null);
     setStatus(null);
     setBackupBusy(true);
     try {
-      const created = await createBackup({ destinationDir: destination });
+      const created = await createBackup(
+        destination.length > 0 ? { destinationDir: destination } : undefined
+      );
       setBackupPathInput(created.backupPath);
       setManifestPathInput(created.manifestPath);
       setVerifyBackupPathInput(created.backupPath);
@@ -591,7 +588,7 @@ export function SettingsPage() {
             )}
           </div>
           <Switch
-            label="Start with Windows"
+            label="Start on system login"
             checked={draftSettings.startWithWindows}
             onChange={(_event, data) =>
               setDraftSettings((current) => ({
@@ -692,7 +689,7 @@ export function SettingsPage() {
                     aria-label="Backup destination directory"
                     value={backupDestination}
                     onChange={(_event, data) => setBackupDestination(data.value)}
-                    placeholder="C:\\Backups\\BudgetIT"
+                    placeholder="Leave blank to use system default"
                   />
                 </div>
                 <Button disabled={backupBusy} onClick={() => void handleCreateBackup()}>

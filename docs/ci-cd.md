@@ -1,19 +1,19 @@
 # CI/CD Pipelines
 
-This repository now includes two GitHub Actions workflows:
+This repository includes two GitHub Actions workflows:
 
 - `CI`: `.github/workflows/ci.yml`
-- `Release (Windows)`: `.github/workflows/release.yml`
+- `Release (Windows + Linux)`: `.github/workflows/release.yml`
 
 ## Local Prerequisites
 
 - Node 22 is required (see `.nvmrc` and root `package.json` `engines`).
 - After `npm ci`, rebuild native SQLite bindings for local Node before DB/desktop tests:
   - `npm run rebuild:native:node`
-- For installer packaging, rebuild for Electron:
-  - `npm run rebuild:native:electron -- --arch=x64`
-  - `npm run rebuild:native:electron -- --arch=arm64`
-  - or run `npm run dist:win` to build/rebuild/package both architectures.
+- For packaged Electron artifacts:
+  - Windows: `npm run dist:win`
+  - Linux: `npm run dist:linux`
+  - Single-arch Linux builds: `npm run dist:linux -- --arch=x64` or `npm run dist:linux -- --arch=arm64`
 
 ## CI workflow
 
@@ -25,14 +25,12 @@ Triggers:
 
 Behavior:
 
-- If `package.json` is missing, the workflow reports scaffold-pending and skips quality checks.
-- If `package.json` exists, CI requires these npm scripts:
-  - `lint`
-  - `typecheck`
-  - `test`
-  - `build`
-- Runs on `windows-latest` and uploads optional test artifacts (`coverage`, `junit.xml`, `test-results`).
-- Builds Windows NSIS artifacts for `x64` and `arm64` in a follow-up smoke job and runs `npm run smoke:packaged`.
+- Runs quality gates (`lint`, `typecheck`, `test`, `build`) on `windows-latest`.
+- Runs packaging smoke jobs after quality:
+  - Windows (`dist:win`, smoke checks, artifact validation)
+  - Linux x64 (`dist:linux:x64`, smoke checks, artifact validation)
+  - Linux arm64 (`dist:linux:arm64`, smoke checks, artifact validation) on self-hosted ARM64 runner labels: `self-hosted`, `linux`, `arm64`
+- Uploads platform-scoped artifacts from each packaging smoke job.
 
 ## Release workflow (CD)
 
@@ -44,22 +42,14 @@ Triggers:
 
 Behavior:
 
-- Resolves release metadata by trigger type:
-  - successful `CI` run on `main`: uses release tag `main-latest` and refreshes the release assets/details
-  - `v*` tag push/manual dispatch: uses existing semantic tag
-- Sets build version before quality/build steps:
-  - `main` release: `<baseVersion>-main.<runNumber>.<shortsha>`
-  - `v*` tag/manual: tag version without leading `v`
-- Validates tag and project scaffold for tagged/manual releases.
-- Ensures pushed tag commit is contained in `origin/main` for tagged pushes.
-- Runs quality gates (`lint`, `typecheck`, `test`, `build`) before packaging.
-- Runs packaged smoke checks (`npm run smoke:packaged`) after artifact creation.
-- Resolves packaging script from the first existing script in:
-  - `release:win`
-  - `dist:win`
-  - `package:win`
-  - `dist`
-- Builds Windows artifacts for `x64` and `arm64`, generates `SHA256SUMS.txt`, uploads artifacts, and publishes GitHub Releases automatically.
+- Resolves release metadata by trigger type.
+- Runs quality gates once before packaging.
+- Builds release artifacts in parallel jobs:
+  - Windows (`release:win`)
+  - Linux x64 (`release:linux -- --arch=x64`)
+  - Linux arm64 (`release:linux -- --arch=arm64`)
+- Runs platform-scoped packaged smoke checks in each packaging job.
+- Aggregates all artifacts, generates `dist/release/SHA256SUMS.txt`, and publishes a single GitHub release.
 
 ## Required repository settings
 
@@ -76,7 +66,7 @@ If you sign release binaries with `electron-builder`, configure one of these sec
 - `CSC_LINK` and `CSC_KEY_PASSWORD`
 - `WIN_CSC_LINK` and `WIN_CSC_KEY_PASSWORD`
 
-If no signing secrets are provided, the release workflow still runs but unsigned artifacts are produced.
+If no signing secrets are provided, unsigned artifacts are still produced.
 
 ## Expected npm scripts
 
@@ -90,9 +80,9 @@ At minimum:
     "test": "...",
     "build": "...",
     "release:win": "...",
-    "smoke:packaged": "..."
+    "release:linux": "...",
+    "smoke:packaged:win": "...",
+    "smoke:packaged:linux": "..."
   }
 }
 ```
-
-`release:win` can be replaced by `dist:win`, `package:win`, or `dist`.
