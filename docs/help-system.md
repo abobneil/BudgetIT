@@ -8,7 +8,7 @@ It combines vendor/service/contract tracking, expense planning, scenario compari
 
 ### Understand the 2-window workflow
 - `App Window`: where you do your work (data entry, review, reporting, and exports).
-- `Help Window`: opens from the Help menu or `(?)` buttons and stays focused on the section you are using.
+- `Help Window`: opens from the top-bar **Help** button, desktop **Help** menu entries, or `F1`, then loads a topic-focused section of this guide.
 
 ### First 10 minutes
 1. Open **Settings** and set core runtime options:
@@ -27,6 +27,8 @@ It combines vendor/service/contract tracking, expense planning, scenario compari
 7. Optional speed tools:
    - `Ctrl+K` opens Command Palette.
    - `Ctrl+Shift+F` focuses Global Search.
+   - `Escape` closes the active dialog.
+   - `F1` opens Help Center.
 
 ### Navigation at a glance
 - Dashboard
@@ -52,13 +54,13 @@ Use this area from any page.
 - Top bar with:
   - Scenario selector
   - Global Search
-  - Command Palette
-  - Create shortcut (opens Expense creation)
-  - Keyboard Map dialog
+  - Help button
 
 ### Why it matters
 - Scenario selector controls which data context many pages use.
-- Command Palette and Global Search reduce clicks for daily operations.
+- Global Search helps jump directly to records from anywhere in the app.
+- Command Palette is keyboard-driven (`Ctrl+K`) for quick route/actions.
+- Keyboard shortcuts can be viewed from Command Palette (`Show Keyboard Shortcuts`).
 
 ## 2) Dashboard
 Decision summary view for financial and operational signals.
@@ -410,71 +412,34 @@ Runtime, security, backup, maintenance, and governance configuration.
 - Recent approvals
 - Recent audit records
 
-## Contextual Help Mapping (for `(?)` in-app popups)
-Use these as short snippets for contextual help windows anchored to each component.
+## Help Center Behavior (Current Implementation)
+BudgetIT Help is route-driven and topic-based. The Help window/page renders content from this document based on topic mapping.
 
-## Global
-- **Scenario Selector (?)**: "Choose the planning scenario for this session. Most pages read and save data in the selected scenario."
-- **Global Search (?)**: "Search vendors, services, contracts, and sample expenses. Press Enter to jump directly to the record."
-- **Command Palette (?)**: "Use `Ctrl+K` to open quick commands like New Expense, Import, Alerts, Backup, and route navigation."
+### Launch points
+- Top-bar **Help** button opens Help Center.
+- Desktop menu **Help > Help Center** opens `quick-start`.
+- Desktop menu **Help > Keyboard Shortcuts** opens `global-keyboard-shortcuts`.
+- `F1` opens Help Center.
 
-## Dashboard
-- **Range Buttons (?)**: "Switch between 1, 3, 12, or 60 month views to focus on near-term or long-term trends."
-- **Edit Layout (?)**: "Show/hide cards, reorder them, and assign cards to sections. Reset defaults any time."
-- **Export (?)**: "Export the current dashboard to HTML, PDF, Excel, CSV, or PNG."
+### Topic selector and query parameters
+- Base route: `/help`
+- `topic` query parameter selects a help topic ID (example: `dashboard-overview`).
+- `anchor` query parameter scrolls to a heading within the rendered topic section.
+- If `topic` is missing/invalid, Help defaults to `quick-start`.
+- Changing the Help topic dropdown updates `topic` and re-renders content.
 
-## Expenses
-- **Bulk Actions (?)**: "Select one or more rows, then apply a status update or tag assignment in one step."
-- **Tag Assignments (?)**: "Assign tags by dimension. Single-select dimensions keep one value; multi-select dimensions allow multiple values."
-- **Recurrence (?)**: "Recurrence controls forecast cadence and upcoming occurrence generation."
+### Section extraction and fallback behavior
+- Each Help topic maps to a `docSection` heading in this file.
+- Help renders from matching `## <docSection>` until the next `##` heading.
+- If a mapped heading is missing, Help shows the full document and a fallback note.
 
-## Services
-- **Risk Filter (?)**: "Filter the table to focus on low, medium, or high-risk services."
-- **Detail Tabs (?)**: "Use tabs to inspect service overview, linked expenses/contracts, renewal context, and replacement stage."
-- **Replacement Status (?)**: "Track progression from not-started to candidate-review to approved."
+### Anchor behavior
+- `anchor` supports direct scroll to matching heading IDs in rendered markdown.
+- Anchor matching uses normalized heading IDs (lowercase, punctuation removed, spaces converted to `-`).
 
-## Contracts
-- **Renewal Fields (?)**: "Renewal date, notice period, lifecycle status, and renewal action define contract timing and next steps."
-- **Open Related Records (?)**: "Jump directly to the linked service, alert, or replacement workspace."
-
-## Vendors
-- **Archive vs Delete (?)**: "Archive keeps history but removes the vendor from active workflow. Delete is blocked when linked records still exist."
-- **Linked Records (?)**: "Use linked service/contract lists to understand vendor impact before changes."
-
-## Tags & Dimensions
-- **Required Dimension (?)**: "Mark a dimension required to enforce classification quality."
-- **Merge Tags (?)**: "Move assignments from a source tag to a target tag to clean up taxonomy."
-- **Fix Tagging Queue (?)**: "Complete missing required tags for records that are currently incomplete."
-
-## Scenarios
-- **Promote (?)**: "Advance a scenario through approval states: draft -> reviewed -> approved."
-- **Lock (?)**: "Lock prevents further edits to protect approved planning baselines."
-- **Compare (?)**: "Compare selected scenario against baseline to review planning deltas."
-
-## Alerts
-- **Ack (?)**: "Mark an alert as reviewed and remove it from active due-soon triage."
-- **Snooze (?)**: "Temporarily hide an alert until the selected future date."
-- **Open Entity (?)**: "Jump to the related object for deeper investigation."
-
-## Import
-- **Mode (?)**: "Choose expenses for planning lines, or actuals for observed transactions."
-- **Template Pack (?)**: "Use provider-specific starter mappings for AWS/Azure/GCP exports."
-- **Preview (?)**: "Validate rows and dedupe outcomes before committing data."
-
-## Reports
-- **Visualization Toggles (?)**: "Choose which report blocks to include: table, chart, gauge, narrative."
-- **Export Orchestration (?)**: "Confirm destination path before queueing exports; preview first when needed."
-- **Unmatched Actuals Review (?)**: "Resolve unmatched transactions by matching, rejecting, ignoring, or creating a new expense."
-- **Showback Statements (?)**: "Generate allocation statements for a period and export as CSV/XLSX."
-
-## NLQ
-- **Prompt Input (?)**: "Ask budgeting questions in plain language. Review parsed filters before acting on results."
-- **Save as Report (?)**: "Save a successful NLQ query as a reusable report preset."
-
-## Settings
-- **Backup & Restore (?)**: "Create backups regularly, verify integrity, and keep manifest + database files together."
-- **Re-key Database (?)**: "Rotate encryption key to strengthen local security controls."
-- **Diagnostics (?)**: "Capture integrity, schema, backup freshness, and row-count signals."
+### Current scope note
+- Inline contextual `(?)` popups are not currently shipped in the renderer.
+- In-product help is delivered through the dedicated Help route/window and topic selection.
 
 ## Example Workflows (Step-by-Step)
 
@@ -532,8 +497,11 @@ Goal: Compare a draft scenario with baseline and promote if ready.
 7. If approved by your process, click **Promote**.
 8. Lock scenario when changes should stop.
 
-## Notes For Help Window Integration
-- Keep each `(?)` snippet short (1 to 3 sentences).
-- Include one primary action and one warning/tip.
-- Reuse wording from this document so full help and contextual help stay consistent.
-- If a form has validation rules, include at least one concrete valid example.
+## Help Document Maintenance Notes
+- Keep the mapped section headers unchanged:
+  - `## Quick Start (First Launch)`
+  - `## 1) App Shell (Global Controls)` through `## 13) Settings Center`
+- If mapped headings are renamed, update `apps/renderer/src/features/help/help-topics.ts` in the same change.
+- Keep shortcut and menu wording aligned with implemented behavior in:
+  - `apps/renderer/src/app/AppShell.tsx`
+  - `apps/desktop/src/main.ts`
