@@ -9,7 +9,7 @@ type InlineErrorProps = {
 
 export function InlineError({
   message,
-  title = "Something went wrong",
+  title = "Something Went Wrong",
   action
 }: InlineErrorProps) {
   return (

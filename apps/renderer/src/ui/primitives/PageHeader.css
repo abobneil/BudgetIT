@@ -1,0 +1,29 @@
+.page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+}
+
+.page-header__content {
+  min-width: 0;
+  display: grid;
+  gap: 0.15rem;
+}
+
+.page-header__title {
+  margin: 0;
+}
+
+.page-header__subtitle {
+  color: var(--colorNeutralForeground3);
+  display: block;
+}
+
+.page-header__actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}

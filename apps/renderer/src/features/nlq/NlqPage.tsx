@@ -169,7 +169,6 @@ export function NlqPage() {
       <PageHeader
         title="NLQ Workspace"
         subtitle="Run natural language queries, inspect parsed filters, and convert results to reusable reports."
-        helpTopic="nlq-workspace"
       />
 
       <Card>
@@ -182,7 +181,7 @@ export function NlqPage() {
             placeholder="Ask a budgeting question..."
           />
           <Button appearance="primary" disabled={loading} onClick={() => void runQuery(queryInput)}>
-            {loading ? "Running..." : "Run query"}
+            {loading ? "Running..." : "Run Query"}
           </Button>
         </div>
         <div className="nlq-page__examples">
@@ -294,7 +293,7 @@ export function NlqPage() {
                   Run export
                 </Text>
                 <Button appearance="secondary" onClick={() => void exportResults()}>
-                  Export results
+                  Export Results
                 </Button>
               </section>
             </div>
@@ -319,7 +318,7 @@ export function NlqPage() {
                   Save preset
                 </Text>
                 <Button appearance="primary" onClick={saveAsReport}>
-                  Save as report
+                  Save As Report
                 </Button>
               </section>
             </div>

@@ -2,6 +2,11 @@ import { useMemo, useState } from "react";
 import {
   Button,
   Card,
+  Menu,
+  MenuItem,
+  MenuList,
+  MenuPopover,
+  MenuTrigger,
   Table,
   TableBody,
   TableCell,
@@ -14,6 +19,7 @@ import {
 
 import { PageHeader, StatusChip } from "../../ui/primitives";
 import { isIpcAvailable, queryReport } from "../../lib/ipcClient";
+import { toTitleCaseLabel } from "../../ui/text/labelCase";
 import { useScenarioContext } from "./ScenarioContext";
 import { compareScenarioToBaseline } from "./scenario-model";
 import "./ScenariosPage.css";
@@ -89,12 +95,54 @@ export function ScenariosPage() {
     }).format(minor / 100);
   }
 
+  function handleCompareScenario(scenarioId: string): void {
+    setComparisonScenarioId(scenarioId);
+    if (!hasIpc) {
+      return;
+    }
+
+    void (async () => {
+      try {
+        const result = (await queryReport({
+          query: "scenario.comparison",
+          baselineScenarioId: "baseline",
+          comparisonScenarioId: scenarioId,
+          scenarioId
+        })) as {
+          baselineScenarioId: string;
+          comparisonScenarioId: string;
+          baseline: {
+            expenseCount: number;
+            totalMinor: number;
+            classifiedExpenseCount: number;
+          };
+          comparison: {
+            expenseCount: number;
+            totalMinor: number;
+            classifiedExpenseCount: number;
+          };
+          delta: {
+            expenseCount: number;
+            totalMinor: number;
+            classifiedExpenseCount: number;
+          };
+          generatedAt: string;
+        };
+        setComparisonError(null);
+        setComparisonResult(result);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        setComparisonError(`Comparison failed: ${message}`);
+        setComparisonResult(null);
+      }
+    })();
+  }
+
   return (
     <section className="scenarios-page">
       <PageHeader
         title="Scenarios Workspace"
         subtitle="Clone, promote, lock, and compare scenarios with global context selection."
-        helpTopic="scenarios-workspace"
       />
 
       <Card className="scenarios-page__summary">
@@ -145,7 +193,7 @@ export function ScenariosPage() {
                 <TableCell>{scenario.name}</TableCell>
                 <TableCell>
                   <StatusChip
-                    label={scenario.status.toUpperCase()}
+                    label={toTitleCaseLabel(scenario.status)}
                     tone={statusToTone(scenario.status)}
                   />
                 </TableCell>
@@ -160,82 +208,40 @@ export function ScenariosPage() {
                   <div className="scenarios-page__actions">
                     <Button
                       size="small"
-                      appearance="secondary"
+                      appearance={isSelected ? "primary" : "secondary"}
                       onClick={() => selectScenario(scenario.id)}
                     >
                       Select
                     </Button>
-                    <Button
-                      size="small"
-                      appearance="secondary"
-                      onClick={() => cloneScenario(scenario.id)}
-                    >
-                      Clone
-                    </Button>
-                    <Button
-                      size="small"
-                      appearance="secondary"
-                      disabled={scenario.locked || scenario.status === "approved"}
-                      onClick={() => promoteScenario(scenario.id)}
-                    >
-                      Promote
-                    </Button>
-                    <Button
-                      size="small"
-                      appearance="secondary"
-                      disabled={scenario.locked}
-                      onClick={() => lockScenario(scenario.id)}
-                    >
-                      Lock
-                    </Button>
-                    <Button
-                      size="small"
-                      appearance="secondary"
-                      onClick={() => {
-                        setComparisonScenarioId(scenario.id);
-                        if (!hasIpc) {
-                          return;
-                        }
-                        void (async () => {
-                          try {
-                            const result = (await queryReport({
-                              query: "scenario.comparison",
-                              baselineScenarioId: "baseline",
-                              comparisonScenarioId: scenario.id,
-                              scenarioId: scenario.id
-                            })) as {
-                              baselineScenarioId: string;
-                              comparisonScenarioId: string;
-                              baseline: {
-                                expenseCount: number;
-                                totalMinor: number;
-                                classifiedExpenseCount: number;
-                              };
-                              comparison: {
-                                expenseCount: number;
-                                totalMinor: number;
-                                classifiedExpenseCount: number;
-                              };
-                              delta: {
-                                expenseCount: number;
-                                totalMinor: number;
-                                classifiedExpenseCount: number;
-                              };
-                              generatedAt: string;
-                            };
-                            setComparisonError(null);
-                            setComparisonResult(result);
-                          } catch (error) {
-                            const message =
-                              error instanceof Error ? error.message : String(error);
-                            setComparisonError(`Comparison failed: ${message}`);
-                            setComparisonResult(null);
-                          }
-                        })();
-                      }}
-                    >
-                      Compare
-                    </Button>
+                    <Menu>
+                      <MenuTrigger disableButtonEnhancement>
+                        <Button size="small" appearance="secondary">
+                          More
+                        </Button>
+                      </MenuTrigger>
+                      <MenuPopover>
+                        <MenuList>
+                          <MenuItem onClick={() => cloneScenario(scenario.id)}>
+                            Clone
+                          </MenuItem>
+                          <MenuItem
+                            disabled={scenario.locked || scenario.status === "approved"}
+                            onClick={() => promoteScenario(scenario.id)}
+                          >
+                            Promote
+                          </MenuItem>
+                          <MenuItem
+                            disabled={scenario.locked}
+                            onClick={() => lockScenario(scenario.id)}
+                          >
+                            Lock
+                          </MenuItem>
+                          <MenuItem onClick={() => handleCompareScenario(scenario.id)}>
+                            Compare
+                          </MenuItem>
+                        </MenuList>
+                      </MenuPopover>
+                    </Menu>
                   </div>
                 </TableCell>
               </TableRow>

@@ -133,7 +133,8 @@ describe("ExpensesPage", () => {
     fireEvent.change(screen.getByLabelText("Bulk tag value"), {
       target: { value: "tag-security" }
     });
-    fireEvent.click(screen.getByRole("button", { name: "Bulk tag entry" }));
+    fireEvent.click(screen.getByRole("button", { name: "More" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Bulk Tag Entry" }));
 
     expect(
       await screen.findByText("Applied Security in Cost Center to 2 expense(s).")

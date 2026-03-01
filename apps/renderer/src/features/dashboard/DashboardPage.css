@@ -1,7 +1,7 @@
 .dashboard-page {
   display: grid;
-  gap: 1rem;
-  padding: 1rem 1.25rem;
+  gap: 0.8rem;
+  padding: 0.85rem 1rem;
 }
 
 .dashboard-page--loading {

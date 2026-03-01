@@ -46,7 +46,7 @@ describe("VendorsPage", () => {
       throw new Error("Expected AWS vendor row.");
     }
 
-    fireEvent.click(within(awsRow).getByRole("button", { name: "Open services" }));
+    fireEvent.click(within(awsRow).getByRole("button", { name: "Open Services" }));
     await waitFor(() => {
       expect(screen.getByTestId("page-title")).toHaveTextContent("Services");
     });
@@ -61,7 +61,7 @@ describe("VendorsPage", () => {
     if (!awsRowAgain) {
       throw new Error("Expected AWS vendor row after returning to vendors.");
     }
-    fireEvent.click(within(awsRowAgain).getByRole("button", { name: "Open expenses" }));
+    fireEvent.click(within(awsRowAgain).getByRole("button", { name: "Open Expenses" }));
     await waitFor(() => {
       expect(screen.getByTestId("page-title")).toHaveTextContent("Expenses");
     });
@@ -121,7 +121,7 @@ describe("VendorsPage", () => {
       expect(await screen.findByText("Vendor Acme Security archived.")).toBeInTheDocument();
 
       fireEvent.click(
-        screen.getByRole("button", { name: "Open service Cloud Platform" })
+        screen.getByRole("button", { name: "Open Service Cloud Platform" })
       );
       await waitFor(() => {
         expect(screen.getByTestId("page-title")).toHaveTextContent("Services");

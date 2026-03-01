@@ -124,10 +124,10 @@ describe("ImportPage", () => {
     fireEvent.change(screen.getByLabelText("Mapping template"), {
       target: { value: "actuals-template" }
     });
-    fireEvent.click(screen.getByLabelText("Use saved template"));
+    fireEvent.click(screen.getByLabelText("Use Saved Template"));
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
 
-    fireEvent.click(screen.getByRole("button", { name: "Run preview" }));
+    fireEvent.click(screen.getByRole("button", { name: "Run Preview" }));
     await waitFor(() => {
       expect(previewImportMock).toHaveBeenCalledWith({
         mode: "actuals",
@@ -141,7 +141,7 @@ describe("ImportPage", () => {
     });
 
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
-    fireEvent.click(screen.getByRole("button", { name: "Commit import" }));
+    fireEvent.click(screen.getByRole("button", { name: "Commit Import" }));
 
     await waitFor(() => {
       expect(commitImportMock).toHaveBeenCalledWith({
@@ -169,7 +169,7 @@ describe("ImportPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
 
-    fireEvent.click(screen.getByRole("button", { name: "Run preview" }));
+    fireEvent.click(screen.getByRole("button", { name: "Run Preview" }));
     expect(await screen.findByText("Accepted: 4")).toBeInTheDocument();
     expect(screen.getByText("Rejected: 1")).toBeInTheDocument();
     expect(screen.getByText("Duplicates: 1")).toBeInTheDocument();
@@ -180,7 +180,7 @@ describe("ImportPage", () => {
     expect(screen.getByText(/Duplicate row fingerprint/i)).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
-    fireEvent.click(screen.getByRole("button", { name: "Commit import" }));
+    fireEvent.click(screen.getByRole("button", { name: "Commit Import" }));
     const commitSummary = await screen.findByTestId("import-commit-summary");
     expect(commitSummary).toHaveTextContent("Accepted: 4");
     expect(commitSummary).toHaveTextContent("Rejected: 1");

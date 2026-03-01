@@ -33,6 +33,7 @@ import {
   retireTagOption,
   type TagAssignments
 } from "./tagging-model";
+import { toTitleCaseLabel } from "../../ui/text/labelCase";
 import "./TagsPage.css";
 
 type TaggedEntity = {
@@ -398,7 +399,6 @@ export function TagsPage() {
       <PageHeader
         title="Tags & Dimensions"
         subtitle="Dimension administration, merge/retire operations, and required-tag completeness queue."
-        helpTopic="tags-workspace"
       />
 
       <Card className="tags-summary-card">
@@ -432,8 +432,8 @@ export function TagsPage() {
                 setNewDimensionMode(event.target.value as "single_select" | "multi_select")
               }
             >
-              <option value="single_select">single_select</option>
-              <option value="multi_select">multi_select</option>
+              <option value="single_select">{toTitleCaseLabel("single_select")}</option>
+              <option value="multi_select">{toTitleCaseLabel("multi_select")}</option>
             </Select>
           </div>
           <div className="tags-detail__field">
@@ -445,12 +445,12 @@ export function TagsPage() {
               value={newDimensionRequired ? "yes" : "no"}
               onChange={(event) => setNewDimensionRequired(event.target.value === "yes")}
             >
-              <option value="no">no</option>
-              <option value="yes">yes</option>
+              <option value="no">{toTitleCaseLabel("no")}</option>
+              <option value="yes">{toTitleCaseLabel("yes")}</option>
             </Select>
           </div>
           <Button appearance="primary" onClick={handleCreateDimension}>
-            Create dimension
+            Create Dimension
           </Button>
         </div>
       </Card>
@@ -482,11 +482,11 @@ export function TagsPage() {
           {selectedDimension ? (
             <Card>
               <Title3>{selectedDimension.name}</Title3>
-              <Text>{`Constraint: ${selectedDimension.mode}`}</Text>
-              <Text>{`Required: ${selectedDimension.required ? "yes" : "no"}`}</Text>
+              <Text>{`Constraint: ${toTitleCaseLabel(selectedDimension.mode)}`}</Text>
+              <Text>{`Required: ${selectedDimension.required ? "Yes" : "No"}`}</Text>
 
               <section className="tags-detail__panel">
-                <Text weight="semibold">Create tag</Text>
+                <Text weight="semibold">Create Tag</Text>
                 <div className="tags-detail__create">
                   <div className="tags-detail__field">
                     <Text className="tags-detail__label" size={200} weight="medium">
@@ -500,7 +500,7 @@ export function TagsPage() {
                     />
                   </div>
                   <Button appearance="primary" onClick={handleCreateTag}>
-                    Create tag
+                    Create Tag
                   </Button>
                 </div>
               </section>
@@ -624,7 +624,7 @@ export function TagsPage() {
                         )
                       }
                     >
-                      Complete queue item
+                      Complete Queue Item
                     </Button>
                   </div>
                 </li>

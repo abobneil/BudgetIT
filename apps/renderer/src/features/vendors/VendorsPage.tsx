@@ -32,6 +32,7 @@ import {
   listVendors as listVendorsIpc,
   updateVendor as updateVendorIpc
 } from "../../lib/ipcClient";
+import { toTitleCaseLabel } from "../../ui/text/labelCase";
 import { CONTRACT_BY_ID, SERVICE_BY_ID } from "../services/service-contract-data";
 import {
   INITIAL_VENDOR_RECORDS,
@@ -451,7 +452,6 @@ export function VendorsPage() {
       <PageHeader
         title="Vendors Workspace"
         subtitle="Manage vendor lifecycle, relationship impact, and guarded archive/delete workflows."
-        helpTopic="vendors-workspace"
         actions={
           <Button appearance="primary" onClick={openCreateDrawer}>
             Create Vendor
@@ -517,10 +517,10 @@ export function VendorsPage() {
                       <TableCell>{vendor.owner}</TableCell>
                       <TableCell>{formatUsd(vendor.annualSpendMinor)}</TableCell>
                       <TableCell>
-                        <StatusChip label={vendor.status.toUpperCase()} tone={statusTone(vendor.status)} />
+                        <StatusChip label={toTitleCaseLabel(vendor.status)} tone={statusTone(vendor.status)} />
                       </TableCell>
                       <TableCell>
-                        <StatusChip label={vendor.risk.toUpperCase()} tone={riskTone(vendor.risk)} />
+                        <StatusChip label={toTitleCaseLabel(vendor.risk)} tone={riskTone(vendor.risk)} />
                       </TableCell>
                       <TableCell data-testid={`vendor-service-count-${vendor.id}`}>
                         {vendor.linkedServiceIds.length}
@@ -558,7 +558,7 @@ export function VendorsPage() {
                               openServices(vendor);
                             }}
                           >
-                            Open services
+                            Open Services
                           </Button>
                           <Button
                             size="small"
@@ -568,7 +568,7 @@ export function VendorsPage() {
                               openExpenses(vendor);
                             }}
                           >
-                            Open expenses
+                            Open Expenses
                           </Button>
                           <Button
                             size="small"
@@ -632,7 +632,7 @@ export function VendorsPage() {
                               navigate(`/services?service=${service.id}&tab=overview`)
                             }
                           >
-                            {`Open service ${service.name}`}
+                              {`Open Service ${service.name}`}
                           </Button>
                         </li>
                       );
@@ -662,7 +662,7 @@ export function VendorsPage() {
                             appearance="secondary"
                             onClick={() => navigate(`/contracts?contract=${contract.id}`)}
                           >
-                            {`Open contract ${contract.contractNumber}`}
+                              {`Open Contract ${contract.contractNumber}`}
                           </Button>
                         </li>
                       );
@@ -677,14 +677,14 @@ export function VendorsPage() {
                   appearance="secondary"
                   onClick={() => openServices(selectedVendor)}
                 >
-                  Open services workspace
+                  Open Services Workspace
                 </Button>
                 <Button
                   size="small"
                   appearance="secondary"
                   onClick={() => openExpenses(selectedVendor)}
                 >
-                  Open expenses workspace
+                  Open Expenses Workspace
                 </Button>
               </div>
             </Card>
@@ -703,7 +703,6 @@ export function VendorsPage() {
         onOpenChange={setDrawerOpen}
         onSubmit={handleSubmitDrawer}
         submitLabel={drawerMode === "create" ? "Create" : "Save"}
-        helpTopic="vendors-form"
       >
         <div className="vendors-form">
           <section className="vendors-form__section">
@@ -770,9 +769,9 @@ export function VendorsPage() {
                     }))
                   }
                 >
-                  <option value="active">active</option>
-                  <option value="watch">watch</option>
-                  <option value="archived">archived</option>
+                  <option value="active">{toTitleCaseLabel("active")}</option>
+                  <option value="watch">{toTitleCaseLabel("watch")}</option>
+                  <option value="archived">{toTitleCaseLabel("archived")}</option>
                 </Select>
               </div>
               <div className="vendors-form__field">
@@ -789,9 +788,9 @@ export function VendorsPage() {
                     }))
                   }
                 >
-                  <option value="low">low</option>
-                  <option value="medium">medium</option>
-                  <option value="high">high</option>
+                  <option value="low">{toTitleCaseLabel("low")}</option>
+                  <option value="medium">{toTitleCaseLabel("medium")}</option>
+                  <option value="high">{toTitleCaseLabel("high")}</option>
                 </Select>
               </div>
             </div>

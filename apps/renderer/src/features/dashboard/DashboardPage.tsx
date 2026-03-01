@@ -28,6 +28,7 @@ import {
   LoadingState,
   PageHeader
 } from "../../ui/primitives";
+import { toTitleCaseLabel } from "../../ui/text/labelCase";
 import {
   DASHBOARD_CARD_DEFINITION_MAP,
   buildDashboardKpiMetrics,
@@ -506,7 +507,6 @@ export function DashboardPage() {
         subtitle={`Decision-ready view for forecast, actuals, renewals, and replacement readiness. Active scenario: ${
           selectedScenario?.name ?? selectedScenarioId
         }. Window: ${formatMonthWindow(DASHBOARD_RANGE_MONTHS[selectedRange])}.`}
-        helpTopic="dashboard-overview"
         actions={
           <div className="dashboard-page__actions">
             <div className="dashboard-page__range" role="group" aria-label="Dashboard range">
@@ -517,22 +517,25 @@ export function DashboardPage() {
                   onClick={() => setSelectedRange(option.id)}
                   size="small"
                 >
-                  {option.label}
+                  {toTitleCaseLabel(option.label)}
                 </Button>
               ))}
             </div>
-            <Button
-              appearance="secondary"
-              onClick={() => void loadDashboard(selectedScenarioId)}
-            >
-              Refresh
-            </Button>
-            <Button
-              appearance={editLayout ? "primary" : "secondary"}
-              onClick={() => setEditLayout((current) => !current)}
-            >
-              {editLayout ? "Done editing" : "Edit layout"}
-            </Button>
+            <Menu>
+              <MenuTrigger disableButtonEnhancement>
+                <Button appearance="secondary">More</Button>
+              </MenuTrigger>
+              <MenuPopover>
+                <MenuList>
+                  <MenuItem onClick={() => void loadDashboard(selectedScenarioId)}>
+                    Refresh
+                  </MenuItem>
+                  <MenuItem onClick={() => setEditLayout((current) => !current)}>
+                    {editLayout ? "Done Editing" : "Edit Layout"}
+                  </MenuItem>
+                </MenuList>
+              </MenuPopover>
+            </Menu>
             <Menu>
               <MenuTrigger disableButtonEnhancement>
                 <Button appearance="primary" disabled={exportingFormat !== null}>
@@ -570,7 +573,7 @@ export function DashboardPage() {
                 notify({ tone: "success", message: "Dashboard layout reset to defaults." });
               }}
             >
-              Reset defaults
+              Reset Defaults
             </Button>
           </div>
           <div className="dashboard-layout-editor__new-section">
@@ -581,7 +584,7 @@ export function DashboardPage() {
               placeholder="Add section (for example: Reliability)"
             />
             <Button appearance="secondary" onClick={addSection}>
-              Add section
+              Add Section
             </Button>
           </div>
           <ul className="dashboard-layout-editor__list">

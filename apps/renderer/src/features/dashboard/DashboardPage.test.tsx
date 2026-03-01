@@ -181,12 +181,12 @@ describe("DashboardPage", () => {
     await screen.findByText("Showing last 12 months.");
     expect(screen.getAllByText("2026-01").length).toBeGreaterThan(0);
 
-    fireEvent.click(screen.getByRole("button", { name: "1m" }));
+    fireEvent.click(screen.getByRole("button", { name: "1M" }));
     await screen.findByText("Showing last 1 month.");
     expect(screen.queryAllByText("2026-01")).toHaveLength(0);
     expect(screen.getAllByText("2026-04").length).toBeGreaterThan(0);
 
-    fireEvent.click(screen.getByRole("button", { name: "3m" }));
+    fireEvent.click(screen.getByRole("button", { name: "3M" }));
     await screen.findByText("Showing last 3 months.");
     expect(screen.queryAllByText("2026-01")).toHaveLength(0);
     expect(screen.getAllByText("2026-02").length).toBeGreaterThan(0);
@@ -250,7 +250,8 @@ describe("DashboardPage", () => {
     renderDashboardPage();
 
     await screen.findByText("Forecast");
-    fireEvent.click(screen.getByRole("button", { name: "Edit layout" }));
+    fireEvent.click(screen.getByRole("button", { name: "More" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Edit Layout" }));
     expect(screen.getByTestId("dashboard-layout-editor")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("checkbox", { name: "Toggle Forecast card" }));
@@ -261,7 +262,7 @@ describe("DashboardPage", () => {
     fireEvent.change(screen.getByLabelText("New dashboard section name"), {
       target: { value: "Reliability" }
     });
-    fireEvent.click(screen.getByRole("button", { name: "Add section" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add Section" }));
 
     fireEvent.change(screen.getByLabelText("Section for Renewals Timeline"), {
       target: { value: "section-reliability" }

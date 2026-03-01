@@ -41,6 +41,7 @@ import {
   LoadingState,
   PageHeader
 } from "../../ui/primitives";
+import { toTitleCaseLabel } from "../../ui/text/labelCase";
 import { useScenarioContext } from "../scenarios/ScenarioContext";
 import {
   DEFAULT_REPORT_PRESETS,
@@ -243,9 +244,9 @@ export function ReportsPage() {
                 }}
               >
                 <option value="">None</option>
-                <option value="timing">timing</option>
-                <option value="price">price</option>
-                <option value="scope">scope</option>
+                <option value="timing">{toTitleCaseLabel("timing")}</option>
+                <option value="price">{toTitleCaseLabel("price")}</option>
+                <option value="scope">{toTitleCaseLabel("scope")}</option>
               </Select>
               <Input
                 aria-label={`Unmatched comment ${item.id}`}
@@ -309,7 +310,7 @@ export function ReportsPage() {
                 disabled={!hasIpc || unmatchedBusyTxn !== null}
                 onClick={() => void resolveUnmatchedActual(item, "create_expense")}
               >
-                Create expense
+                Create Expense
               </Button>
             </div>
           );
@@ -721,7 +722,6 @@ export function ReportsPage() {
         subtitle={`Report gallery and configurable workspace. Active scenario: ${
           selectedScenario?.name ?? selectedScenarioId
         }.`}
-        helpTopic="reports-workspace"
       />
 
       <Card data-testid="reports-scenario-context">
@@ -775,7 +775,7 @@ export function ReportsPage() {
             value={tagFilter}
             onChange={(event) => setTagFilter(event.target.value)}
           >
-            <option value="all">All tags</option>
+            <option value="all">All Tags</option>
             <option value="engineering">Engineering</option>
             <option value="security">Security</option>
             <option value="finance">Finance</option>
@@ -783,7 +783,7 @@ export function ReportsPage() {
         </div>
         <div className="reports-visualizations">
           <Checkbox
-            label="Show table block"
+            label="Show Table Block"
             checked={visualizations.table}
             onChange={(_event, data) =>
               setVisualizations((current) => ({
@@ -793,7 +793,7 @@ export function ReportsPage() {
             }
           />
           <Checkbox
-            label="Show chart block"
+            label="Show Chart Block"
             checked={visualizations.chart}
             onChange={(_event, data) =>
               setVisualizations((current) => ({
@@ -803,7 +803,7 @@ export function ReportsPage() {
             }
           />
           <Checkbox
-            label="Show gauge block"
+            label="Show Gauge Block"
             checked={visualizations.gauge}
             onChange={(_event, data) =>
               setVisualizations((current) => ({
@@ -813,7 +813,7 @@ export function ReportsPage() {
             }
           />
           <Checkbox
-            label="Show narrative block"
+            label="Show Narrative Block"
             checked={visualizations.narrative}
             onChange={(_event, data) =>
               setVisualizations((current) => ({
@@ -874,7 +874,7 @@ export function ReportsPage() {
                 });
               }}
             >
-              Confirm destination
+              Confirm Destination
             </Button>
           </section>
           <section className="reports-export-controls__step">
@@ -883,10 +883,10 @@ export function ReportsPage() {
             </Text>
             <div className="reports-export-controls__actions">
               <Button appearance="secondary" onClick={() => void loadReportPreview()}>
-                Preview report
+                Preview Report
               </Button>
               <Button appearance="primary" onClick={() => void queueExportJob()}>
-                Queue export
+                Queue Export
               </Button>
             </div>
           </section>
@@ -905,7 +905,7 @@ export function ReportsPage() {
                 setPreviewHtml(null);
               }}
             >
-              Close preview
+              Close Preview
             </Button>
           </div>
           {previewLoading ? (
@@ -933,7 +933,7 @@ export function ReportsPage() {
             placeholder="My saved preset"
           />
           <Button appearance="secondary" onClick={saveCurrentPreset}>
-            Save preset
+            Save Preset
           </Button>
         </div>
       </Card>
@@ -1113,9 +1113,9 @@ export function ReportsPage() {
                         }}
                       >
                         <option value="">None</option>
-                        <option value="timing">timing</option>
-                        <option value="price">price</option>
-                        <option value="scope">scope</option>
+                        <option value="timing">{toTitleCaseLabel("timing")}</option>
+                        <option value="price">{toTitleCaseLabel("price")}</option>
+                        <option value="scope">{toTitleCaseLabel("scope")}</option>
                       </Select>
                       <Input
                         aria-label={`Unmatched comment ${item.id}`}
@@ -1165,7 +1165,7 @@ export function ReportsPage() {
                           disabled={!hasIpc || unmatchedBusyTxn !== null}
                           onClick={() => void resolveUnmatchedActual(item, "create_expense")}
                         >
-                          Create expense
+                          Create Expense
                         </Button>
                       </div>
                     </TableCell>
@@ -1200,8 +1200,8 @@ export function ReportsPage() {
               setShowbackGroupBy(event.target.value as "cost_center" | "team")
             }
           >
-            <option value="cost_center">cost_center</option>
-            <option value="team">team</option>
+            <option value="cost_center">{toTitleCaseLabel("cost_center")}</option>
+            <option value="team">{toTitleCaseLabel("team")}</option>
           </Select>
           <Input
             aria-label="Showback output directory"
@@ -1214,7 +1214,7 @@ export function ReportsPage() {
             disabled={!hasIpc || showbackBusy !== null}
             onClick={() => void handleGenerateShowback()}
           >
-            {showbackBusy === "generate" ? "Generating..." : "Generate statement"}
+            {showbackBusy === "generate" ? "Generating..." : "Generate Statement"}
           </Button>
         </div>
         {showbackStatements.length === 0 ? (

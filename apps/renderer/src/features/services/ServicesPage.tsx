@@ -25,6 +25,7 @@ import {
   PageHeader,
   StatusChip
 } from "../../ui/primitives";
+import { toTitleCaseLabel } from "../../ui/text/labelCase";
 import {
   createService as createServiceIpc,
   deleteService as deleteServiceIpc,
@@ -532,7 +533,6 @@ export function ServicesPage() {
       <PageHeader
         title="Services Workspace"
         subtitle="Lifecycle-focused service management with renewal context and replacement pathways."
-        helpTopic="services-workspace"
         actions={
           <Button appearance="primary" onClick={openCreateDrawer}>
             Create Service
@@ -631,14 +631,14 @@ export function ServicesPage() {
                           {formatDate(service.renewalDate)}
                         </Text>
                         <StatusChip
-                          label={lifecycleState.toUpperCase()}
+                          label={toTitleCaseLabel(lifecycleState)}
                           tone={serviceLifecycleTone(lifecycleState)}
                         />
                       </TableCell>
                       <TableCell>{formatUsd(service.annualSpendMinor)}</TableCell>
                       <TableCell>
                         <StatusChip
-                          label={service.risk.toUpperCase()}
+                          label={toTitleCaseLabel(service.risk)}
                           tone={serviceRiskTone(service.risk)}
                         />
                       </TableCell>
@@ -680,7 +680,7 @@ export function ServicesPage() {
                               openContract(firstContractId, service.id);
                             }}
                           >
-                            Open contract
+                            Open Contract
                           </Button>
                           <Button
                             size="small"
@@ -690,7 +690,7 @@ export function ServicesPage() {
                               openAlert(service.id);
                             }}
                           >
-                            Open alert
+                            Open Alert
                           </Button>
                           <Button
                             size="small"
@@ -700,7 +700,7 @@ export function ServicesPage() {
                               openReplacement(service.id);
                             }}
                           >
-                            Open replacement
+                            Open Replacement
                           </Button>
                           <Button
                             size="small"
@@ -784,7 +784,7 @@ export function ServicesPage() {
                               appearance="secondary"
                               onClick={() => openContract(contractFromState.id, selectedService.id)}
                             >
-                              {`Open contract ${contractFromState.contractNumber}`}
+                              {`Open Contract ${contractFromState.contractNumber}`}
                             </Button>
                           </li>
                         );
@@ -800,7 +800,7 @@ export function ServicesPage() {
                             appearance="secondary"
                             onClick={() => openContract(contract.id, selectedService.id)}
                           >
-                            {`Open contract ${contract.contractNumber}`}
+                            {`Open Contract ${contract.contractNumber}`}
                           </Button>
                         </li>
                       );
@@ -818,7 +818,7 @@ export function ServicesPage() {
                     appearance="secondary"
                     onClick={() => openAlert(selectedService.id)}
                   >
-                    Open related alert
+                    Open Related Alert
                   </Button>
                 </div>
               ) : null}
@@ -832,7 +832,7 @@ export function ServicesPage() {
                     appearance="secondary"
                     onClick={() => openReplacement(selectedService.id)}
                   >
-                    Open replacement workspace
+                    Open Replacement Workspace
                   </Button>
                 </div>
               ) : null}
@@ -852,7 +852,6 @@ export function ServicesPage() {
         onOpenChange={setDrawerOpen}
         onSubmit={handleSubmitDrawer}
         submitLabel={drawerMode === "create" ? "Create" : "Save"}
-        helpTopic="services-form"
       >
         <div className="services-form">
           <section className="services-form__section">
@@ -935,11 +934,11 @@ export function ServicesPage() {
                     }))
                   }
                 >
-                  <option value="active">active</option>
-                  <option value="trial">trial</option>
-                  <option value="deprecated">deprecated</option>
-                  <option value="retiring">retiring</option>
-                  <option value="retired">retired</option>
+                  <option value="active">{toTitleCaseLabel("active")}</option>
+                  <option value="trial">{toTitleCaseLabel("trial")}</option>
+                  <option value="deprecated">{toTitleCaseLabel("deprecated")}</option>
+                  <option value="retiring">{toTitleCaseLabel("retiring")}</option>
+                  <option value="retired">{toTitleCaseLabel("retired")}</option>
                 </Select>
               </div>
               <div className="services-form__field">
@@ -956,9 +955,9 @@ export function ServicesPage() {
                     }))
                   }
                 >
-                  <option value="low">low</option>
-                  <option value="medium">medium</option>
-                  <option value="high">high</option>
+                  <option value="low">{toTitleCaseLabel("low")}</option>
+                  <option value="medium">{toTitleCaseLabel("medium")}</option>
+                  <option value="high">{toTitleCaseLabel("high")}</option>
                 </Select>
               </div>
               <div className="services-form__field services-form__field--full">
@@ -978,9 +977,9 @@ export function ServicesPage() {
                     }))
                   }
                 >
-                  <option value="not-started">not-started</option>
-                  <option value="candidate-review">candidate-review</option>
-                  <option value="approved">approved</option>
+                  <option value="not-started">{toTitleCaseLabel("not-started")}</option>
+                  <option value="candidate-review">{toTitleCaseLabel("candidate-review")}</option>
+                  <option value="approved">{toTitleCaseLabel("approved")}</option>
                 </Select>
               </div>
             </div>

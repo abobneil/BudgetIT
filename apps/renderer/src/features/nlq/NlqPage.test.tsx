@@ -116,7 +116,7 @@ describe("NlqPage", () => {
     fireEvent.change(screen.getByLabelText("NLQ prompt input"), {
       target: { value: "show microsoft spend over 50000 in next 90 days" }
     });
-    fireEvent.click(screen.getByRole("button", { name: "Run query" }));
+    fireEvent.click(screen.getByRole("button", { name: "Run Query" }));
 
     await waitFor(() => {
       expect(parseNlqMock).toHaveBeenCalledWith({
@@ -141,13 +141,13 @@ describe("NlqPage", () => {
     fireEvent.change(screen.getByLabelText("NLQ prompt input"), {
       target: { value: "security variance this quarter" }
     });
-    fireEvent.click(screen.getByRole("button", { name: "Run query" }));
+    fireEvent.click(screen.getByRole("button", { name: "Run Query" }));
     await screen.findByText(/Parsed filters:/i);
 
     fireEvent.change(screen.getByLabelText("Save report name"), {
       target: { value: "Security Variance Report" }
     });
-    fireEvent.click(screen.getByRole("button", { name: "Save as report" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save As Report" }));
     expect(await screen.findByText("Saved report preset: Security Variance Report.")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("link", { name: "Reports" }));
@@ -165,7 +165,7 @@ describe("NlqPage", () => {
     fireEvent.change(screen.getByLabelText("NLQ prompt input"), {
       target: { value: "show microsoft spend over 50000 in next 90 days" }
     });
-    fireEvent.click(screen.getByRole("button", { name: "Run query" }));
+    fireEvent.click(screen.getByRole("button", { name: "Run Query" }));
     await screen.findByText(/Parsed filters:/i);
 
     fireEvent.change(screen.getByLabelText("NLQ export format"), {
@@ -174,7 +174,7 @@ describe("NlqPage", () => {
     fireEvent.change(screen.getByLabelText("NLQ export path"), {
       target: { value: "C:\\exports\\nlq" }
     });
-    fireEvent.click(screen.getByRole("button", { name: "Export results" }));
+    fireEvent.click(screen.getByRole("button", { name: "Export Results" }));
 
     await waitFor(() => {
       expect(exportReportMock).toHaveBeenCalledWith({
@@ -201,10 +201,10 @@ describe("NlqPage", () => {
     fireEvent.change(screen.getByLabelText("NLQ prompt input"), {
       target: { value: "show microsoft spend over 50000 in next 90 days" }
     });
-    fireEvent.click(screen.getByRole("button", { name: "Run query" }));
+    fireEvent.click(screen.getByRole("button", { name: "Run Query" }));
     await screen.findByText(/Parsed filters:/i);
 
-    fireEvent.click(screen.getByRole("button", { name: "Export results" }));
+    fireEvent.click(screen.getByRole("button", { name: "Export Results" }));
 
     expect(
       await screen.findByText(/Export failed: NLQ export supports only csv and excel formats\./i)

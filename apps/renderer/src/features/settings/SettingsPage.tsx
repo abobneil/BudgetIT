@@ -563,10 +563,9 @@ export function SettingsPage() {
       <PageHeader
         title="Settings Center"
         subtitle="Runtime, notifications, backup/restore, security, and maintenance operations."
-        helpTopic="settings-center"
         actions={
           <Button appearance="secondary" onClick={() => void loadSettingsCenter()}>
-            Reload settings
+            Reload Settings
           </Button>
         }
       />
@@ -616,7 +615,7 @@ export function SettingsPage() {
             disabled={!sectionDirty.runtime || savingRuntime}
             onClick={() => void applyRuntimeSettings()}
           >
-            {savingRuntime ? "Saving..." : "Save runtime settings"}
+            {savingRuntime ? "Saving..." : "Save Runtime Settings"}
           </Button>
         </Card>
 
@@ -664,14 +663,14 @@ export function SettingsPage() {
               }
               onClick={() => void applyNotificationSettings()}
             >
-              {savingNotifications ? "Saving..." : "Save notifications"}
+              {savingNotifications ? "Saving..." : "Save Notifications"}
             </Button>
             <Button
               appearance="secondary"
               disabled={sendingTeamsTest || draftSettings.teamsEnabled === false}
               onClick={() => void handleSendTeamsTest()}
             >
-              {sendingTeamsTest ? "Sending..." : "Send Teams test"}
+              {sendingTeamsTest ? "Sending..." : "Send Teams Test"}
             </Button>
           </div>
         </Card>
@@ -697,7 +696,7 @@ export function SettingsPage() {
                   />
                 </div>
                 <Button disabled={backupBusy} onClick={() => void handleCreateBackup()}>
-                  {backupBusy ? "Working..." : "Create backup"}
+                  {backupBusy ? "Working..." : "Create Backup"}
                 </Button>
               </div>
             </section>
@@ -731,7 +730,7 @@ export function SettingsPage() {
                   />
                 </div>
                 <Button disabled={restoringBackup} onClick={() => void handleRestoreBackup()}>
-                  {restoringBackup ? "Restoring..." : "Restore backup"}
+                  {restoringBackup ? "Restoring..." : "Restore Backup"}
                 </Button>
               </div>
             </section>
@@ -765,7 +764,7 @@ export function SettingsPage() {
                   />
                 </div>
                 <Button disabled={backupBusy} onClick={() => void handleVerifyBackup()}>
-                  {backupBusy ? "Working..." : "Verify backup"}
+                  {backupBusy ? "Working..." : "Verify Backup"}
                 </Button>
               </div>
             </section>
@@ -795,7 +794,7 @@ export function SettingsPage() {
             disabled={rekeyBusy}
             onClick={() => setOpenRekeyDialog(true)}
           >
-            {rekeyBusy ? "Re-keying..." : "Re-key database"}
+            {rekeyBusy ? "Re-Keying..." : "Re-Key Database"}
           </Button>
         </Card>
 
@@ -810,14 +809,14 @@ export function SettingsPage() {
             >
               {maintenanceBusy === "materialize"
                 ? "Materializing..."
-                : "Re-materialize forecast"}
+                : "Re-Materialize Forecast"}
             </Button>
             <Button
               appearance="secondary"
               disabled={maintenanceBusy !== null}
               onClick={() => setOpenDiagnosticsDialog(true)}
             >
-              {maintenanceBusy === "diagnostics" ? "Collecting..." : "Run diagnostics"}
+              {maintenanceBusy === "diagnostics" ? "Collecting..." : "Run Diagnostics"}
             </Button>
           </div>
           {diagnostics ? (
@@ -872,7 +871,7 @@ export function SettingsPage() {
             }
           />
           <Button appearance="secondary" onClick={() => void handleSaveScenarioSettings()}>
-            Save scenario settings
+            Save Scenario Settings
           </Button>
         </Card>
 
@@ -893,7 +892,7 @@ export function SettingsPage() {
               placeholder="Cost center name"
             />
             <Button appearance="secondary" onClick={() => void handleCreateCostCenter()}>
-              Add cost center
+              Add Cost Center
             </Button>
           </div>
           <ul>
@@ -905,7 +904,7 @@ export function SettingsPage() {
                   appearance="secondary"
                   onClick={() => void toggleCostCenterActive(entry)}
                 >
-                  Toggle active
+                  Toggle Active
                 </Button>
               </li>
             ))}
@@ -924,7 +923,7 @@ export function SettingsPage() {
               placeholder="GL account name"
             />
             <Button appearance="secondary" onClick={() => void handleCreateGlAccount()}>
-              Add GL account
+              Add GL Account
             </Button>
           </div>
           <ul>
@@ -936,7 +935,7 @@ export function SettingsPage() {
                   appearance="secondary"
                   onClick={() => void toggleGlAccountActive(entry)}
                 >
-                  Toggle active
+                  Toggle Active
                 </Button>
               </li>
             ))}
@@ -1001,7 +1000,7 @@ export function SettingsPage() {
         message="This rotates the local encryption key. Continue only if you are ready to update recovery handling."
         onOpenChange={setOpenRekeyDialog}
         onConfirm={() => void handleRekeyConfirm()}
-        confirmLabel="Rotate key"
+        confirmLabel="Rotate Key"
       />
       <ConfirmDialog
         open={openMaterializeDialog}
@@ -1009,7 +1008,7 @@ export function SettingsPage() {
         message="This regenerates forecast occurrences for the selected scenario."
         onOpenChange={setOpenMaterializeDialog}
         onConfirm={() => void handleMaterializeConfirm()}
-        confirmLabel="Re-materialize"
+        confirmLabel="Re-Materialize"
       />
       <ConfirmDialog
         open={openDiagnosticsDialog}
@@ -1017,7 +1016,7 @@ export function SettingsPage() {
         message="This collects database integrity and backup-health diagnostics."
         onOpenChange={setOpenDiagnosticsDialog}
         onConfirm={() => void handleDiagnosticsConfirm()}
-        confirmLabel="Run diagnostics"
+        confirmLabel="Run Diagnostics"
       />
     </section>
   );

@@ -53,7 +53,7 @@ export class ErrorBoundary extends Component<
           gap: "0.5rem"
         }}
       >
-        <Text weight="semibold">{this.props.label ?? "Something went wrong"}</Text>
+        <Text weight="semibold">{this.props.label ?? "Something Went Wrong"}</Text>
         <Text>{this.state.error.message}</Text>
         <div style={{ display: "flex", gap: "0.5rem" }}>
           <Button appearance="primary" onClick={this.handleRetry} size="small">
@@ -64,7 +64,7 @@ export class ErrorBoundary extends Component<
             onClick={() => window.location.reload()}
             size="small"
           >
-            Reload app
+            Reload App
           </Button>
         </div>
       </Card>

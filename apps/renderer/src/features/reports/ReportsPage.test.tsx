@@ -111,7 +111,7 @@ describe("ReportsPage", () => {
       });
     });
 
-    const chartToggle = screen.getByLabelText("Show chart block") as HTMLInputElement;
+    const chartToggle = screen.getByLabelText("Show Chart Block") as HTMLInputElement;
     fireEvent.click(chartToggle);
     expect(chartToggle.checked).toBe(false);
 
@@ -133,7 +133,7 @@ describe("ReportsPage", () => {
         }
       });
     });
-    expect((screen.getByLabelText("Show chart block") as HTMLInputElement).checked).toBe(false);
+    expect((screen.getByLabelText("Show Chart Block") as HTMLInputElement).checked).toBe(false);
   });
 
   it("opens gallery report, updates filters, exports two formats, and shows job results", async () => {
@@ -147,12 +147,12 @@ describe("ReportsPage", () => {
     fireEvent.change(screen.getByLabelText("Export destination"), {
       target: { value: "C:\\exports\\reports" }
     });
-    fireEvent.click(screen.getByRole("button", { name: "Confirm destination" }));
+    fireEvent.click(screen.getByRole("button", { name: "Confirm Destination" }));
 
     fireEvent.change(screen.getByLabelText("Export format"), {
       target: { value: "csv" }
     });
-    fireEvent.click(screen.getByRole("button", { name: "Queue export" }));
+    fireEvent.click(screen.getByRole("button", { name: "Queue Export" }));
     await waitFor(() => {
       expect(exportReportMock).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -167,7 +167,7 @@ describe("ReportsPage", () => {
     fireEvent.change(screen.getByLabelText("Export format"), {
       target: { value: "pdf" }
     });
-    fireEvent.click(screen.getByRole("button", { name: "Queue export" }));
+    fireEvent.click(screen.getByRole("button", { name: "Queue Export" }));
     await waitFor(() => {
       expect(exportReportMock).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -193,7 +193,7 @@ describe("ReportsPage", () => {
       target: { value: "security" }
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "Preview report" }));
+    fireEvent.click(screen.getByRole("button", { name: "Preview Report" }));
 
     await waitFor(() => {
       expect(previewReportMock).toHaveBeenCalledWith({

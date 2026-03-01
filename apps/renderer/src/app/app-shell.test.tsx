@@ -42,6 +42,8 @@ describe("AppShell", () => {
       screen.queryByRole("button", { name: "Command Palette" })
     ).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Create" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^\(\?\)$/ })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/help for/i)).not.toBeInTheDocument();
     expect(screen.getByText("Loading dashboard...")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Alerts" })).toBeInTheDocument();
   });
@@ -66,6 +68,8 @@ describe("AppShell", () => {
     expect(
       screen.queryByRole("button", { name: "Command Palette" })
     ).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^\(\?\)$/ })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/help for/i)).not.toBeInTheDocument();
     expect(await screen.findByText("Help Center")).toBeInTheDocument();
   });
 });

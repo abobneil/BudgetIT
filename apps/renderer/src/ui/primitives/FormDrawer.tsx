@@ -9,8 +9,6 @@ import {
   DialogTitle
 } from "@fluentui/react-components";
 
-import { ContextHelpButton } from "./ContextHelpButton";
-
 type FormDrawerProps = {
   open: boolean;
   title: string;
@@ -18,8 +16,6 @@ type FormDrawerProps = {
   onSubmit: () => void;
   children: ReactNode;
   submitLabel?: string;
-  helpTopic?: string;
-  helpAnchor?: string;
 };
 
 export function FormDrawer({
@@ -28,9 +24,7 @@ export function FormDrawer({
   onOpenChange,
   onSubmit,
   children,
-  submitLabel = "Save",
-  helpTopic,
-  helpAnchor
+  submitLabel = "Save"
 }: FormDrawerProps) {
   return (
     <Dialog
@@ -51,9 +45,6 @@ export function FormDrawer({
               }}
             >
               <span>{title}</span>
-              {helpTopic ? (
-                <ContextHelpButton topic={helpTopic} anchor={helpAnchor} />
-              ) : null}
             </div>
           </DialogTitle>
           <DialogContent>{children}</DialogContent>

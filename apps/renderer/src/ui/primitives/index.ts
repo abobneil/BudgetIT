@@ -1,5 +1,4 @@
 export { ConfirmDialog } from "./ConfirmDialog";
-export { ContextHelpButton } from "./ContextHelpButton";
 export { ErrorBoundary } from "./ErrorBoundary";
 export { EmptyState } from "./EmptyState";
 export { EntityTable } from "./EntityTable";

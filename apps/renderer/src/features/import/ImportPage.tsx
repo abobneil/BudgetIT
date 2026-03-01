@@ -243,7 +243,6 @@ export function ImportPage() {
       <PageHeader
         title="Import Wizard"
         subtitle="Guided stepper for mode, mapping, preview, and commit with deterministic dedupe outcomes."
-        helpTopic="import-wizard"
       />
 
       <Card>
@@ -363,7 +362,7 @@ export function ImportPage() {
                   }))
                 }
               >
-                <option value="">No pack</option>
+                <option value="">No Pack</option>
                 <option value="aws-cur">AWS CUR CSV</option>
                 <option value="azure-cost">Azure cost export CSV</option>
                 <option value="gcp-billing">GCP billing export CSV</option>
@@ -371,7 +370,7 @@ export function ImportPage() {
             </div>
             <div className="import-flags">
               <Checkbox
-                label="Use saved template"
+                label="Use Saved Template"
                 checked={draft.useSavedTemplate}
                 onChange={(_event, data) =>
                   setDraft((current) => ({
@@ -381,7 +380,7 @@ export function ImportPage() {
                 }
               />
               <Checkbox
-                label="Save template"
+                label="Save Template"
                 checked={draft.saveTemplate}
                 onChange={(_event, data) =>
                   setDraft((current) => ({
@@ -391,7 +390,7 @@ export function ImportPage() {
                 }
               />
               <Checkbox
-                label="Enforce finance metadata"
+                label="Enforce Finance Metadata"
                 checked={draft.requireFinanceMetadata}
                 onChange={(_event, data) =>
                   setDraft((current) => ({
@@ -413,7 +412,7 @@ export function ImportPage() {
                     disabled={!hasIpc || templateLibraryLoading || templateLibraryBusy !== null}
                     onClick={() => void loadTemplateLibrary()}
                   >
-                    {templateLibraryLoading ? "Refreshing..." : "Refresh templates"}
+                    {templateLibraryLoading ? "Refreshing..." : "Refresh Templates"}
                   </Button>
                 </div>
                 {!hasIpc ? (
@@ -449,7 +448,7 @@ export function ImportPage() {
                                   }))
                                 }
                               >
-                                Use template
+                                Use Template
                               </Button>
                               <Button
                                 size="small"
@@ -476,7 +475,7 @@ export function ImportPage() {
         <Card>
           <Title3>Step 4: Preview</Title3>
           <Button appearance="primary" disabled={busy} onClick={() => void onRunPreview()}>
-            {busy ? "Previewing..." : "Run preview"}
+            {busy ? "Previewing..." : "Run Preview"}
           </Button>
 
           {draft.previewResult ? (
@@ -571,7 +570,7 @@ export function ImportPage() {
             disabled={busy || draft.previewResult === null}
             onClick={() => void onRunCommit()}
           >
-            {busy ? "Committing..." : "Commit import"}
+            {busy ? "Committing..." : "Commit Import"}
           </Button>
 
           {draft.commitResult ? (
@@ -595,7 +594,7 @@ export function ImportPage() {
                               entry.description ?? "No description"
                             }`}</Text>
                             <Button size="small" appearance="secondary">
-                              Queue follow-up
+                              Queue Follow-Up
                             </Button>
                           </li>
                         ))}

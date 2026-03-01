@@ -134,13 +134,16 @@ describe("Scenarios and global scenario context", () => {
     await screen.findByText("Scenarios Workspace");
     const baselineRow = await screen.findByTestId("scenario-row-baseline");
 
-    fireEvent.click(within(baselineRow).getByRole("button", { name: "Clone" }));
+    fireEvent.click(within(baselineRow).getByRole("button", { name: "More" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Clone" }));
     const cloneRow = await screen.findByTestId("scenario-row-scenario-baseline-copy");
 
-    fireEvent.click(within(cloneRow).getByRole("button", { name: "Promote" }));
-    expect(within(cloneRow).getByText("REVIEWED")).toBeInTheDocument();
+    fireEvent.click(within(cloneRow).getByRole("button", { name: "More" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Promote" }));
+    expect(within(cloneRow).getByText("Reviewed")).toBeInTheDocument();
 
-    fireEvent.click(within(cloneRow).getByRole("button", { name: "Lock" }));
+    fireEvent.click(within(cloneRow).getByRole("button", { name: "More" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Lock" }));
     expect(within(cloneRow).getByText("Locked")).toBeInTheDocument();
 
     fireEvent.click(within(cloneRow).getByRole("button", { name: "Select" }));

@@ -123,7 +123,7 @@ describe("AlertsPage", () => {
     renderAlertsPage("/alerts?tab=dueSoon");
     await screen.findAllByText("Renewal due in 5 days");
 
-    fireEvent.click(screen.getByRole("button", { name: "Snooze until +7d" }));
+    fireEvent.click(screen.getByRole("button", { name: "Snooze Until +7D" }));
     await waitFor(() => {
       expect(snoozeAlertMock).toHaveBeenCalledWith(
         "alert-1",

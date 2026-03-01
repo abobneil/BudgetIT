@@ -50,7 +50,7 @@ describe("service and contract workspaces", () => {
     }
 
     fireEvent.click(
-      within(serviceRow).getByRole("button", { name: "Open contract" })
+      within(serviceRow).getByRole("button", { name: "Open Contract" })
     );
 
     await waitFor(() => {
@@ -66,16 +66,16 @@ describe("service and contract workspaces", () => {
   it("supports service to contract to related alert navigation path", async () => {
     renderWorkspace("/services?service=svc-cloud-platform&tab=contracts");
 
-    await screen.findByRole("button", { name: "Open contract CTR-CLOUD-OPS-07" });
+    await screen.findByRole("button", { name: "Open Contract CTR-CLOUD-OPS-07" });
     fireEvent.click(
-      screen.getByRole("button", { name: "Open contract CTR-CLOUD-OPS-07" })
+      screen.getByRole("button", { name: "Open Contract CTR-CLOUD-OPS-07" })
     );
 
     await waitFor(() => {
       expect(screen.getByTestId("page-title")).toHaveTextContent("Contracts");
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "Open related alert" }));
+    fireEvent.click(screen.getByRole("button", { name: "Open Related Alert" }));
 
     await waitFor(() => {
       expect(screen.getByTestId("page-title")).toHaveTextContent("Alerts");
@@ -87,7 +87,7 @@ describe("service and contract workspaces", () => {
     renderWorkspace("/contracts?contract=ctr-cloud-ops");
 
     await screen.findByText("Contract Detail");
-    fireEvent.click(screen.getByRole("button", { name: "Open replacement workspace" }));
+    fireEvent.click(screen.getByRole("button", { name: "Open Replacement Workspace" }));
 
     await waitFor(() => {
       expect(screen.getByTestId("page-title")).toHaveTextContent("Reports");

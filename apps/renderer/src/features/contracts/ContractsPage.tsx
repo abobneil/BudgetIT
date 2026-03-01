@@ -23,6 +23,7 @@ import {
   PageHeader,
   StatusChip
 } from "../../ui/primitives";
+import { toTitleCaseLabel } from "../../ui/text/labelCase";
 import {
   createContract as createContractIpc,
   deleteContract as deleteContractIpc,
@@ -497,7 +498,6 @@ export function ContractsPage() {
       <PageHeader
         title="Contracts Workspace"
         subtitle="Contract lifecycle management with linked services, renewal actions, and replacement pathways."
-        helpTopic="contracts-workspace"
         actions={
           <Button appearance="primary" onClick={openCreateDrawer}>
             Create Contract
@@ -578,7 +578,7 @@ export function ContractsPage() {
                       </TableCell>
                       <TableCell>
                         <StatusChip
-                          label={contract.lifecycleStatus.toUpperCase()}
+                          label={toTitleCaseLabel(contract.lifecycleStatus)}
                           tone={contractLifecycleTone(contract.lifecycleStatus)}
                         />
                       </TableCell>
@@ -616,7 +616,7 @@ export function ContractsPage() {
                               openService(firstServiceId);
                             }}
                           >
-                            Open service
+                            Open Service
                           </Button>
                           <Button
                             size="small"
@@ -626,7 +626,7 @@ export function ContractsPage() {
                               openAlert(contract.id);
                             }}
                           >
-                            Open alert
+                            Open Alert
                           </Button>
                           <Button
                             size="small"
@@ -636,7 +636,7 @@ export function ContractsPage() {
                               openReplacement(contract.id);
                             }}
                           >
-                            Open replacement
+                            Open Replacement
                           </Button>
                           <Button
                             size="small"
@@ -683,7 +683,7 @@ export function ContractsPage() {
                           appearance="secondary"
                           onClick={() => openService(serviceFromState.id)}
                         >
-                          {`Open service ${serviceFromState.name}`}
+                          {`Open Service ${serviceFromState.name}`}
                         </Button>
                       </li>
                     );
@@ -699,7 +699,7 @@ export function ContractsPage() {
                         appearance="secondary"
                         onClick={() => openService(service.id)}
                       >
-                        {`Open service ${service.name}`}
+                        {`Open Service ${service.name}`}
                       </Button>
                     </li>
                   );
@@ -711,14 +711,14 @@ export function ContractsPage() {
                   appearance="secondary"
                   onClick={() => openAlert(selectedContract.id)}
                 >
-                  Open related alert
+                  Open Related Alert
                 </Button>
                 <Button
                   size="small"
                   appearance="secondary"
                   onClick={() => openReplacement(selectedContract.id)}
                 >
-                  Open replacement workspace
+                  Open Replacement Workspace
                 </Button>
                 <Button
                   size="small"
@@ -729,7 +729,7 @@ export function ContractsPage() {
                     )
                   }
                 >
-                  Start renewal review
+                  Start Renewal Review
                 </Button>
               </div>
             </Card>
@@ -748,7 +748,6 @@ export function ContractsPage() {
         onOpenChange={setDrawerOpen}
         onSubmit={handleSubmitDrawer}
         submitLabel={drawerMode === "create" ? "Create" : "Save"}
-        helpTopic="contracts-form"
       >
         <div className="contracts-form">
           <section className="contracts-form__section">
@@ -842,9 +841,9 @@ export function ContractsPage() {
                     }))
                   }
                 >
-                  <option value="auto">auto</option>
-                  <option value="manual">manual</option>
-                  <option value="none">none</option>
+                  <option value="auto">{toTitleCaseLabel("auto")}</option>
+                  <option value="manual">{toTitleCaseLabel("manual")}</option>
+                  <option value="none">{toTitleCaseLabel("none")}</option>
                 </Select>
               </div>
               <div className="contracts-form__field">
@@ -888,10 +887,10 @@ export function ContractsPage() {
                     }))
                   }
                 >
-                  <option value="active">active</option>
-                  <option value="renewal-window">renewal-window</option>
-                  <option value="notice-window">notice-window</option>
-                  <option value="expired">expired</option>
+                  <option value="active">{toTitleCaseLabel("active")}</option>
+                  <option value="renewal-window">{toTitleCaseLabel("renewal-window")}</option>
+                  <option value="notice-window">{toTitleCaseLabel("notice-window")}</option>
+                  <option value="expired">{toTitleCaseLabel("expired")}</option>
                 </Select>
               </div>
               <div className="contracts-form__field">
@@ -911,9 +910,9 @@ export function ContractsPage() {
                     }))
                   }
                 >
-                  <option value="auto-renew">auto-renew</option>
-                  <option value="manual-review">manual-review</option>
-                  <option value="cancel-window">cancel-window</option>
+                  <option value="auto-renew">{toTitleCaseLabel("auto-renew")}</option>
+                  <option value="manual-review">{toTitleCaseLabel("manual-review")}</option>
+                  <option value="cancel-window">{toTitleCaseLabel("cancel-window")}</option>
                 </Select>
               </div>
             </div>

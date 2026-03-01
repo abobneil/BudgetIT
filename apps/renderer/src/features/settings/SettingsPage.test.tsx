@@ -231,7 +231,7 @@ describe("SettingsPage", () => {
 
     fireEvent.click(screen.getByRole("switch", { name: "Start with Windows" }));
     fireEvent.click(screen.getByRole("switch", { name: "Minimize to tray on close" }));
-    fireEvent.click(screen.getByRole("button", { name: "Save runtime settings" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save Runtime Settings" }));
 
     await waitFor(() => {
       expect(saveSettingsMock).toHaveBeenCalledWith({
@@ -242,7 +242,7 @@ describe("SettingsPage", () => {
       });
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "Reload settings" }));
+    fireEvent.click(screen.getByRole("button", { name: "Reload Settings" }));
 
     await waitFor(() => {
       expect(getSettingsMock).toHaveBeenCalledTimes(2);
@@ -279,7 +279,7 @@ describe("SettingsPage", () => {
 
     fireEvent.click(screen.getByRole("switch", { name: "Start with Windows" }));
     fireEvent.click(screen.getByRole("switch", { name: "Minimize to tray on close" }));
-    fireEvent.click(screen.getByRole("button", { name: "Save runtime settings" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save Runtime Settings" }));
     await waitFor(() => {
       expect(saveSettingsMock).toHaveBeenCalled();
     });
@@ -290,13 +290,13 @@ describe("SettingsPage", () => {
     fireEvent.change(screen.getByLabelText("Restore manifest path"), {
       target: { value: "C:\\Backups\\BudgetIT\\backup.manifest.json" }
     });
-    fireEvent.click(screen.getByRole("button", { name: "Restore backup" }));
+    fireEvent.click(screen.getByRole("button", { name: "Restore Backup" }));
 
     expect(await screen.findByTestId("restore-asof-banner")).toHaveTextContent(
       "Data current as of 2026-02-27T15:50:00.000Z (restored 2026-02-27T16:20:00.000Z)"
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Reload settings" }));
+    fireEvent.click(screen.getByRole("button", { name: "Reload Settings" }));
     await waitFor(() => {
       expect(getSettingsMock).toHaveBeenCalledTimes(2);
     });

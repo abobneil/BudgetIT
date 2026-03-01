@@ -5,6 +5,11 @@ import {
   Card,
   Checkbox,
   Input,
+  Menu,
+  MenuItem,
+  MenuList,
+  MenuPopover,
+  MenuTrigger,
   Select,
   Table,
   TableBody,
@@ -27,6 +32,7 @@ import {
   PageHeader,
   StatusChip
 } from "../../ui/primitives";
+import { toTitleCaseLabel } from "../../ui/text/labelCase";
 import { isAgGridAvailable } from "../../lib/agGrid";
 import {
   assignTag as assignTagIpc,
@@ -620,7 +626,7 @@ export function ExpensesPage() {
         cellRenderer: (params: { value?: ExpenseStatus }) =>
           params.value ? (
             <StatusChip
-              label={params.value.toUpperCase()}
+              label={toTitleCaseLabel(params.value)}
               tone={statusToTone(params.value)}
             />
           ) : null
@@ -1212,7 +1218,6 @@ export function ExpensesPage() {
       <PageHeader
         title="Expenses Workspace"
         subtitle="Manage expense lines with sortable table triage, detail context, and recurrence preview."
-        helpTopic="expenses-workspace"
         actions={
           <Button appearance="primary" onClick={openCreateDrawer}>
             Create Expense
@@ -1221,78 +1226,91 @@ export function ExpensesPage() {
       />
 
       <div className="expenses-toolbar">
-        <Input
-          aria-label="Search expenses"
-          placeholder="Search by name, vendor, service, contract, or tag"
-          value={searchText}
-          onChange={(_event, data) => setSearchText(data.value)}
-        />
-        <Select
-          aria-label="Filter by vendor"
-          value={vendorFilter}
-          onChange={(event) => setVendorFilter(event.target.value)}
-        >
-          <option value="all">All vendors</option>
-          {vendorOptions.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </Select>
-        <div className="expenses-toolbar__filters">
-          <Button
-            appearance={statusFilter === "all" ? "primary" : "secondary"}
-            size="small"
-            onClick={() => setStatusFilter("all")}
-          >
-            All
-          </Button>
-          {STATUS_OPTIONS.map((status) => (
-            <Button
-              key={status}
-              appearance={statusFilter === status ? "primary" : "secondary"}
-              size="small"
-              onClick={() => setStatusFilter(status)}
-            >
-              {status}
-            </Button>
-          ))}
-        </div>
-        <div className="expenses-toolbar__bulk">
+        <div className="expenses-toolbar__search-row">
+          <Input
+            aria-label="Search expenses"
+            placeholder="Search by name, vendor, service, contract, or tag"
+            value={searchText}
+            onChange={(_event, data) => setSearchText(data.value)}
+          />
           <Select
-            aria-label="Bulk tag dimension"
-            value={bulkTagDimensionId}
-            onChange={(event) => {
-              setBulkTagDimensionId(event.target.value);
-              setBulkTagId("");
-            }}
+            aria-label="Filter by vendor"
+            value={vendorFilter}
+            onChange={(event) => setVendorFilter(event.target.value)}
           >
-            {dimensions.map((dimension) => (
-              <option key={dimension.id} value={dimension.id}>
-                {dimension.name}
+            <option value="all">All Vendors</option>
+            {vendorOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
               </option>
             ))}
           </Select>
-          <Select
-            aria-label="Bulk tag value"
-            value={bulkTagId}
-            onChange={(event) => setBulkTagId(event.target.value)}
-          >
-            <option value="">Select tag</option>
-            {(bulkDimension?.tags ?? [])
-              .filter((tag) => !tag.retired)
-              .map((tag) => (
-                <option key={tag.id} value={tag.id}>
-                  {tag.label}
+        </div>
+        <div className="expenses-toolbar__action-row">
+          <div className="expenses-toolbar__filters">
+            <Button
+              appearance={statusFilter === "all" ? "primary" : "secondary"}
+              size="small"
+              onClick={() => setStatusFilter("all")}
+            >
+              All
+            </Button>
+            {STATUS_OPTIONS.map((status) => (
+              <Button
+                key={status}
+                appearance={statusFilter === status ? "primary" : "secondary"}
+                size="small"
+                onClick={() => setStatusFilter(status)}
+              >
+                {toTitleCaseLabel(status)}
+              </Button>
+            ))}
+          </div>
+          <div className="expenses-toolbar__bulk">
+            <Select
+              aria-label="Bulk tag dimension"
+              value={bulkTagDimensionId}
+              onChange={(event) => {
+                setBulkTagDimensionId(event.target.value);
+                setBulkTagId("");
+              }}
+            >
+              {dimensions.map((dimension) => (
+                <option key={dimension.id} value={dimension.id}>
+                  {dimension.name}
                 </option>
               ))}
-          </Select>
-          <Button size="small" onClick={() => applyBulkStatus("approved")}>
-            Bulk set Approved
-          </Button>
-          <Button size="small" appearance="secondary" onClick={openBulkTagEntryPoint}>
-            Bulk tag entry
-          </Button>
+            </Select>
+            <Select
+              aria-label="Bulk tag value"
+              value={bulkTagId}
+              onChange={(event) => setBulkTagId(event.target.value)}
+            >
+              <option value="">Select Tag</option>
+              {(bulkDimension?.tags ?? [])
+                .filter((tag) => !tag.retired)
+                .map((tag) => (
+                  <option key={tag.id} value={tag.id}>
+                    {tag.label}
+                  </option>
+                ))}
+            </Select>
+            <Menu>
+              <MenuTrigger disableButtonEnhancement>
+                <Button size="small" appearance="secondary">
+                  More
+                </Button>
+              </MenuTrigger>
+              <MenuPopover>
+                <MenuList>
+                  <MenuItem onClick={() => applyBulkStatus("approved")}>
+                    Bulk Set Approved
+                  </MenuItem>
+                  <MenuItem onClick={openBulkTagEntryPoint}>Bulk Tag Entry</MenuItem>
+                </MenuList>
+              </MenuPopover>
+            </Menu>
+          </div>
         </div>
       </div>
 
@@ -1399,7 +1417,7 @@ export function ExpensesPage() {
                         <TableCell>{formatUsd(expense.amountMinor)}</TableCell>
                         <TableCell>
                           <StatusChip
-                            label={expense.status.toUpperCase()}
+                            label={toTitleCaseLabel(expense.status)}
                             tone={statusToTone(expense.status)}
                           />
                         </TableCell>
@@ -1546,7 +1564,6 @@ export function ExpensesPage() {
         onOpenChange={setDrawerOpen}
         onSubmit={handleSubmitDrawer}
         submitLabel={drawerMode === "create" ? "Create" : "Save"}
-        helpTopic="expenses-form"
       >
         <div className="expenses-form">
           <section className="expenses-form__section">
@@ -1602,7 +1619,7 @@ export function ExpensesPage() {
                 >
                   {STATUS_OPTIONS.map((status) => (
                     <option key={status} value={status}>
-                      {status}
+                      {toTitleCaseLabel(status)}
                     </option>
                   ))}
                 </Select>
@@ -1697,9 +1714,9 @@ export function ExpensesPage() {
                     }))
                   }
                 >
-                  <option value="monthly">monthly</option>
-                  <option value="quarterly">quarterly</option>
-                  <option value="yearly">yearly</option>
+                  <option value="monthly">Monthly</option>
+                  <option value="quarterly">Quarterly</option>
+                  <option value="yearly">Yearly</option>
                 </Select>
               </div>
               <div className="expenses-form__field">

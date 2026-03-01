@@ -164,6 +164,8 @@ describe("accessibility and keyboard reachability", () => {
     const scenarioSelectWrap = screen.getByTestId("scenario-select-wrap");
     expect(screen.getByTestId("topbar-search-region")).toBeInTheDocument();
     expect(screen.getByTestId("topbar-actions-region")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^\(\?\)$/ })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/help for/i)).not.toBeInTheDocument();
     const helpButton = screen.getByRole("button", { name: "Help" });
 
     globalSearch.focus();

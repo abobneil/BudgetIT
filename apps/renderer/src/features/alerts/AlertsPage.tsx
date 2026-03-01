@@ -24,6 +24,7 @@ import {
   PanelState,
   StatusChip
 } from "../../ui/primitives";
+import { toTitleCaseLabel } from "../../ui/text/labelCase";
 import {
   deriveAlertSeverity,
   extractAlertReason,
@@ -244,7 +245,6 @@ export function AlertsPage() {
       <PageHeader
         title="Alerts Inbox"
         subtitle="Actionable inbox for due, snoozed, and acknowledged alerts."
-        helpTopic="alerts-inbox"
       />
 
       <TabList
@@ -291,11 +291,11 @@ export function AlertsPage() {
                         >
                           <div className="alerts-row__meta">
                             <StatusChip
-                              label={severity.toUpperCase()}
+                              label={toTitleCaseLabel(severity)}
                               tone={severityToTone(severity)}
                             />
                             <StatusChip
-                              label={alert.status.toUpperCase()}
+                              label={toTitleCaseLabel(alert.status)}
                               tone={statusToTone(alert.status)}
                             />
                             <Text>{formatDueDate(alert.fireAt)}</Text>
@@ -323,14 +323,14 @@ export function AlertsPage() {
                               disabled={alert.status === "acked" || busyAlertId === alert.id}
                               onClick={() => void handleSnooze(alert.id, 7)}
                             >
-                              Snooze until +7d
+                              Snooze Until +7D
                             </Button>
                             <Button
                               size="small"
                               appearance="secondary"
                               onClick={() => handleOpenEntity(alert)}
                             >
-                              Open entity
+                              Open Entity
                             </Button>
                           </div>
                         </Card>

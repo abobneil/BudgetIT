@@ -32,7 +32,7 @@ describe("TagsPage", () => {
     fireEvent.change(screen.getByLabelText("Queue tag expense-endpoint:dim-cost-center"), {
       target: { value: "tag-security" }
     });
-    fireEvent.click(screen.getByRole("button", { name: "Complete queue item" }));
+    fireEvent.click(screen.getByRole("button", { name: "Complete Queue Item" }));
 
     expect(await screen.findByText("Completed queue item for expense-endpoint.")).toBeInTheDocument();
     expect(screen.getByTestId("tag-completeness")).toHaveTextContent("100.0%");
