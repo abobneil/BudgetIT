@@ -1,10 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  buildLoginItemSettings,
   createExitHandler,
   DEFAULT_RUNTIME_SETTINGS,
   mergeRuntimeSettings,
-  shouldMinimizeToTrayOnClose
+  shouldMinimizeToTrayOnClose,
+  shouldStartHiddenToTray,
+  WINDOWS_STARTUP_MARKER_ARG
 } from "./lifecycle";
 
 describe("runtime lifecycle helpers", () => {
@@ -33,6 +36,46 @@ describe("runtime lifecycle helpers", () => {
 
     expect(stopScheduler).toHaveBeenCalledTimes(1);
     expect(quitApp).toHaveBeenCalledTimes(1);
+  });
+
+  it("builds Windows login item settings with startup marker arguments", () => {
+    expect(buildLoginItemSettings(true, "win32")).toEqual({
+      openAtLogin: true,
+      args: [WINDOWS_STARTUP_MARKER_ARG]
+    });
+    expect(buildLoginItemSettings(false, "win32")).toEqual({
+      openAtLogin: false,
+      args: []
+    });
+  });
+
+  it("builds non-Windows login item settings without startup marker arguments", () => {
+    expect(buildLoginItemSettings(true, "linux")).toEqual({
+      openAtLogin: true
+    });
+    expect(buildLoginItemSettings(false, "darwin")).toEqual({
+      openAtLogin: false
+    });
+  });
+
+  it("starts hidden to tray only for Windows auto-start marker launches", () => {
+    const startupArgs = ["BudgetIT.exe", WINDOWS_STARTUP_MARKER_ARG];
+    expect(
+      shouldStartHiddenToTray(DEFAULT_RUNTIME_SETTINGS, "win32", startupArgs)
+    ).toBe(true);
+    expect(
+      shouldStartHiddenToTray(DEFAULT_RUNTIME_SETTINGS, "linux", startupArgs)
+    ).toBe(false);
+    expect(
+      shouldStartHiddenToTray(
+        { ...DEFAULT_RUNTIME_SETTINGS, startWithWindows: false },
+        "win32",
+        startupArgs
+      )
+    ).toBe(false);
+    expect(
+      shouldStartHiddenToTray(DEFAULT_RUNTIME_SETTINGS, "win32", ["BudgetIT.exe"])
+    ).toBe(false);
   });
 });
 

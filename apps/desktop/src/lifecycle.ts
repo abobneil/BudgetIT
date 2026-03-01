@@ -5,6 +5,8 @@ export interface RuntimeSettings {
   teamsWebhookUrl: string;
 }
 
+export const WINDOWS_STARTUP_MARKER_ARG = "--budgetit-startup";
+
 export const DEFAULT_RUNTIME_SETTINGS: RuntimeSettings = {
   startWithWindows: true,
   minimizeToTray: true,
@@ -41,6 +43,32 @@ export function shouldMinimizeToTrayOnClose(
   isQuitting: boolean
 ): boolean {
   return settings.minimizeToTray && !isQuitting;
+}
+
+export function buildLoginItemSettings(
+  openAtLogin: boolean,
+  platform: NodeJS.Platform
+): { openAtLogin: boolean; args?: string[] } {
+  if (platform === "win32") {
+    return {
+      openAtLogin,
+      args: openAtLogin ? [WINDOWS_STARTUP_MARKER_ARG] : []
+    };
+  }
+
+  return { openAtLogin };
+}
+
+export function shouldStartHiddenToTray(
+  settings: RuntimeSettings,
+  platform: NodeJS.Platform,
+  argv: readonly string[]
+): boolean {
+  return (
+    platform === "win32" &&
+    settings.startWithWindows &&
+    argv.includes(WINDOWS_STARTUP_MARKER_ARG)
+  );
 }
 
 export function createExitHandler(stopScheduler: () => void, quitApp: () => void): () => void {

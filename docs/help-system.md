@@ -376,6 +376,7 @@ Runtime, security, backup, maintenance, and governance configuration.
 ### Runtime
 - Start with Windows
 - Minimize to tray on close
+- On Windows, auto-start launches from sign-in open hidden in the tray (manual launches still open the main window)
 - Save runtime settings
 
 ### Notifications

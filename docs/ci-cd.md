@@ -38,13 +38,20 @@ Behavior:
 
 Triggers:
 
+- Push to `main` (publishes a prerelease)
 - Push tag matching `v*` (example: `v0.1.0`)
 - Manual run with required `tag` input (must already exist)
 
 Behavior:
 
-- Validates tag and project scaffold.
-- Ensures pushed tag commit is contained in `origin/main`.
+- Resolves release metadata by trigger type:
+  - `main` push: generates prerelease tag `main-<shortsha>`
+  - `v*` tag push/manual dispatch: uses existing semantic tag
+- Sets build version before quality/build steps:
+  - `main` push: `<baseVersion>-main.<runNumber>.<shortsha>`
+  - `v*` tag/manual: tag version without leading `v`
+- Validates tag and project scaffold for tagged/manual releases.
+- Ensures pushed tag commit is contained in `origin/main` for tagged pushes.
 - Runs quality gates (`lint`, `typecheck`, `test`, `build`) before packaging.
 - Runs packaged smoke checks (`npm run smoke:packaged`) after artifact creation.
 - Resolves packaging script from the first existing script in:
@@ -52,7 +59,7 @@ Behavior:
   - `dist:win`
   - `package:win`
   - `dist`
-- Builds Windows artifacts for `x64` and `arm64`, generates `SHA256SUMS.txt`, uploads artifacts, and publishes GitHub Release notes automatically.
+- Builds Windows artifacts for `x64` and `arm64`, generates `SHA256SUMS.txt`, uploads artifacts, and publishes GitHub Releases automatically.
 
 ## Required repository settings
 

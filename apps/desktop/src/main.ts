@@ -44,9 +44,11 @@ import {
 } from "./alert-center";
 import { FileSecretVault, resolveDatabaseKey } from "./key-vault";
 import {
+  buildLoginItemSettings,
   createExitHandler,
   DEFAULT_RUNTIME_SETTINGS,
   mergeRuntimeSettings,
+  shouldStartHiddenToTray,
   shouldMinimizeToTrayOnClose,
   type RuntimeSettings
 } from "./lifecycle";
@@ -438,7 +440,9 @@ function getRuntimeSettingsPath(): string {
 function persistRuntimeSettings(nextSettings: RuntimeSettings): RuntimeSettings {
   runtimeSettings = nextSettings;
   writeRuntimeSettings(getRuntimeSettingsPath(), runtimeSettings);
-  app.setLoginItemSettings({ openAtLogin: runtimeSettings.startWithWindows });
+  app.setLoginItemSettings(
+    buildLoginItemSettings(runtimeSettings.startWithWindows, process.platform)
+  );
   return runtimeSettings;
 }
 
@@ -4066,13 +4070,16 @@ function ensureTray(requestExit: () => void): Tray {
   return tray;
 }
 
-function createMainWindow(): BrowserWindow {
+function createMainWindow(options: { showOnReady?: boolean } = {}): BrowserWindow {
+  const { showOnReady = true } = options;
   const preloadPath = path.join(__dirname, "preload.js");
   const win = new BrowserWindow(getMainWindowOptions(preloadPath));
   loadRendererRoute(win, "/");
 
   win.once("ready-to-show", () => {
-    win.show();
+    if (showOnReady) {
+      win.show();
+    }
   });
 
   win.webContents.on("did-fail-load", (_event, errorCode, errorDescription, validatedUrl) => {
@@ -4106,14 +4113,21 @@ export async function startDesktopApp(): Promise<void> {
   initializeDiagnosticsLogging();
 
   runtimeSettings = readRuntimeSettings(getRuntimeSettingsPath());
-  app.setLoginItemSettings({ openAtLogin: runtimeSettings.startWithWindows });
+  app.setLoginItemSettings(
+    buildLoginItemSettings(runtimeSettings.startWithWindows, process.platform)
+  );
+  const startHiddenToTray = shouldStartHiddenToTray(
+    runtimeSettings,
+    process.platform,
+    process.argv
+  );
 
   initializeDatabaseAndAlerts();
   setupIpcHandlers(requestExit);
 
-  mainWindow = createMainWindow();
   configureApplicationMenu(requestExit);
   ensureTray(requestExit);
+  mainWindow = createMainWindow({ showOnReady: !startHiddenToTray });
   startAlertScheduler();
 
   app.on("activate", () => {

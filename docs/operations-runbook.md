@@ -46,7 +46,8 @@ This runbook is for single-device Windows operation of BudgetIT.
 2. Seed sample data, create backup, and export report artifacts.
 3. Install previous release build over VM image snapshot.
 4. Restore backup and verify:
-   - app launches to tray
+   - when `Start with Windows` is enabled, sign-in auto-launch starts hidden in tray
+   - manual app launch opens the main window
    - alerts list available
    - reports and exports still load
 5. Record dry-run result before production tag publish.
