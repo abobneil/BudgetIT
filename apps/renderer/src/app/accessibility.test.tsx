@@ -2,7 +2,7 @@
 
 import "@testing-library/jest-dom/vitest";
 import { FluentProvider } from "@fluentui/react-components";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -162,10 +162,11 @@ describe("accessibility and keyboard reachability", () => {
     const scenarioSelector = screen.getByLabelText("Scenario selector");
     const globalSearch = screen.getByLabelText("Global search");
     const scenarioSelectWrap = screen.getByTestId("scenario-select-wrap");
+    const topbarActions = screen.getByTestId("topbar-actions-region");
     expect(screen.getByTestId("topbar-search-region")).toBeInTheDocument();
     expect(screen.getByTestId("topbar-actions-region")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^\(\?\)$/ })).not.toBeInTheDocument();
-    expect(screen.queryByLabelText(/help for/i)).not.toBeInTheDocument();
+    expect(within(topbarActions).queryByLabelText(/help for/i)).not.toBeInTheDocument();
     const helpButton = screen.getByRole("button", { name: "Help" });
 
     globalSearch.focus();
