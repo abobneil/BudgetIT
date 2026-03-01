@@ -21,7 +21,6 @@ import {
   COMMAND_REGISTRY,
   KEYBOARD_SHORTCUT_MAP,
   resolvePaletteCommands,
-  type CommandActionId,
   type CommandEntry
 } from "./command-palette-model";
 import { NAV_ROUTES, resolveRouteLabel } from "./routes";
@@ -87,12 +86,6 @@ function resolveGlobalSearchEntries(query: string): GlobalSearchEntry[] {
     .slice(0, 10);
 }
 
-function findCommandByActionId(actionId: CommandActionId): CommandEntry | undefined {
-  return COMMAND_REGISTRY.find(
-    (entry) => entry.intent.kind === "action" && entry.intent.actionId === actionId
-  );
-}
-
 export function AppShell({ children }: PropsWithChildren) {
   const location = useLocation();
   const navigate = useNavigate();
@@ -105,7 +98,6 @@ export function AppShell({ children }: PropsWithChildren) {
   const [commandQuery, setCommandQuery] = useState("");
   const [commandCursor, setCommandCursor] = useState(0);
   const [globalSearchValue, setGlobalSearchValue] = useState("");
-  const [commandBusy, setCommandBusy] = useState(false);
   const paletteInputRef = useRef<HTMLInputElement | null>(null);
   const globalSearchRef = useRef<HTMLInputElement | null>(null);
 
@@ -183,7 +175,6 @@ export function AppShell({ children }: PropsWithChildren) {
         return;
       }
 
-      setCommandBusy(true);
       switch (command.intent.actionId) {
         case "new-expense":
           navigate("/expenses?action=create");
@@ -215,8 +206,6 @@ export function AppShell({ children }: PropsWithChildren) {
     } catch (error) {
       const detail = error instanceof Error ? error.message : String(error);
       notify({ tone: "error", message: `Command failed: ${detail}` });
-    } finally {
-      setCommandBusy(false);
     }
   }
 
@@ -300,19 +289,7 @@ export function AppShell({ children }: PropsWithChildren) {
                 {pageTitle}
               </Text>
             </div>
-            <div className="desktop-shell__topbar-tools">
-              <Select
-                aria-label="Scenario selector"
-                className="desktop-shell__toolbar-select"
-                value={selectedScenarioId}
-                onChange={(event) => selectScenario(event.target.value)}
-              >
-                {scenarios.map((scenario) => (
-                  <option key={scenario.id} value={scenario.id}>
-                    {scenario.name}
-                  </option>
-                ))}
-              </Select>
+            <div className="desktop-shell__topbar-search">
               <Input
                 aria-label="Global search"
                 className="desktop-shell__toolbar-input"
@@ -334,28 +311,25 @@ export function AppShell({ children }: PropsWithChildren) {
                   <option key={entry.id} value={entry.label} />
                 ))}
               </datalist>
-              <Button
-                appearance="secondary"
-                className="desktop-shell__toolbar-button"
-                onClick={() => setCommandPaletteOpen(true)}
-                type="button"
-              >
-                Command Palette
-              </Button>
-              <Button
-                appearance="secondary"
-                className="desktop-shell__toolbar-button"
-                disabled={commandBusy}
-                onClick={() => {
-                  const command = findCommandByActionId("new-expense");
-                  if (command) {
-                    void executeCommand(command);
-                  }
-                }}
-                type="button"
-              >
-                Create
-              </Button>
+            </div>
+            <div className="desktop-shell__topbar-actions">
+              <div className="desktop-shell__scenario-group">
+                <Text as="span" className="desktop-shell__scenario-label" size={200}>
+                  Scenario
+                </Text>
+                <Select
+                  aria-label="Scenario selector"
+                  className="desktop-shell__toolbar-select"
+                  value={selectedScenarioId}
+                  onChange={(event) => selectScenario(event.target.value)}
+                >
+                  {scenarios.map((scenario) => (
+                    <option key={scenario.id} value={scenario.id}>
+                      {scenario.name}
+                    </option>
+                  ))}
+                </Select>
+              </div>
               <Button
                 appearance="secondary"
                 className="desktop-shell__toolbar-button"
@@ -369,7 +343,15 @@ export function AppShell({ children }: PropsWithChildren) {
             </div>
           </header>
         ) : null}
-        <main className="desktop-shell__page">{children}</main>
+        <main
+          className={
+            isHelpRoute
+              ? "desktop-shell__page desktop-shell__page--help"
+              : "desktop-shell__page"
+          }
+        >
+          {children}
+        </main>
       </div>
 
       <Dialog

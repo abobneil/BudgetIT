@@ -161,16 +161,16 @@ describe("accessibility and keyboard reachability", () => {
     const user = userEvent.setup();
     const scenarioSelector = screen.getByLabelText("Scenario selector");
     const globalSearch = screen.getByLabelText("Global search");
-    const commandPaletteButton = screen.getByRole("button", { name: "Command Palette" });
+    const helpButton = screen.getByRole("button", { name: "Help" });
 
-    scenarioSelector.focus();
-    expect(document.activeElement).toBe(scenarioSelector);
-    await user.tab();
+    globalSearch.focus();
     expect(document.activeElement).toBe(globalSearch);
     await user.tab();
-    expect(document.activeElement).toBe(commandPaletteButton);
+    expect(document.activeElement).toBe(scenarioSelector);
+    await user.tab();
+    expect(document.activeElement).toBe(helpButton);
 
-    await user.keyboard("{Enter}");
+    await user.keyboard("{Control>}k{/Control}");
     expect(await screen.findByRole("dialog")).toBeInTheDocument();
   });
 

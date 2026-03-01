@@ -32,6 +32,13 @@ describe("AppShell", () => {
 
     expect(screen.getByLabelText("Primary navigation")).toBeInTheDocument();
     expect(screen.getByTestId("page-title")).toHaveTextContent("Dashboard");
+    expect(screen.getByLabelText("Global search")).toBeInTheDocument();
+    expect(screen.getByLabelText("Scenario selector")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Help" })).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Command Palette" })
+    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Create" })).not.toBeInTheDocument();
     expect(screen.getByText("Loading dashboard...")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Alerts" })).toBeInTheDocument();
   });
