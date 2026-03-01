@@ -2,9 +2,11 @@
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
   gap: 0.75rem;
-  padding: 0.75rem;
+  box-sizing: border-box;
+  height: 100%;
+  min-height: 0;
+  padding: 0.75rem 0.75rem 1.25rem;
   width: 100%;
-  min-height: 100%;
   max-width: 1100px;
   margin: 0 auto;
 }
@@ -36,14 +38,35 @@
   margin: 0;
   min-height: 0;
   height: 100%;
-  overflow-y: auto;
+  overflow-y: scroll;
   overflow-x: hidden;
-  scrollbar-gutter: stable;
-  padding: 1rem;
+  scrollbar-gutter: stable both-edges;
+  padding: 1rem 1rem 1.5rem;
   border-radius: 0.5rem;
   border: 1px solid var(--colorNeutralStroke2);
   background: color-mix(in srgb, var(--colorNeutralBackground2) 70%, transparent);
   line-height: 1.55;
+}
+
+.help-page__content-card::-webkit-scrollbar {
+  width: 12px;
+}
+
+.help-page__content-card::-webkit-scrollbar-track {
+  background: color-mix(in srgb, var(--colorNeutralBackground3) 65%, transparent);
+  border-radius: 999px;
+}
+
+.help-page__content-card::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--colorNeutralForeground3) 55%, transparent);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+.help-page__content-card::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--colorNeutralForeground2) 70%, transparent);
+  background-clip: content-box;
 }
 
 .help-page__content-card > :first-child {
@@ -125,7 +148,7 @@
 
 @media (max-width: 920px) {
   .help-page {
-    padding: 0.5rem;
+    padding: 0.5rem 0.5rem 0.9rem;
   }
 
   .help-page__header {

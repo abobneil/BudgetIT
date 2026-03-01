@@ -317,18 +317,20 @@ export function AppShell({ children }: PropsWithChildren) {
                 <Text as="span" className="desktop-shell__scenario-label" size={200}>
                   Scenario
                 </Text>
-                <Select
-                  aria-label="Scenario selector"
-                  className="desktop-shell__toolbar-select"
-                  value={selectedScenarioId}
-                  onChange={(event) => selectScenario(event.target.value)}
-                >
-                  {scenarios.map((scenario) => (
-                    <option key={scenario.id} value={scenario.id}>
-                      {scenario.name}
-                    </option>
-                  ))}
-                </Select>
+                <div className="desktop-shell__scenario-select-wrap" data-testid="scenario-select-wrap">
+                  <Select
+                    aria-label="Scenario selector"
+                    className="desktop-shell__scenario-select"
+                    value={selectedScenarioId}
+                    onChange={(event) => selectScenario(event.target.value)}
+                  >
+                    {scenarios.map((scenario) => (
+                      <option key={scenario.id} value={scenario.id}>
+                        {scenario.name}
+                      </option>
+                    ))}
+                  </Select>
+                </div>
               </div>
               <Button
                 appearance="secondary"

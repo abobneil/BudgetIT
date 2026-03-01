@@ -34,6 +34,7 @@ describe("AppShell", () => {
     expect(screen.getByTestId("page-title")).toHaveTextContent("Dashboard");
     expect(screen.getByLabelText("Global search")).toBeInTheDocument();
     expect(screen.getByLabelText("Scenario selector")).toBeInTheDocument();
+    expect(screen.getByTestId("scenario-select-wrap")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Help" })).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: "Command Palette" })

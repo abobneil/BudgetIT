@@ -86,7 +86,9 @@ describe("HelpPage", () => {
     expect(
       screen.getByText((_content, element) => element?.textContent?.trim() === "Open Settings")
     ).toBeInTheDocument();
-    expect(screen.getByTestId("help-topic-content")).toBeInTheDocument();
+    const helpTopicContent = screen.getByTestId("help-topic-content");
+    expect(helpTopicContent).toBeInTheDocument();
+    expect(helpTopicContent.tagName).toBe("SECTION");
     expect(screen.queryByText("## Quick Start (First Launch)")).not.toBeInTheDocument();
     expect(view.container.querySelector(".help-page__prose")).not.toBeInTheDocument();
   });

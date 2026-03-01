@@ -161,12 +161,14 @@ describe("accessibility and keyboard reachability", () => {
     const user = userEvent.setup();
     const scenarioSelector = screen.getByLabelText("Scenario selector");
     const globalSearch = screen.getByLabelText("Global search");
+    const scenarioSelectWrap = screen.getByTestId("scenario-select-wrap");
     const helpButton = screen.getByRole("button", { name: "Help" });
 
     globalSearch.focus();
     expect(document.activeElement).toBe(globalSearch);
     await user.tab();
     expect(document.activeElement).toBe(scenarioSelector);
+    expect(scenarioSelectWrap.contains(document.activeElement)).toBe(true);
     await user.tab();
     expect(document.activeElement).toBe(helpButton);
 

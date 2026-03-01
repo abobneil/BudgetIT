@@ -8,7 +8,6 @@ import {
   type ReactNode
 } from "react";
 import {
-  Card,
   Select,
   Text,
   Title2
@@ -248,7 +247,7 @@ export function HelpPage() {
       {error ? <InlineError message={error} /> : null}
 
       {!error ? (
-        <Card className="help-page__content-card" data-testid="help-topic-content">
+        <section className="help-page__content-card" data-testid="help-topic-content">
           {!selectedSection.found ? (
             <Text size={200} className="help-page__fallback-note">
               {`Couldn't find "${selectedTopic.docSection}" in the guide. Showing the full help document instead.`}
@@ -260,7 +259,7 @@ export function HelpPage() {
           >
             {selectedSection.markdown}
           </ReactMarkdown>
-        </Card>
+        </section>
       ) : null}
     </section>
   );

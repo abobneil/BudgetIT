@@ -112,8 +112,7 @@
   text-overflow: ellipsis;
 }
 
-.desktop-shell__toolbar-input,
-.desktop-shell__toolbar-select {
+.desktop-shell__toolbar-input {
   border: 1px solid var(--colorNeutralStroke1);
   border-radius: 6px;
   padding: 0.4rem 0.5rem;
@@ -127,9 +126,52 @@
   min-width: 0;
 }
 
-.desktop-shell__toolbar-select {
+.desktop-shell__scenario-select-wrap {
+  display: inline-flex;
+  align-items: center;
   min-width: 10rem;
   max-width: 14rem;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  padding: 0 0.35rem;
+  background: transparent;
+}
+
+.desktop-shell__scenario-select-wrap:focus-within {
+  border-color: color-mix(in srgb, var(--colorStrokeFocus2) 65%, transparent);
+  box-shadow: 0 0 0 1px var(--colorStrokeFocus2);
+}
+
+.desktop-shell__scenario-select,
+.desktop-shell__scenario-select select {
+  width: 100%;
+  min-width: 0;
+  max-width: 14rem;
+  padding: 0.35rem 0.2rem;
+  font: inherit;
+  color: var(--colorNeutralForeground1);
+}
+
+.desktop-shell__scenario-select {
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+}
+
+.desktop-shell__scenario-select select {
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+}
+
+.desktop-shell__scenario-select:focus,
+.desktop-shell__scenario-select select:focus {
+  outline: none;
+}
+
+.desktop-shell__scenario-select option {
+  background: var(--colorNeutralBackground1);
+  color: var(--colorNeutralForeground1);
 }
 
 .desktop-shell__toolbar-button {
@@ -203,7 +245,14 @@
 }
 
 .desktop-shell__page--help {
+  display: flex;
+  min-height: 0;
   overflow: hidden;
+}
+
+.desktop-shell__page--help > * {
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 @media (max-width: 900px) {
@@ -245,8 +294,15 @@
     max-width: 100%;
   }
 
-  .desktop-shell__toolbar-select {
+  .desktop-shell__scenario-select-wrap {
+    min-width: 0;
+    max-width: 100%;
+    width: 100%;
+  }
+
+  .desktop-shell__scenario-select {
     min-width: 0;
     width: 100%;
+    max-width: none;
   }
 }
