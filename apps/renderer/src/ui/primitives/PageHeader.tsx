@@ -1,16 +1,24 @@
 import type { ReactNode } from "react";
 import { Text, Title2 } from "@fluentui/react-components";
 
+import { ContextHelpButton } from "./ContextHelpButton";
+
 type PageHeaderProps = {
   title: string;
   subtitle?: string;
   actions?: ReactNode;
+  helpTopic?: string;
+  helpAnchor?: string;
+  helpLabel?: string;
 };
 
 export function PageHeader({
   title,
   subtitle,
-  actions
+  actions,
+  helpTopic,
+  helpAnchor,
+  helpLabel
 }: PageHeaderProps) {
   return (
     <header
@@ -29,7 +37,24 @@ export function PageHeader({
           </Text>
         ) : null}
       </div>
-      {actions ? <div>{actions}</div> : null}
+      {actions || helpTopic ? (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "0.5rem"
+          }}
+        >
+          {actions ? <div>{actions}</div> : null}
+          {helpTopic ? (
+            <ContextHelpButton
+              topic={helpTopic}
+              anchor={helpAnchor}
+              label={helpLabel}
+            />
+          ) : null}
+        </div>
+      ) : null}
     </header>
   );
 }

@@ -532,6 +532,7 @@ export function ServicesPage() {
       <PageHeader
         title="Services Workspace"
         subtitle="Lifecycle-focused service management with renewal context and replacement pathways."
+        helpTopic="services-workspace"
         actions={
           <Button appearance="primary" onClick={openCreateDrawer}>
             Create Service
@@ -851,6 +852,7 @@ export function ServicesPage() {
         onOpenChange={setDrawerOpen}
         onSubmit={handleSubmitDrawer}
         submitLabel={drawerMode === "create" ? "Create" : "Save"}
+        helpTopic="services-form"
       >
         <div className="services-form">
           <section className="services-form__section">

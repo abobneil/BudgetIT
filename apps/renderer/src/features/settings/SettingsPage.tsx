@@ -563,6 +563,7 @@ export function SettingsPage() {
       <PageHeader
         title="Settings Center"
         subtitle="Runtime, notifications, backup/restore, security, and maintenance operations."
+        helpTopic="settings-center"
         actions={
           <Button appearance="secondary" onClick={() => void loadSettingsCenter()}>
             Reload settings

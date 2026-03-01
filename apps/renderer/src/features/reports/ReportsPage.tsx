@@ -231,8 +231,9 @@ export function ReportsPage() {
                       nextValue !== "price" &&
                       nextValue !== "scope"
                     ) {
-                      const { [item.id]: _omit, ...rest } = current;
-                      return rest;
+                      const next = { ...current };
+                      delete next[item.id];
+                      return next;
                     }
                     return {
                       ...current,
@@ -720,6 +721,7 @@ export function ReportsPage() {
         subtitle={`Report gallery and configurable workspace. Active scenario: ${
           selectedScenario?.name ?? selectedScenarioId
         }.`}
+        helpTopic="reports-workspace"
       />
 
       <Card data-testid="reports-scenario-context">
@@ -1099,8 +1101,9 @@ export function ReportsPage() {
                               nextValue !== "price" &&
                               nextValue !== "scope"
                             ) {
-                              const { [item.id]: _omit, ...rest } = current;
-                              return rest;
+                              const next = { ...current };
+                              delete next[item.id];
+                              return next;
                             }
                             return {
                               ...current,

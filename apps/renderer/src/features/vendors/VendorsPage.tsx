@@ -451,6 +451,7 @@ export function VendorsPage() {
       <PageHeader
         title="Vendors Workspace"
         subtitle="Manage vendor lifecycle, relationship impact, and guarded archive/delete workflows."
+        helpTopic="vendors-workspace"
         actions={
           <Button appearance="primary" onClick={openCreateDrawer}>
             Create Vendor
@@ -702,6 +703,7 @@ export function VendorsPage() {
         onOpenChange={setDrawerOpen}
         onSubmit={handleSubmitDrawer}
         submitLabel={drawerMode === "create" ? "Create" : "Save"}
+        helpTopic="vendors-form"
       >
         <div className="vendors-form">
           <section className="vendors-form__section">

@@ -506,6 +506,7 @@ export function DashboardPage() {
         subtitle={`Decision-ready view for forecast, actuals, renewals, and replacement readiness. Active scenario: ${
           selectedScenario?.name ?? selectedScenarioId
         }. Window: ${formatMonthWindow(DASHBOARD_RANGE_MONTHS[selectedRange])}.`}
+        helpTopic="dashboard-overview"
         actions={
           <div className="dashboard-page__actions">
             <div className="dashboard-page__range" role="group" aria-label="Dashboard range">

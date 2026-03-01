@@ -118,6 +118,7 @@ const TRAY_ICON_FILE_NAME = "tray-icon.png";
 const DIAGNOSTICS_LOG_DIR_NAME = "logs";
 const DIAGNOSTICS_LOG_FILE_NAME = "desktop.log";
 const DEFAULT_SINGLE_USER_ACTOR = "single-it-user";
+const HELP_DOCUMENT_FILE_NAME = "help-system.md";
 
 const IMPORT_FIELDS = new Set([
   "scenarioId",
@@ -206,6 +207,7 @@ export function getMainWindowOptions(preloadPath: string): BrowserWindowConstruc
     height: 800,
     minWidth: 1024,
     minHeight: 720,
+    autoHideMenuBar: true,
     show: false,
     icon: resolveMainWindowIconPath(),
     webPreferences: {
@@ -223,14 +225,7 @@ export function createDesktopRuntime(): DesktopRuntime {
     createWindow: () => {
       const preloadPath = path.join(__dirname, "preload.js");
       const mainWindow = new BrowserWindow(getMainWindowOptions(preloadPath));
-
-      const devServerUrl = process.env.BUDGETIT_RENDERER_URL;
-      if (devServerUrl) {
-        void mainWindow.loadURL(devServerUrl);
-      } else {
-        const indexPath = path.join(__dirname, "../../renderer/dist/index.html");
-        void mainWindow.loadFile(indexPath);
-      }
+      loadRendererRoute(mainWindow, "/");
 
       mainWindow.once("ready-to-show", () => {
         mainWindow.show();
@@ -273,6 +268,7 @@ if (require.main === module) {
 
 let tray: Tray | null = null;
 let mainWindow: BrowserWindow | null = null;
+let helpWindow: BrowserWindow | null = null;
 let isQuitting = false;
 let runtimeSettings: RuntimeSettings = DEFAULT_RUNTIME_SETTINGS;
 let runtimeSettingsPath = "";
@@ -766,6 +762,27 @@ function parseDbRekeyPayload(payload: unknown): {
     throw new Error("db.rekey newKeyHex must be a 64-character hex key.");
   }
   return { newKeyHex: normalized };
+}
+
+function parseHelpOpenPayload(payload: unknown): {
+  topic?: string;
+  anchor?: string;
+} {
+  if (!payload || typeof payload !== "object") {
+    return {};
+  }
+
+  const value = payload as { topic?: unknown; anchor?: unknown };
+  const topic =
+    typeof value.topic === "string" && value.topic.trim().length > 0
+      ? value.topic.trim()
+      : undefined;
+  const anchor =
+    typeof value.anchor === "string" && value.anchor.trim().length > 0
+      ? value.anchor.trim()
+      : undefined;
+
+  return { topic, anchor };
 }
 
 function parseImportPayload(payload: unknown): {
@@ -1449,6 +1466,14 @@ function monitorBackupFreshness(nowIsoDate: string): void {
 }
 
 function setupIpcHandlers(requestExit: () => void): void {
+  ipcMain.handle("help.open", async (_event, payload: unknown) => {
+    const parsed = parseHelpOpenPayload(payload);
+    openHelpWindow(parsed);
+    return { ok: true } as const;
+  });
+
+  ipcMain.handle("help.document.get", async () => getHelpDocument());
+
   ipcMain.handle("settings.get", async () => ({
     ...runtimeSettings,
     lastRestoreSummary
@@ -3809,6 +3834,174 @@ function snoozeAllPendingAlertsForOneDay(): void {
   }
 }
 
+function normalizeHashRoute(route: string): string {
+  const trimmed = route.trim();
+  if (!trimmed) {
+    return "/";
+  }
+  return trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
+}
+
+function loadRendererRoute(window: BrowserWindow, hashRoute: string): void {
+  const normalizedHash = normalizeHashRoute(hashRoute);
+  const devServerUrl = process.env.BUDGETIT_RENDERER_URL;
+  if (devServerUrl) {
+    const baseUrl = devServerUrl.replace(/\/+$/, "");
+    void window.loadURL(`${baseUrl}#${normalizedHash}`);
+    return;
+  }
+
+  const indexPath = path.join(__dirname, "../../renderer/dist/index.html");
+  void window.loadFile(indexPath, { hash: normalizedHash });
+}
+
+function buildHelpHashRoute(payload: { topic?: string; anchor?: string } = {}): string {
+  const params = new URLSearchParams();
+  if (payload.topic) {
+    params.set("topic", payload.topic);
+  }
+  if (payload.anchor) {
+    params.set("anchor", payload.anchor);
+  }
+  const query = params.toString();
+  return query ? `/help?${query}` : "/help";
+}
+
+function openHelpWindow(payload: { topic?: string; anchor?: string } = {}): void {
+  const route = buildHelpHashRoute(payload);
+
+  if (helpWindow && !helpWindow.isDestroyed()) {
+    loadRendererRoute(helpWindow, route);
+    helpWindow.show();
+    helpWindow.focus();
+    return;
+  }
+
+  const preloadPath = path.join(__dirname, "preload.js");
+  helpWindow = new BrowserWindow({
+    width: 980,
+    height: 760,
+    minWidth: 720,
+    minHeight: 560,
+    autoHideMenuBar: true,
+    show: false,
+    title: "BudgetIT Help",
+    parent: mainWindow ?? undefined,
+    icon: resolveMainWindowIconPath(),
+    webPreferences: {
+      preload: preloadPath,
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true
+    }
+  });
+
+  loadRendererRoute(helpWindow, route);
+  helpWindow.once("ready-to-show", () => {
+    helpWindow?.show();
+  });
+  helpWindow.on("closed", () => {
+    helpWindow = null;
+  });
+}
+
+function resolveHelpDocumentPath(): string | null {
+  const candidates = [
+    path.join(process.cwd(), "docs", HELP_DOCUMENT_FILE_NAME),
+    path.join(app.getAppPath(), "docs", HELP_DOCUMENT_FILE_NAME),
+    path.join(app.getAppPath(), "..", "..", "docs", HELP_DOCUMENT_FILE_NAME),
+    path.join(__dirname, "..", "..", "..", "docs", HELP_DOCUMENT_FILE_NAME)
+  ];
+
+  for (const candidate of candidates) {
+    try {
+      if (fs.existsSync(candidate)) {
+        return candidate;
+      }
+    } catch {
+      // Ignore invalid path candidates and continue.
+    }
+  }
+  return null;
+}
+
+function getHelpDocument(): { markdown: string; sourcePath: string | null } {
+  const sourcePath = resolveHelpDocumentPath();
+  if (!sourcePath) {
+    return {
+      markdown:
+        "# BudgetIT Help\n\nHelp document not found. Expected docs/help-system.md in the app workspace.",
+      sourcePath: null
+    };
+  }
+
+  return {
+    markdown: fs.readFileSync(sourcePath, "utf8"),
+    sourcePath
+  };
+}
+
+function getApplicationMenuTemplate(
+  requestExit: () => void
+): MenuItemConstructorOptions[] {
+  return [
+    {
+      label: "File",
+      submenu: [
+        {
+          label: "Show",
+          click: () => {
+            mainWindow?.show();
+          }
+        },
+        { type: "separator" },
+        {
+          label: "Exit",
+          click: requestExit
+        }
+      ]
+    },
+    {
+      label: "Edit",
+      submenu: [
+        { role: "undo" },
+        { role: "redo" },
+        { type: "separator" },
+        { role: "cut" },
+        { role: "copy" },
+        { role: "paste" },
+        { role: "selectAll" }
+      ]
+    },
+    {
+      label: "View",
+      submenu: [{ role: "reload" }, { role: "toggleDevTools" }, { role: "togglefullscreen" }]
+    },
+    {
+      label: "Window",
+      submenu: [{ role: "minimize" }, { role: "close" }]
+    },
+    {
+      label: "Help",
+      submenu: [
+        {
+          label: "Help Center",
+          accelerator: "F1",
+          click: () => openHelpWindow({ topic: "quick-start" })
+        },
+        {
+          label: "Keyboard Shortcuts",
+          click: () => openHelpWindow({ topic: "global-keyboard-shortcuts" })
+        }
+      ]
+    }
+  ];
+}
+
+function configureApplicationMenu(requestExit: () => void): void {
+  Menu.setApplicationMenu(Menu.buildFromTemplate(getApplicationMenuTemplate(requestExit)));
+}
+
 function getTrayMenuTemplate(requestExit: () => void): MenuItemConstructorOptions[] {
   return [
     {
@@ -3876,14 +4069,7 @@ function ensureTray(requestExit: () => void): Tray {
 function createMainWindow(): BrowserWindow {
   const preloadPath = path.join(__dirname, "preload.js");
   const win = new BrowserWindow(getMainWindowOptions(preloadPath));
-
-  const devServerUrl = process.env.BUDGETIT_RENDERER_URL;
-  if (devServerUrl) {
-    void win.loadURL(devServerUrl);
-  } else {
-    const indexPath = path.join(__dirname, "../../renderer/dist/index.html");
-    void win.loadFile(indexPath);
-  }
+  loadRendererRoute(win, "/");
 
   win.once("ready-to-show", () => {
     win.show();
@@ -3926,6 +4112,7 @@ export async function startDesktopApp(): Promise<void> {
   setupIpcHandlers(requestExit);
 
   mainWindow = createMainWindow();
+  configureApplicationMenu(requestExit);
   ensureTray(requestExit);
   startAlertScheduler();
 
@@ -3938,6 +4125,8 @@ export async function startDesktopApp(): Promise<void> {
   });
 
   app.on("before-quit", () => {
+    helpWindow?.destroy();
+    helpWindow = null;
     stopSchedulerAndCloseDatabase();
   });
 

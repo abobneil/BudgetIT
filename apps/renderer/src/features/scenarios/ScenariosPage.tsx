@@ -94,6 +94,7 @@ export function ScenariosPage() {
       <PageHeader
         title="Scenarios Workspace"
         subtitle="Clone, promote, lock, and compare scenarios with global context selection."
+        helpTopic="scenarios-workspace"
       />
 
       <Card className="scenarios-page__summary">

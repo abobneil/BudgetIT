@@ -6,6 +6,7 @@ import { ContractsPage } from "../features/contracts/ContractsPage";
 import { DashboardPage } from "../features/dashboard/DashboardPage";
 import { DeveloperToolsPage } from "../features/developer/DeveloperToolsPage";
 import { ExpensesPage } from "../features/expenses/ExpensesPage";
+import { HelpPage } from "../features/help/HelpPage";
 import { ImportPage } from "../features/import/ImportPage";
 import { NlqPage } from "../features/nlq/NlqPage";
 import { ReportsPage } from "../features/reports/ReportsPage";
@@ -115,6 +116,13 @@ export const APP_ROUTES: AppRouteConfig[] = [
     label: "Developer Tools",
     nav: false,
     element: <DeveloperToolsPage />
+  },
+  {
+    key: "help",
+    path: "/help",
+    label: "Help",
+    nav: false,
+    element: <HelpPage />
   }
 ];
 

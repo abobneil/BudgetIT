@@ -14,6 +14,7 @@ files:
   - apps/desktop/dist/**/*
   - apps/desktop/assets/**/*
   - apps/renderer/dist/**/*
+  - docs/help-system.md
   - packages/core/dist/**/*
   - packages/db/dist/**/*
   - packages/db/package.json

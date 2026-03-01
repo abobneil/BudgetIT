@@ -489,6 +489,16 @@ export type AuditRecord = {
   createdAt: string;
 };
 
+export type HelpOpenPayload = {
+  topic?: string;
+  anchor?: string;
+};
+
+export type HelpDocumentResult = {
+  markdown: string;
+  sourcePath: string | null;
+};
+
 export const defaultSettings: RuntimeSettings = {
   startWithWindows: true,
   minimizeToTray: true,
@@ -530,6 +540,40 @@ export async function saveSettings(settings: RuntimeSettings): Promise<RuntimeSe
     return settings;
   }
   return (await bridge.invoke("settings.update", settings)) as RuntimeSettings;
+}
+
+export async function openHelpWindow(
+  payload: HelpOpenPayload = {}
+): Promise<{ ok: true }> {
+  const bridge = getBridge();
+  if (!bridge) {
+    const params = new URLSearchParams();
+    if (payload.topic) {
+      params.set("topic", payload.topic);
+    }
+    if (payload.anchor) {
+      params.set("anchor", payload.anchor);
+    }
+    const query = params.toString();
+    window.open(
+      `#/help${query ? `?${query}` : ""}`,
+      "_blank",
+      "noopener,noreferrer"
+    );
+    return { ok: true };
+  }
+  return (await bridge.invoke("help.open", payload)) as { ok: true };
+}
+
+export async function getHelpDocument(): Promise<HelpDocumentResult> {
+  const bridge = getBridge();
+  if (!bridge) {
+    return {
+      markdown: "Help content is unavailable because desktop IPC is not active.",
+      sourcePath: null
+    };
+  }
+  return (await bridge.invoke("help.document.get")) as HelpDocumentResult;
 }
 
 export async function listAlerts(): Promise<AlertRecord[]> {

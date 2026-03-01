@@ -1212,6 +1212,7 @@ export function ExpensesPage() {
       <PageHeader
         title="Expenses Workspace"
         subtitle="Manage expense lines with sortable table triage, detail context, and recurrence preview."
+        helpTopic="expenses-workspace"
         actions={
           <Button appearance="primary" onClick={openCreateDrawer}>
             Create Expense
@@ -1545,6 +1546,7 @@ export function ExpensesPage() {
         onOpenChange={setDrawerOpen}
         onSubmit={handleSubmitDrawer}
         submitLabel={drawerMode === "create" ? "Create" : "Save"}
+        helpTopic="expenses-form"
       >
         <div className="expenses-form">
           <section className="expenses-form__section">

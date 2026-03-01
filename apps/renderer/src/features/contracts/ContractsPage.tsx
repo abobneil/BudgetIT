@@ -497,6 +497,7 @@ export function ContractsPage() {
       <PageHeader
         title="Contracts Workspace"
         subtitle="Contract lifecycle management with linked services, renewal actions, and replacement pathways."
+        helpTopic="contracts-workspace"
         actions={
           <Button appearance="primary" onClick={openCreateDrawer}>
             Create Contract
@@ -747,6 +748,7 @@ export function ContractsPage() {
         onOpenChange={setDrawerOpen}
         onSubmit={handleSubmitDrawer}
         submitLabel={drawerMode === "create" ? "Create" : "Save"}
+        helpTopic="contracts-form"
       >
         <div className="contracts-form">
           <section className="contracts-form__section">

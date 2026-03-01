@@ -19,6 +19,7 @@ describe("route configuration", () => {
         "/reports",
         "/nlq",
         "/settings",
+        "/help",
         "/developer"
       ])
     );

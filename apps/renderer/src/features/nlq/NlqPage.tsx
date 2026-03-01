@@ -169,6 +169,7 @@ export function NlqPage() {
       <PageHeader
         title="NLQ Workspace"
         subtitle="Run natural language queries, inspect parsed filters, and convert results to reusable reports."
+        helpTopic="nlq-workspace"
       />
 
       <Card>

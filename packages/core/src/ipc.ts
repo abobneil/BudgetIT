@@ -1,6 +1,8 @@
 export const INVOKE_CHANNELS = [
   "settings.get",
   "settings.update",
+  "help.open",
+  "help.document.get",
   "app.exit",
   "db.open",
   "db.rekey",

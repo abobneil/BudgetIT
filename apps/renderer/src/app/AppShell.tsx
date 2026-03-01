@@ -15,7 +15,7 @@ import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { CONTRACT_RECORDS, SERVICE_RECORDS } from "../features/services/service-contract-data";
 import { INITIAL_VENDOR_RECORDS } from "../features/vendors/vendor-data";
 import { useScenarioContext } from "../features/scenarios/ScenarioContext";
-import { createBackup } from "../lib/ipcClient";
+import { createBackup, openHelpWindow } from "../lib/ipcClient";
 import { useFeedback } from "../ui/feedback";
 import {
   COMMAND_REGISTRY,
@@ -145,6 +145,11 @@ export function AppShell({ children }: PropsWithChildren) {
       if (event.ctrlKey && event.shiftKey && event.key.toLowerCase() === "f") {
         event.preventDefault();
         globalSearchRef.current?.focus();
+        return;
+      }
+      if (event.key === "F1") {
+        event.preventDefault();
+        void openHelpWindow({ topic: "quick-start" });
         return;
       }
       if (event.key === "Escape") {
@@ -333,6 +338,16 @@ export function AppShell({ children }: PropsWithChildren) {
             type="button"
           >
             Create
+          </Button>
+          <Button
+            appearance="secondary"
+            className="desktop-shell__toolbar-button"
+            onClick={() => {
+              void openHelpWindow({ topic: "quick-start" });
+            }}
+            type="button"
+          >
+            Help
           </Button>
         </header>
         <main className="desktop-shell__page">{children}</main>

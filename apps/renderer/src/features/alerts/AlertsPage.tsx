@@ -244,6 +244,7 @@ export function AlertsPage() {
       <PageHeader
         title="Alerts Inbox"
         subtitle="Actionable inbox for due, snoozed, and acknowledged alerts."
+        helpTopic="alerts-inbox"
       />
 
       <TabList

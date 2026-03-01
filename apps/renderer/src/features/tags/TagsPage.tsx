@@ -398,6 +398,7 @@ export function TagsPage() {
       <PageHeader
         title="Tags & Dimensions"
         subtitle="Dimension administration, merge/retire operations, and required-tag completeness queue."
+        helpTopic="tags-workspace"
       />
 
       <Card className="tags-summary-card">

@@ -243,6 +243,7 @@ export function ImportPage() {
       <PageHeader
         title="Import Wizard"
         subtitle="Guided stepper for mode, mapping, preview, and commit with deterministic dedupe outcomes."
+        helpTopic="import-wizard"
       />
 
       <Card>

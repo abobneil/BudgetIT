@@ -3,6 +3,8 @@ import { contextBridge, ipcRenderer } from "electron";
 const fallbackInvokeChannels = [
   "settings.get",
   "settings.update",
+  "help.open",
+  "help.document.get",
   "app.exit",
   "db.open",
   "db.rekey",
@@ -80,18 +82,22 @@ const fallbackInvokeChannels = [
 ] as const;
 
 function resolveAllowedInvokeChannels(): readonly string[] {
+  const merged = new Set<string>(fallbackInvokeChannels);
   try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const core = require("@budgetit/core") as {
       getAllowedInvokeChannels?: () => readonly string[];
     };
     const channels = core.getAllowedInvokeChannels?.();
     if (channels && Array.isArray(channels) && channels.length > 0) {
-      return channels;
+      for (const channel of channels) {
+        merged.add(channel);
+      }
     }
   } catch {
     // Fall back to local allowlist when core package is unavailable in test/dev bootstrap.
   }
-  return fallbackInvokeChannels;
+  return Array.from(merged);
 }
 
 const allowedInvokeChannels = new Set<string>(resolveAllowedInvokeChannels());
