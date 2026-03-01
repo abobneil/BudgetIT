@@ -1,6 +1,6 @@
 # Windows Release Policy
 
-This project publishes Windows installers from semantic version tags (`vX.Y.Z`).
+This project publishes Windows `x64` and `arm64` installers from semantic version tags (`vX.Y.Z`).
 
 ## Versioning
 
@@ -15,6 +15,15 @@ Configured in `electron-builder.yml`:
 - Generic artifact pattern: `BudgetIT-${version}-win-${arch}.${ext}`
 - NSIS installer pattern: `BudgetIT-Setup-${version}-${arch}.${ext}`
 - Output folder: `dist/release`
+- Required installer artifacts per release:
+  - `BudgetIT-Setup-${version}-x64.exe`
+  - `BudgetIT-Setup-${version}-arm64.exe`
+
+## Packaging commands
+
+- `npm run dist:win` builds and packages both architectures sequentially.
+- `npm run dist:win:x64` packages only the x64 installer.
+- `npm run dist:win:arm64` packages only the ARM64 installer.
 
 ## Installer defaults
 
@@ -34,6 +43,6 @@ Installer and runtime behavior defaults:
   - typecheck
   - tests
   - build
-  - NSIS packaging smoke check (artifact exists)
+  - NSIS packaging smoke check (x64 + arm64 installers exist)
 - Release workflow re-runs quality gates and generates release checksums (`SHA256SUMS.txt`).
 

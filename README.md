@@ -61,7 +61,21 @@ Notes from the current codebase:
 npm run dist:win
 ```
 
-This runs the workspace build, rebuilds the native SQLite module for Electron, and then uses `electron-builder` with `electron-builder.yml` to produce an NSIS installer under `dist/release`.
+This runs the workspace build once, then performs per-architecture native rebuild + packaging for both `x64` and `arm64` NSIS installers under `dist/release`.
+
+Architecture-specific packaging commands:
+
+```bash
+npm run dist:win:x64
+npm run dist:win:arm64
+```
+
+Architecture-specific native rebuild commands:
+
+```bash
+npm run rebuild:native:electron:x64
+npm run rebuild:native:electron:arm64
+```
 
 Optional packaged checks:
 
@@ -71,7 +85,7 @@ npm run smoke:packaged
 
 ## Usage Examples
 
-### Example: Build and create a Windows installer
+### Example: Build and create Windows installers (x64 + arm64)
 
 ```bash
 npm install
@@ -83,6 +97,13 @@ The installer output is placed under:
 
 ```text
 dist/release
+```
+
+Expected installer artifacts:
+
+```text
+BudgetIT-Setup-<version>-x64.exe
+BudgetIT-Setup-<version>-arm64.exe
 ```
 
 ### Example: Renderer ↔ Main IPC usage (in-app)

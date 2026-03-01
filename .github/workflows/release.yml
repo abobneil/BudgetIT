@@ -65,7 +65,7 @@ jobs:
     name: Build NSIS Installer
     needs: preflight
     runs-on: windows-latest
-    timeout-minutes: 60
+    timeout-minutes: 90
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       CSC_LINK: ${{ secrets.CSC_LINK }}
@@ -107,6 +107,23 @@ jobs:
       - name: Validate artifacts and create checksum
         shell: powershell
         run: |
+          $packageJson = Get-Content -Raw package.json | ConvertFrom-Json
+          $version = [string]$packageJson.version
+          if ([string]::IsNullOrWhiteSpace($version)) {
+            throw "package.json version is missing or invalid."
+          }
+
+          $requiredArtifacts = @(
+            "dist/release/BudgetIT-Setup-$version-x64.exe",
+            "dist/release/BudgetIT-Setup-$version-arm64.exe"
+          )
+
+          foreach ($artifactPath in $requiredArtifacts) {
+            if (-not (Test-Path $artifactPath)) {
+              throw "Expected release artifact missing: $artifactPath"
+            }
+          }
+
           $artifacts = Get-ChildItem -Path dist/release -File -ErrorAction SilentlyContinue
           if (-not $artifacts -or $artifacts.Count -eq 0) {
             throw "No release artifacts found in dist/release."

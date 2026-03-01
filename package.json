@@ -16,7 +16,11 @@
     "build": "npm run build --workspace @budgetit/db && npm run build --workspaces --if-present",
     "rebuild:native:node": "node scripts/rebuild-native-node.cjs",
     "rebuild:native:electron": "node scripts/rebuild-native-electron.cjs",
-    "dist:win": "npm run build && npm run rebuild:native:electron && electron-builder --config electron-builder.yml --config.npmRebuild=false --win nsis --publish never",
+    "rebuild:native:electron:x64": "npm run rebuild:native:electron -- --arch=x64",
+    "rebuild:native:electron:arm64": "npm run rebuild:native:electron -- --arch=arm64",
+    "dist:win:x64": "npm run build && npm run rebuild:native:electron:x64 && electron-builder --config electron-builder.yml --config.npmRebuild=false --win nsis --x64 --publish never",
+    "dist:win:arm64": "npm run build && npm run rebuild:native:electron:arm64 && electron-builder --config electron-builder.yml --config.npmRebuild=false --win nsis --arm64 --publish never",
+    "dist:win": "node scripts/dist-win.cjs",
     "release:win": "npm run dist:win",
     "smoke:packaged": "powershell -ExecutionPolicy Bypass -File scripts/release-smoke.ps1"
   },

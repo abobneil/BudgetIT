@@ -3,9 +3,21 @@ $ErrorActionPreference = "Stop"
 
 Write-Host "Running packaged smoke checks..."
 
-$artifactFiles = @(Get-ChildItem -Path "dist/release" -File -Filter "*.exe" -ErrorAction SilentlyContinue)
-if (-not $artifactFiles -or $artifactFiles.Count -eq 0) {
-  throw "No Windows installer artifact found in dist/release."
+$packageJson = Get-Content -Raw "package.json" | ConvertFrom-Json
+$version = [string]$packageJson.version
+if ([string]::IsNullOrWhiteSpace($version)) {
+  throw "package.json version is missing or invalid."
+}
+
+$requiredArtifacts = @(
+  "dist/release/BudgetIT-Setup-$version-x64.exe",
+  "dist/release/BudgetIT-Setup-$version-arm64.exe"
+)
+
+foreach ($artifactPath in $requiredArtifacts) {
+  if (-not (Test-Path $artifactPath)) {
+    throw "Expected installer artifact missing: $artifactPath"
+  }
 }
 
 $requiredDocs = @(

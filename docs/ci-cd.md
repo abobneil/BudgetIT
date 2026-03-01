@@ -11,7 +11,9 @@ This repository now includes two GitHub Actions workflows:
 - After `npm ci`, rebuild native SQLite bindings for local Node before DB/desktop tests:
   - `npm run rebuild:native:node`
 - For installer packaging, rebuild for Electron:
-  - `npm run rebuild:native:electron`
+  - `npm run rebuild:native:electron -- --arch=x64`
+  - `npm run rebuild:native:electron -- --arch=arm64`
+  - or run `npm run dist:win` to build/rebuild/package both architectures.
 
 ## CI workflow
 
@@ -30,7 +32,7 @@ Behavior:
   - `test`
   - `build`
 - Runs on `windows-latest` and uploads optional test artifacts (`coverage`, `junit.xml`, `test-results`).
-- Builds Windows NSIS artifact in a follow-up smoke job and runs `npm run smoke:packaged`.
+- Builds Windows NSIS artifacts for `x64` and `arm64` in a follow-up smoke job and runs `npm run smoke:packaged`.
 
 ## Release workflow (CD)
 
@@ -50,7 +52,7 @@ Behavior:
   - `dist:win`
   - `package:win`
   - `dist`
-- Builds Windows artifacts, generates `SHA256SUMS.txt`, uploads artifacts, and publishes GitHub Release notes automatically.
+- Builds Windows artifacts for `x64` and `arm64`, generates `SHA256SUMS.txt`, uploads artifacts, and publishes GitHub Release notes automatically.
 
 ## Required repository settings
 
