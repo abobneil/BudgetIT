@@ -226,22 +226,6 @@ jobs:
           name: windows-release-${{ needs.preflight.outputs.tag }}
           path: dist/release
 
-      - name: Checkout (for main-latest tag move)
-        if: needs.preflight.outputs.tag == 'main-latest'
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Move main-latest tag to release commit
-        if: needs.preflight.outputs.tag == 'main-latest'
-        shell: bash
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git fetch --tags --force
-          git tag -f main-latest "${{ needs.preflight.outputs.target_commitish }}"
-          git push origin --force main-latest
-
       - name: Publish release
         if: needs.preflight.outputs.prerelease == 'false' && needs.preflight.outputs.tag != 'main-latest'
         uses: softprops/action-gh-release@v2

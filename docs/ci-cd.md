@@ -45,7 +45,7 @@ Triggers:
 Behavior:
 
 - Resolves release metadata by trigger type:
-  - successful `CI` run on `main`: uses release tag `main-latest` and advances it to the newest commit
+  - successful `CI` run on `main`: uses release tag `main-latest` and refreshes the release assets/details
   - `v*` tag push/manual dispatch: uses existing semantic tag
 - Sets build version before quality/build steps:
   - `main` release: `<baseVersion>-main.<runNumber>.<shortsha>`
