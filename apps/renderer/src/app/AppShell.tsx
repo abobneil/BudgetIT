@@ -18,7 +18,6 @@ import { useScenarioContext } from "../features/scenarios/ScenarioContext";
 import { createBackup, openHelpWindow } from "../lib/ipcClient";
 import { useFeedback } from "../ui/feedback";
 import {
-  COMMAND_REGISTRY,
   KEYBOARD_SHORTCUT_MAP,
   resolvePaletteCommands,
   type CommandEntry

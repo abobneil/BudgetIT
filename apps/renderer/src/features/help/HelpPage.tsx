@@ -69,9 +69,10 @@ type HeadingProps = ComponentPropsWithoutRef<"h1">;
 function createHeadingRenderer(tag: HeadingTag) {
   return function MarkdownHeading({
     children,
-    node: _node,
+    node,
     ...props
   }: HeadingProps & { node?: unknown }) {
+    void node;
     const derivedId = toHeadingId(flattenNodeText(children));
     return createElement(tag, { ...props, id: derivedId }, children);
   };

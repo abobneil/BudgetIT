@@ -128,25 +128,21 @@ jobs:
         run: npm ci
 
       - name: Set build version
-        shell: powershell
+        shell: bash
         run: |
-          $buildVersion = "${{ needs.preflight.outputs.build_version }}"
-          if ([string]::IsNullOrWhiteSpace($buildVersion)) {
-            throw "Resolved build version is empty."
-          }
+          node -e "const fs=require('fs'); const buildVersion='${{ needs.preflight.outputs.build_version }}'; if(!buildVersion||!buildVersion.trim()){throw new Error('Resolved build version is empty.');} const path='package.json'; const pkg=JSON.parse(fs.readFileSync(path,'utf8')); pkg.version=buildVersion; fs.writeFileSync(path, JSON.stringify(pkg, null, 2) + '\n', 'utf8'); console.log('Set package.json version to', buildVersion);"
 
-          $packageJsonPath = "package.json"
-          $packageJson = Get-Content -Raw $packageJsonPath | ConvertFrom-Json
-          $packageJson.version = $buildVersion
-          $packageJson | ConvertTo-Json -Depth 100 | Set-Content -Path $packageJsonPath -Encoding UTF8
-          Write-Host "Set package.json version to $buildVersion"
+      - name: Lint
+        run: npm run lint
 
-      - name: Quality gates
-        run: |
-          npm run lint
-          npm run typecheck
-          npm run test
-          npm run build
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm run test
+
+      - name: Build
+        run: npm run build
 
       - name: Build release artifacts
         run: npm run release:win
