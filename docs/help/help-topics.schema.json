@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://budgetit.local/schemas/help-topics.schema.json",
+  "title": "BudgetIT Help Topics Manifest",
+  "type": "object",
+  "required": ["document", "topics"],
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "document": {
+      "type": "object",
+      "required": ["title", "introFile", "featureHeading", "appendixFiles"],
+      "properties": {
+        "title": { "type": "string", "minLength": 1 },
+        "introFile": { "type": "string", "minLength": 1 },
+        "featureHeading": { "type": "string", "minLength": 1 },
+        "appendixFiles": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        }
+      },
+      "additionalProperties": false
+    },
+    "topics": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "inAppSnippet",
+          "docSection",
+          "order",
+          "topicFile",
+          "keywords",
+          "audience",
+          "journeyStep"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z0-9-]+$"
+          },
+          "title": { "type": "string", "minLength": 1 },
+          "inAppSnippet": { "type": "string", "minLength": 1 },
+          "docSection": { "type": "string", "minLength": 1 },
+          "order": { "type": "integer" },
+          "topicFile": { "type": "string", "minLength": 1 },
+          "keywords": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "string", "minLength": 1 }
+          },
+          "audience": {
+            "type": "string",
+            "enum": ["new-user", "experienced-user", "both"]
+          },
+          "journeyStep": {
+            "type": "string",
+            "enum": [
+              "orientation",
+              "setup",
+              "import",
+              "analysis",
+              "reporting",
+              "operations",
+              "reference"
+            ]
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

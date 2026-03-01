@@ -25,6 +25,7 @@ Triggers:
 
 Behavior:
 
+- Runs a dedicated help integrity job (`help:check`) on `windows-latest`.
 - Runs quality gates (`lint`, `typecheck`, `test`, `build`) on `windows-latest`.
 - Runs packaging smoke jobs after quality:
   - Windows (`dist:win`, smoke checks, artifact validation)
@@ -43,7 +44,7 @@ Triggers:
 Behavior:
 
 - Resolves release metadata by trigger type.
-- Runs quality gates once before packaging.
+- Runs quality gates once before packaging, including `help:check`.
 - Builds release artifacts in parallel jobs:
   - Windows (`release:win`)
   - Linux x64 (`release:linux -- --arch=x64`)
@@ -55,6 +56,7 @@ Behavior:
 
 Recommended branch protections for `main`:
 
+- Require status check: `Help Integrity`
 - Require status check: `Lint, Typecheck, Test, Build`
 - Require pull request before merge
 - Restrict direct pushes
@@ -75,6 +77,9 @@ At minimum:
 ```json
 {
   "scripts": {
+    "help:generate": "...",
+    "help:new-topic": "...",
+    "help:check": "...",
     "lint": "...",
     "typecheck": "...",
     "test": "...",
@@ -86,3 +91,30 @@ At minimum:
   }
 }
 ```
+
+## Help Authoring Workflow
+
+Help content now has a generated pipeline:
+
+- Source of truth:
+  - `docs/help/help-topics.json`
+  - `docs/help/topics/*.md`
+  - `docs/help/intro.md`
+  - `docs/help/appendices/*.md`
+- Generated outputs:
+  - `docs/help-system.md`
+  - `apps/renderer/src/features/help/help-topics.ts`
+
+Commands:
+
+```bash
+npm run help:generate
+npm run help:check
+npm run help:new-topic -- --id my-topic --title "My Topic"
+```
+
+CI fails if:
+
+- any help topic maps to a missing heading,
+- orphan topic files exist in `docs/help/topics`,
+- generated outputs are stale compared to source files.

@@ -1,0 +1,15 @@
+## Help Document Maintenance Notes
+- Do not edit generated files directly:
+  - `docs/help-system.md`
+  - `apps/renderer/src/features/help/help-topics.ts`
+- Update help source files instead:
+  - `docs/help/help-topics.json`
+  - `docs/help/topics/*.md`
+  - `docs/help/intro.md`
+  - `docs/help/appendices/*.md`
+- After edits, regenerate and validate:
+  - `npm run help:generate`
+  - `npm run help:check`
+- Keep shortcut and menu wording aligned with implemented behavior in:
+  - `apps/renderer/src/app/AppShell.tsx`
+  - `apps/desktop/src/main.ts`

@@ -233,6 +233,13 @@ Suggested workflow:
    * `docs/operations-runbook.md`
 4. Open a PR with a clear description, screenshots for UI changes, and any operational notes.
 
+If touching Help Center content, use the generated help workflow:
+
+```bash
+npm run help:generate
+npm run help:check
+```
+
 TODO: Add `CONTRIBUTING.md` (branch naming, commit conventions, PR checklist, etc.).
 
 ## License

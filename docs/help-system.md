@@ -1,11 +1,15 @@
+<!-- AUTO-GENERATED FILE. DO NOT EDIT DIRECTLY. -->
+<!-- Edit docs/help/help-topics.json and docs/help/topics/*.md, then run npm run help:generate. -->
+
 # BudgetIT Help System
 
 ## Purpose Of BudgetIT
 BudgetIT helps IT and operations teams plan, track, and govern technology spend in one place.  
 It combines vendor/service/contract tracking, expense planning, scenario comparison, alert triage, data import, and reporting so you can make budget decisions with less manual work.
 
-## Quick Start (First Launch)
+## Feature Deep-Dives
 
+## Quick Start (First Launch)
 ### Understand the 2-window workflow
 - `App Window`: where you do your work (data entry, review, reporting, and exports).
 - `Help Window`: opens from the top-bar **Help** button, desktop **Help** menu entries, or `F1`, then loads a topic-focused section of this guide.
@@ -43,8 +47,6 @@ It combines vendor/service/contract tracking, expense planning, scenario compari
 - Reports
 - NLQ
 - Settings
-
-## Feature Deep-Dives
 
 ## 1) App Shell (Global Controls)
 Use this area from any page.
@@ -499,10 +501,17 @@ Goal: Compare a draft scenario with baseline and promote if ready.
 8. Lock scenario when changes should stop.
 
 ## Help Document Maintenance Notes
-- Keep the mapped section headers unchanged:
-  - `## Quick Start (First Launch)`
-  - `## 1) App Shell (Global Controls)` through `## 13) Settings Center`
-- If mapped headings are renamed, update `apps/renderer/src/features/help/help-topics.ts` in the same change.
+- Do not edit generated files directly:
+  - `docs/help-system.md`
+  - `apps/renderer/src/features/help/help-topics.ts`
+- Update help source files instead:
+  - `docs/help/help-topics.json`
+  - `docs/help/topics/*.md`
+  - `docs/help/intro.md`
+  - `docs/help/appendices/*.md`
+- After edits, regenerate and validate:
+  - `npm run help:generate`
+  - `npm run help:check`
 - Keep shortcut and menu wording aligned with implemented behavior in:
   - `apps/renderer/src/app/AppShell.tsx`
   - `apps/desktop/src/main.ts`

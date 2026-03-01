@@ -1,0 +1,98 @@
+{
+  "labels": [
+    "area:help-center",
+    "phase:1",
+    "phase:2",
+    "phase:3",
+    "phase:4",
+    "phase:5",
+    "phase:6",
+    "phase:7",
+    "type:epic",
+    "type:feature",
+    "type:qa",
+    "type:chore",
+    "priority:p1",
+    "priority:p2",
+    "north-star"
+  ],
+  "milestones": [
+    {
+      "name": "HC-P1",
+      "title": "IA + Repeatable Authoring Pipeline",
+      "issues": [
+        "EPIC: HC-P1 Help IA and Authoring System",
+        "Define manifest schema and topic-file conventions (source of truth)",
+        "Implement help generator to produce help-system.md and help-topics.ts",
+        "Implement new-topic scaffolder command for repeatable updates",
+        "QA gate: generated outputs stable and no manual-only edit path remains"
+      ]
+    },
+    {
+      "name": "HC-P2",
+      "title": "New User Baseline Setup Journey",
+      "issues": [
+        "EPIC: HC-P2 Baseline Setup Journey",
+        "Author setup checklist content for vendors/services/contracts/expenses/dimensions",
+        "Add in-app journey links for first-session progression",
+        "Add checklist completion state (local persistence)",
+        "QA gate: new user completes baseline setup without external docs"
+      ]
+    },
+    {
+      "name": "HC-P3",
+      "title": "Import Actuals + Reconcile Journey",
+      "issues": [
+        "EPIC: HC-P3 Import and Reconciliation",
+        "Author import and reconciliation playbook content",
+        "Add glossary definitions for statuses and match outcomes",
+        "Add contextual help links from Import and Reports reconciliation surfaces",
+        "QA gate: import/reconcile walkthrough passes end-to-end"
+      ]
+    },
+    {
+      "name": "HC-P4",
+      "title": "Dashboard + Variance Interpretation",
+      "issues": [
+        "EPIC: HC-P4 Dashboard Interpretation",
+        "Document KPI and variance definitions aligned to app behavior",
+        "Author variance triage workflow (diagnose and next action)",
+        "Add card-level help deep links for dashboard surfaces",
+        "QA gate: first-time user interprets dashboard and variance correctly"
+      ]
+    },
+    {
+      "name": "HC-P5",
+      "title": "Executive Export + Operating Rhythm",
+      "issues": [
+        "EPIC: HC-P5 Reporting and Operating Cadence",
+        "Author executive export playbook",
+        "Author weekly/monthly operating checklist content",
+        "Add report page shortcuts to export and narrative sections",
+        "QA gate: user produces executive export and follows recurring cadence"
+      ]
+    },
+    {
+      "name": "HC-P6",
+      "title": "Experienced User Speed Layer",
+      "issues": [
+        "EPIC: HC-P6 Findability and Contextual Delivery",
+        "Implement help search/jump index from generated help assets",
+        "Add F1/command-palette seeded navigation to topic+anchor",
+        "Add contextual field/status definitions for high-friction screens",
+        "QA gate: experienced user finds definition/status/field meaning in <30s"
+      ]
+    },
+    {
+      "name": "HC-P7",
+      "title": "Help Integrity + CI Governance",
+      "issues": [
+        "EPIC: HC-P7 Help Integrity and Enforcement",
+        "Implement help integrity checker (topic->heading, unique IDs, orphan checks)",
+        "Implement drift checker (fail if generated files differ from committed state)",
+        "Wire help:check into CI quality workflow",
+        "Document maintenance workflow and enforce required status check"
+      ]
+    }
+  ]
+}
