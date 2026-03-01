@@ -5,7 +5,7 @@ import path from "node:path";
 import {
   ingestActualTransactions,
   listUnmatchedActualTransactions,
-  toUsdMinorUnits,
+  toCurrencyMinorUnits,
   type ActualTransactionInput
 } from "@budgetit/db";
 import type Database from "better-sqlite3-multiple-ciphers";
@@ -68,6 +68,16 @@ const REQUIRED_FIELDS: ActualImportField[] = [
   "transactionDate",
   "amount"
 ];
+
+const ISO_4217_CURRENCY_CODE = /^[A-Z]{3}$/;
+
+function normalizeCurrencyCode(value: string): string {
+  return value.trim().toUpperCase();
+}
+
+function isIso4217CurrencyCode(value: string): boolean {
+  return ISO_4217_CURRENCY_CODE.test(value);
+}
 
 const FIELD_ALIASES: Record<ActualImportField, string[]> = {
   scenarioId: ["scenario_id", "scenario", "scenarioid"],
@@ -276,7 +286,7 @@ function loadExistingFingerprints(db: Database.Database): Set<string> {
         contractId: row.contract_id,
         transactionDate: row.transaction_date,
         amountMinor: row.amount_minor,
-        currency: "USD",
+        currency: normalizeCurrencyCode(row.currency || "USD"),
         description: row.description ?? undefined
       })
     );
@@ -313,7 +323,7 @@ function validateRows(
     const contractId = valueAt(rows[index], mapping, "contractId");
     const transactionDate = valueAt(rows[index], mapping, "transactionDate");
     const amountRaw = valueAt(rows[index], mapping, "amount");
-    const currency = valueAt(rows[index], mapping, "currency").toUpperCase() || "USD";
+    const currency = normalizeCurrencyCode(valueAt(rows[index], mapping, "currency") || "USD");
     const description = valueAt(rows[index], mapping, "description");
 
     if (!scenarioId) {
@@ -340,18 +350,18 @@ function validateRows(
         message: "transactionDate must use YYYY-MM-DD format."
       });
     }
-    if (currency !== "USD") {
+    if (!isIso4217CurrencyCode(currency)) {
       errors.push({
         rowNumber,
         code: "validation",
         field: "currency",
-        message: "currency must be USD."
+        message: "currency must be a valid ISO 4217 code."
       });
     }
 
     let amountMinor = 0;
     try {
-      amountMinor = toUsdMinorUnits(amountRaw);
+      amountMinor = toCurrencyMinorUnits(amountRaw);
       if (amountMinor < 0) {
         errors.push({
           rowNumber,
@@ -380,7 +390,7 @@ function validateRows(
       contractId: contractId || undefined,
       transactionDate,
       amountMinor,
-      currency: "USD",
+      currency,
       description: description || undefined
     };
 

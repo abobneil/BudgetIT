@@ -47,8 +47,19 @@ export type NlqReportExportResult = {
   files: Partial<Record<NlqExportFormat, string>>;
 };
 
-function formatUsd(minor: number): string {
-  return `$${(minor / 100).toFixed(2)}`;
+function resolveReportCurrency(candidate: string | undefined): string {
+  const normalized = candidate?.trim().toUpperCase();
+  if (!normalized || !/^[A-Z]{3}$/.test(normalized)) {
+    return "USD";
+  }
+  return normalized;
+}
+
+function formatCurrency(minor: number, currency: string): string {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency
+  }).format(minor / 100);
 }
 
 export function computeReportTotals(dataset: DashboardDataset): {
@@ -69,21 +80,29 @@ export function computeReportTotals(dataset: DashboardDataset): {
 
 export function createDashboardHtml(dataset: DashboardDataset): string {
   const totals = computeReportTotals(dataset);
+  const reportCurrency = resolveReportCurrency(dataset.currency);
   const staleText = dataset.staleForecast
     ? "<p><strong>Forecast is stale and should be re-materialized.</strong></p>"
     : "";
   const spendRows = dataset.spendTrend
     .map(
       (row) =>
-        `<tr><td>${row.month}</td><td>${formatUsd(row.forecastMinor)}</td><td>${formatUsd(
-          row.actualMinor
+        `<tr><td>${row.month}</td><td>${formatCurrency(
+          row.forecastMinor,
+          reportCurrency
+        )}</td><td>${formatCurrency(
+          row.actualMinor,
+          reportCurrency
         )}</td></tr>`
     )
     .join("");
   const varianceRows = dataset.variance
     .map(
       (row) =>
-        `<tr><td>${row.month}</td><td>${formatUsd(row.varianceMinor)}</td><td>${row.unmatchedCount}</td></tr>`
+        `<tr><td>${row.month}</td><td>${formatCurrency(
+          row.varianceMinor,
+          reportCurrency
+        )}</td><td>${row.unmatchedCount}</td></tr>`
     )
     .join("");
   const narratives = dataset.narrativeBlocks
@@ -107,9 +126,9 @@ export function createDashboardHtml(dataset: DashboardDataset): string {
     <h1>BudgetIT Dashboard Report</h1>
     ${staleText}
     <div class="summary">
-      <p>Total forecast: ${formatUsd(totals.forecastMinor)}</p>
-      <p>Total actual: ${formatUsd(totals.actualMinor)}</p>
-      <p>Total variance: ${formatUsd(totals.varianceMinor)}</p>
+      <p>Total forecast: ${formatCurrency(totals.forecastMinor, reportCurrency)}</p>
+      <p>Total actual: ${formatCurrency(totals.actualMinor, reportCurrency)}</p>
+      <p>Total variance: ${formatCurrency(totals.varianceMinor, reportCurrency)}</p>
     </div>
     <h2>Spend Trend</h2>
     <table>

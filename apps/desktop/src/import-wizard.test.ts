@@ -6,7 +6,12 @@ import { bootstrapEncryptedDatabase, runMigrations, BudgetCrudRepository } from 
 import { afterEach, describe, expect, it } from "vitest";
 import * as XLSX from "xlsx";
 
-import { commitExpenseImport, previewExpenseImport } from "./import-wizard";
+import {
+  commitExpenseImport,
+  deleteImportTemplate,
+  listImportTemplates,
+  previewExpenseImport
+} from "./import-wizard";
 
 const tempRoots: string[] = [];
 
@@ -160,6 +165,90 @@ describe("import wizard", () => {
       expect(second.duplicateCount).toBe(1);
       expect(second.skippedDuplicateCount).toBe(1);
       expect(countRow.count).toBe(1);
+    } finally {
+      boot.db.close();
+    }
+  });
+
+  it("fails commit rows that do not satisfy required dimensions", () => {
+    const dataDir = createTempDir("budgetit-import-db-");
+    const fixtureDir = createTempDir("budgetit-import-fixture-");
+    const boot = bootstrapEncryptedDatabase(dataDir);
+
+    try {
+      runMigrations(boot.db);
+      const repo = new BudgetCrudRepository(boot.db);
+      const serviceId = seedService(repo);
+      const dimensionId = repo.createDimension({
+        name: "Cost Center",
+        mode: "single_select",
+        required: true
+      });
+      repo.createTag({
+        dimensionId,
+        name: "Engineering"
+      });
+
+      const csvPath = path.join(fixtureDir, "required-dimension.csv");
+      createCsv(csvPath, [
+        "scenario_id,service_id,name,expense_type,status,amount,currency",
+        `baseline,${serviceId},Required Dim Missing,one_time,approved,99.00,USD`
+      ]);
+
+      const committed = commitExpenseImport(boot.db, {
+        filePath: csvPath,
+        templateStorePath: path.join(fixtureDir, "templates.json")
+      });
+
+      expect(committed.insertedCount).toBe(0);
+      expect(committed.acceptedCount).toBe(0);
+      expect(committed.rejectedCount).toBe(1);
+      expect(committed.errors[0]?.rowNumber).toBe(2);
+      expect(committed.errors[0]?.message).toContain("Required dimensions missing");
+    } finally {
+      boot.db.close();
+    }
+  });
+
+  it("lists and deletes template library entries", () => {
+    const dataDir = createTempDir("budgetit-import-db-");
+    const fixtureDir = createTempDir("budgetit-import-fixture-");
+    const boot = bootstrapEncryptedDatabase(dataDir);
+
+    try {
+      runMigrations(boot.db);
+      const repo = new BudgetCrudRepository(boot.db);
+      const serviceId = seedService(repo);
+      const workbookPath = path.join(fixtureDir, "template-library.xlsx");
+      const templateStorePath = path.join(fixtureDir, "templates.json");
+
+      createXlsx(workbookPath, [
+        ["Scenario", "Service", "Expense", "Type", "State", "AmountUSD"],
+        ["baseline", serviceId, "Template Library", "one_time", "planned", "19.95"]
+      ]);
+
+      previewExpenseImport(boot.db, {
+        filePath: workbookPath,
+        templateStorePath,
+        saveTemplate: true,
+        templateName: "template-library-entry",
+        mapping: {
+          scenarioId: "Scenario",
+          serviceId: "Service",
+          name: "Expense",
+          expenseType: "Type",
+          status: "State",
+          amount: "AmountUSD"
+        }
+      });
+
+      const listed = listImportTemplates(templateStorePath);
+      expect(listed.templates.some((entry) => entry.name === "template-library-entry")).toBe(true);
+
+      const deleted = deleteImportTemplate(templateStorePath, "template-library-entry");
+      expect(deleted.deleted).toBe(true);
+      const listedAfterDelete = listImportTemplates(templateStorePath);
+      expect(listedAfterDelete.templates.some((entry) => entry.name === "template-library-entry")).toBe(false);
     } finally {
       boot.db.close();
     }

@@ -2,7 +2,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
-import { BudgetCrudRepository, toUsdMinorUnits } from "@budgetit/db";
+import { BudgetCrudRepository, toCurrencyMinorUnits } from "@budgetit/db";
 import type Database from "better-sqlite3-multiple-ciphers";
 import * as XLSX from "xlsx";
 
@@ -23,7 +23,11 @@ export type ImportField =
   | "interval"
   | "dayOfMonth"
   | "monthOfYear"
-  | "anchorDate";
+  | "anchorDate"
+  | "capexOpex"
+  | "glAccountCode"
+  | "costCenterCode"
+  | "fundingSource";
 
 export type ImportColumnMapping = Partial<Record<ImportField, string>>;
 
@@ -48,7 +52,11 @@ export type NormalizedImportRow = {
   expenseType: ExpenseType;
   status: ExpenseStatus;
   amountMinor: number;
-  currency: "USD";
+  currency: string;
+  capexOpex?: "capex" | "opex";
+  glAccountCode?: string;
+  costCenterCode?: string;
+  fundingSource?: string;
   startDate?: string;
   endDate?: string;
   recurrence?: RecurrenceInput;
@@ -66,8 +74,10 @@ export type ImportPreviewInput = {
   filePath: string;
   mapping?: ImportColumnMapping;
   templateName?: string;
+  templatePack?: "aws-cur" | "azure-cost" | "gcp-billing";
   useSavedTemplate?: boolean;
   saveTemplate?: boolean;
+  requireFinanceMetadata?: boolean;
   templateStorePath: string;
 };
 
@@ -98,11 +108,32 @@ export type ImportCommitInput = ImportPreviewInput & {
   autoTagRules?: AutoTagRule[];
 };
 
+export type ImportTemplateSummary = {
+  name: string;
+  headerSignature: string;
+  templateVersion: number;
+  updatedAt: string;
+  mapping: ImportColumnMapping;
+};
+
+export type ImportTemplateListResult = {
+  version: number;
+  templates: ImportTemplateSummary[];
+};
+
+export type ImportTemplateDeleteResult = {
+  ok: boolean;
+  deleted: boolean;
+  remaining: number;
+};
+
 type TemplateStore = {
+  version: number;
   templates: Array<{
     name: string;
     headerSignature: string;
     mapping: ImportColumnMapping;
+    templateVersion: number;
     updatedAt: string;
   }>;
 };
@@ -115,6 +146,23 @@ const REQUIRED_FIELDS: ImportField[] = [
   "status",
   "amount"
 ];
+
+const REQUIRED_FINANCE_FIELDS: ImportField[] = [
+  "capexOpex",
+  "glAccountCode",
+  "costCenterCode"
+];
+
+const ISO_4217_CURRENCY_CODE = /^[A-Z]{3}$/;
+const TEMPLATE_STORE_VERSION = 2;
+
+function normalizeCurrencyCode(value: string): string {
+  return value.trim().toUpperCase();
+}
+
+function isIso4217CurrencyCode(value: string): boolean {
+  return ISO_4217_CURRENCY_CODE.test(value);
+}
 
 const FIELD_ALIASES: Record<ImportField, string[]> = {
   scenarioId: ["scenario_id", "scenario", "scenarioid"],
@@ -131,7 +179,47 @@ const FIELD_ALIASES: Record<ImportField, string[]> = {
   interval: ["interval", "every"],
   dayOfMonth: ["day_of_month", "day", "dom"],
   monthOfYear: ["month_of_year", "month", "moy"],
-  anchorDate: ["anchor_date", "anchor"]
+  anchorDate: ["anchor_date", "anchor"],
+  capexOpex: ["capex_opex", "capexopex", "capex/op_ex", "opex_capex"],
+  glAccountCode: ["gl_account_code", "gl_code", "gl_account"],
+  costCenterCode: ["cost_center_code", "cost_center", "costcentre", "cc"],
+  fundingSource: ["funding_source", "funding", "fund"]
+};
+
+const CLOUD_TEMPLATE_PACK_ALIASES: Record<
+  "aws-cur" | "azure-cost" | "gcp-billing",
+  Partial<Record<ImportField, string[]>>
+> = {
+  "aws-cur": {
+    name: ["lineitem_productcode", "productcode", "lineitem_lineitemdescription"],
+    amount: ["lineitem_unblendedcost", "lineitem_blendedcost", "cost"],
+    currency: ["lineitem_currencycode", "currencycode", "currency"],
+    startDate: ["lineitem_usagestartdate", "usagestartdate"],
+    endDate: ["lineitem_usageenddate", "usageenddate"],
+    costCenterCode: ["resourcetags_user_costcenter", "costcenter", "cost_center"],
+    glAccountCode: ["resourcetags_user_glaccount", "glaccount", "gl_account"],
+    fundingSource: ["resourcetags_user_fundingsource", "fundingsource"]
+  },
+  "azure-cost": {
+    name: ["metername", "servicename", "product"],
+    amount: ["pretaxcost", "costinusd", "cost"],
+    currency: ["billingcurrency", "currency"],
+    startDate: ["date", "usage_date", "billingperiodstartdate"],
+    endDate: ["billingperiodenddate", "date"],
+    costCenterCode: ["costcenter", "cost_center"],
+    glAccountCode: ["glaccount", "gl_account"],
+    fundingSource: ["fundingsource", "funding_source"]
+  },
+  "gcp-billing": {
+    name: ["service_description", "sku_description", "description"],
+    amount: ["cost", "cost_at_list", "subtotal"],
+    currency: ["currency", "currency_code"],
+    startDate: ["usage_start_time", "usage_start_date"],
+    endDate: ["usage_end_time", "usage_end_date"],
+    costCenterCode: ["labels_cost_center", "cost_center"],
+    glAccountCode: ["labels_gl_account", "gl_account"],
+    fundingSource: ["labels_funding_source", "funding_source"]
+  }
 };
 
 function normalizeHeaderName(value: string): string {
@@ -253,28 +341,89 @@ function readImportRows(filePath: string): { headers: string[]; rows: Record<str
 
 function loadTemplateStore(filePath: string): TemplateStore {
   if (!fs.existsSync(filePath)) {
-    return { templates: [] };
+    return { version: TEMPLATE_STORE_VERSION, templates: [] };
   }
-  const parsed = JSON.parse(fs.readFileSync(filePath, "utf8")) as Partial<TemplateStore>;
+  const parsed = JSON.parse(fs.readFileSync(filePath, "utf8")) as Partial<TemplateStore> & {
+    templates?: Array<{
+      name?: unknown;
+      headerSignature?: unknown;
+      mapping?: unknown;
+      templateVersion?: unknown;
+      updatedAt?: unknown;
+    }>;
+  };
   if (!Array.isArray(parsed.templates)) {
-    return { templates: [] };
+    return { version: TEMPLATE_STORE_VERSION, templates: [] };
   }
   return {
+    version:
+      typeof parsed.version === "number" && Number.isFinite(parsed.version) && parsed.version > 0
+        ? parsed.version
+        : 1,
     templates: parsed.templates.filter((entry): entry is TemplateStore["templates"][number] => {
       return (
         typeof entry?.name === "string" &&
         typeof entry?.headerSignature === "string" &&
         typeof entry?.mapping === "object" &&
         entry.mapping !== null &&
+        (typeof entry?.templateVersion === "number" || typeof entry?.templateVersion === "undefined") &&
         typeof entry?.updatedAt === "string"
       );
-    })
+    }).map((entry) => ({
+      ...entry,
+      templateVersion:
+        typeof entry.templateVersion === "number" && Number.isFinite(entry.templateVersion)
+          ? entry.templateVersion
+          : 1
+    }))
   };
 }
 
 function saveTemplateStore(filePath: string, store: TemplateStore): void {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
-  fs.writeFileSync(filePath, `${JSON.stringify(store, null, 2)}\n`, "utf8");
+  const payload: TemplateStore = {
+    ...store,
+    version: TEMPLATE_STORE_VERSION
+  };
+  fs.writeFileSync(filePath, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
+}
+
+export function listImportTemplates(templateStorePath: string): ImportTemplateListResult {
+  const store = loadTemplateStore(templateStorePath);
+  const templates = [...store.templates].sort((left, right) => {
+    if (left.updatedAt === right.updatedAt) {
+      return left.name.localeCompare(right.name);
+    }
+    return right.updatedAt.localeCompare(left.updatedAt);
+  });
+  return {
+    version: store.version,
+    templates
+  };
+}
+
+export function deleteImportTemplate(
+  templateStorePath: string,
+  templateName: string
+): ImportTemplateDeleteResult {
+  const store = loadTemplateStore(templateStorePath);
+  const nextTemplates = store.templates.filter((entry) => entry.name !== templateName);
+  if (nextTemplates.length === store.templates.length) {
+    return {
+      ok: true,
+      deleted: false,
+      remaining: store.templates.length
+    };
+  }
+  saveTemplateStore(templateStorePath, {
+    ...store,
+    templates: nextTemplates
+  });
+  return {
+    ok: true,
+    deleted: true,
+    remaining: nextTemplates.length
+  };
 }
 
 function headerSignature(headers: string[]): string {
@@ -294,6 +443,30 @@ function buildAutoMapping(headers: string[]): ImportColumnMapping {
       const candidate = byNormalizedName.get(alias);
       if (candidate) {
         mapping[field] = candidate;
+        break;
+      }
+    }
+  }
+  return mapping;
+}
+
+function buildCloudTemplatePackMapping(
+  headers: string[],
+  templatePack: "aws-cur" | "azure-cost" | "gcp-billing"
+): ImportColumnMapping {
+  const aliases = CLOUD_TEMPLATE_PACK_ALIASES[templatePack];
+  const byNormalizedName = new Map<string, string>();
+  for (const header of headers) {
+    byNormalizedName.set(normalizeHeaderName(header), header);
+  }
+  const mapping: ImportColumnMapping = {};
+  const fields = Object.keys(aliases) as ImportField[];
+  for (const field of fields) {
+    const candidates = aliases[field] ?? [];
+    for (const alias of candidates) {
+      const matched = byNormalizedName.get(alias);
+      if (matched) {
+        mapping[field] = matched;
         break;
       }
     }
@@ -327,6 +500,13 @@ function resolveMapping(
 
   const hasRequestedMapping = Object.keys(requested).length > 0;
   const shouldUseTemplate = input.useSavedTemplate !== false && !hasRequestedMapping;
+  if (shouldUseTemplate && input.templatePack) {
+    const packed = buildCloudTemplatePackMapping(headers, input.templatePack);
+    if (Object.keys(packed).length > 0) {
+      mapping = normalizeMapping(headers, packed);
+      templateApplied = `pack:${input.templatePack}`;
+    }
+  }
   if (shouldUseTemplate) {
     const template = store.templates.find((entry) => {
       if (input.templateName) {
@@ -349,10 +529,12 @@ function resolveMapping(
     const name = input.templateName?.trim() || `template:${signature}`;
     const updatedAt = new Date().toISOString();
     const nextStore: TemplateStore = {
+      version: TEMPLATE_STORE_VERSION,
       templates: store.templates.filter((entry) => entry.name !== name).concat({
         name,
         headerSignature: signature,
         mapping,
+        templateVersion: store.version + 1,
         updatedAt
       })
     };
@@ -376,6 +558,10 @@ function buildFingerprint(row: Omit<NormalizedImportRow, "fingerprint" | "rowNum
     row.status,
     String(row.amountMinor),
     row.currency,
+    row.capexOpex ?? "",
+    row.glAccountCode ?? "",
+    row.costCenterCode ?? "",
+    row.fundingSource ?? "",
     row.startDate ?? "",
     row.endDate ?? "",
     recurrenceToken
@@ -394,7 +580,8 @@ function rowValue(row: Record<string, string>, mapping: ImportColumnMapping, fie
 function normalizeRow(
   row: Record<string, string>,
   rowNumber: number,
-  mapping: ImportColumnMapping
+  mapping: ImportColumnMapping,
+  requireFinanceMetadata: boolean
 ): { value?: NormalizedImportRow; errors: ImportRowError[] } {
   const errors: ImportRowError[] = [];
   const scenarioId = rowValue(row, mapping, "scenarioId");
@@ -404,7 +591,7 @@ function normalizeRow(
   const expenseTypeRaw = rowValue(row, mapping, "expenseType").toLowerCase();
   const statusRaw = rowValue(row, mapping, "status").toLowerCase();
   const amountRaw = rowValue(row, mapping, "amount");
-  const currencyRaw = rowValue(row, mapping, "currency").toUpperCase() || "USD";
+  const currencyRaw = normalizeCurrencyCode(rowValue(row, mapping, "currency") || "USD");
   const startDate = rowValue(row, mapping, "startDate");
   const endDate = rowValue(row, mapping, "endDate");
   const frequencyRaw = rowValue(row, mapping, "frequency").toLowerCase();
@@ -412,6 +599,10 @@ function normalizeRow(
   const dayOfMonthRaw = rowValue(row, mapping, "dayOfMonth");
   const monthOfYearRaw = rowValue(row, mapping, "monthOfYear");
   const anchorDate = rowValue(row, mapping, "anchorDate");
+  const capexOpexRaw = rowValue(row, mapping, "capexOpex").toLowerCase();
+  const glAccountCodeRaw = rowValue(row, mapping, "glAccountCode");
+  const costCenterCodeRaw = rowValue(row, mapping, "costCenterCode");
+  const fundingSourceRaw = rowValue(row, mapping, "fundingSource");
 
   for (const field of REQUIRED_FIELDS) {
     if (!mapping[field]) {
@@ -421,6 +612,18 @@ function normalizeRow(
         field,
         message: `Missing mapping for required field: ${field}`
       });
+    }
+  }
+  if (requireFinanceMetadata) {
+    for (const field of REQUIRED_FINANCE_FIELDS) {
+      if (!mapping[field]) {
+        errors.push({
+          rowNumber,
+          code: "validation",
+          field,
+          message: `Missing mapping for required finance field: ${field}`
+        });
+      }
     }
   }
 
@@ -481,7 +684,7 @@ function normalizeRow(
 
   let amountMinor = 0;
   try {
-    amountMinor = toUsdMinorUnits(amountRaw);
+    amountMinor = toCurrencyMinorUnits(amountRaw);
     if (amountMinor < 0) {
       errors.push({
         rowNumber,
@@ -499,14 +702,55 @@ function normalizeRow(
     });
   }
 
-  if (currencyRaw !== "USD") {
+  if (!isIso4217CurrencyCode(currencyRaw)) {
     errors.push({
       rowNumber,
       code: "validation",
       field: "currency",
-      message: "currency must be USD."
+      message: "currency must be a valid ISO 4217 code."
     });
   }
+
+  let capexOpex: "capex" | "opex" | undefined;
+  if (capexOpexRaw.length > 0) {
+    if (capexOpexRaw === "capex" || capexOpexRaw === "opex") {
+      capexOpex = capexOpexRaw;
+    } else {
+      errors.push({
+        rowNumber,
+        code: "validation",
+        field: "capexOpex",
+        message: "capexOpex must be capex or opex."
+      });
+    }
+  } else if (requireFinanceMetadata) {
+    errors.push({
+      rowNumber,
+      code: "validation",
+      field: "capexOpex",
+      message: "capexOpex is required when finance metadata enforcement is enabled."
+    });
+  }
+
+  const glAccountCode = glAccountCodeRaw || undefined;
+  if (requireFinanceMetadata && !glAccountCode) {
+    errors.push({
+      rowNumber,
+      code: "validation",
+      field: "glAccountCode",
+      message: "glAccountCode is required when finance metadata enforcement is enabled."
+    });
+  }
+  const costCenterCode = costCenterCodeRaw || undefined;
+  if (requireFinanceMetadata && !costCenterCode) {
+    errors.push({
+      rowNumber,
+      code: "validation",
+      field: "costCenterCode",
+      message: "costCenterCode is required when finance metadata enforcement is enabled."
+    });
+  }
+  const fundingSource = fundingSourceRaw || undefined;
 
   if (startDate && !isIsoDate(startDate)) {
     errors.push({
@@ -616,7 +860,11 @@ function normalizeRow(
     expenseType,
     status,
     amountMinor,
-    currency: "USD",
+    currency: currencyRaw,
+    capexOpex,
+    glAccountCode,
+    costCenterCode,
+    fundingSource,
     startDate: startDate || undefined,
     endDate: endDate || undefined,
     recurrence
@@ -645,6 +893,10 @@ function loadExistingFingerprints(db: Database.Database): Set<string> {
           e.status,
           e.amount_minor,
           e.currency,
+          e.capex_opex,
+          e.gl_account_code,
+          e.cost_center_code,
+          e.funding_source,
           e.start_date,
           e.end_date,
           r.frequency,
@@ -666,6 +918,10 @@ function loadExistingFingerprints(db: Database.Database): Set<string> {
     status: ExpenseStatus;
     amount_minor: number;
     currency: string;
+    capex_opex: "capex" | "opex" | null;
+    gl_account_code: string | null;
+    cost_center_code: string | null;
+    funding_source: string | null;
     start_date: string | null;
     end_date: string | null;
     frequency: Frequency | null;
@@ -697,7 +953,11 @@ function loadExistingFingerprints(db: Database.Database): Set<string> {
         expenseType: row.expense_type,
         status: row.status,
         amountMinor: row.amount_minor,
-        currency: "USD",
+        currency: normalizeCurrencyCode(row.currency || "USD"),
+        capexOpex: row.capex_opex ?? undefined,
+        glAccountCode: row.gl_account_code ?? undefined,
+        costCenterCode: row.cost_center_code ?? undefined,
+        fundingSource: row.funding_source ?? undefined,
         startDate: row.start_date ?? undefined,
         endDate: row.end_date ?? undefined,
         recurrence
@@ -711,7 +971,8 @@ function loadExistingFingerprints(db: Database.Database): Set<string> {
 function validateRows(
   rows: Record<string, string>[],
   mapping: ImportColumnMapping,
-  existingFingerprints: Set<string>
+  existingFingerprints: Set<string>,
+  requireFinanceMetadata: boolean
 ): { acceptedRows: NormalizedImportRow[]; errors: ImportRowError[]; duplicateCount: number } {
   const acceptedRows: NormalizedImportRow[] = [];
   const errors: ImportRowError[] = [];
@@ -720,7 +981,7 @@ function validateRows(
 
   for (let index = 0; index < rows.length; index += 1) {
     const rowNumber = index + 2;
-    const normalized = normalizeRow(rows[index], rowNumber, mapping);
+    const normalized = normalizeRow(rows[index], rowNumber, mapping, requireFinanceMetadata);
     if (!normalized.value) {
       errors.push(...normalized.errors);
       continue;
@@ -751,7 +1012,12 @@ export function previewExpenseImport(
   const { headers, rows } = readImportRows(input.filePath);
   const { mapping, templateApplied, templateSaved } = resolveMapping(headers, input);
   const existingFingerprints = loadExistingFingerprints(db);
-  const { acceptedRows, errors, duplicateCount } = validateRows(rows, mapping, existingFingerprints);
+  const { acceptedRows, errors, duplicateCount } = validateRows(
+    rows,
+    mapping,
+    existingFingerprints,
+    input.requireFinanceMetadata === true
+  );
 
   return {
     totalRows: rows.length,
@@ -768,16 +1034,17 @@ export function previewExpenseImport(
 
 export function commitExpenseImport(db: Database.Database, input: ImportCommitInput): ImportCommitResult {
   const preview = previewExpenseImport(db, input);
+  const commitErrors: ImportRowError[] = [...preview.errors];
   if (preview.acceptedRows.length === 0) {
     return {
       totalRows: preview.totalRows,
-      acceptedCount: preview.acceptedCount,
-      rejectedCount: preview.rejectedCount,
+      acceptedCount: 0,
+      rejectedCount: commitErrors.length,
       duplicateCount: preview.duplicateCount,
       insertedCount: 0,
       skippedDuplicateCount: preview.duplicateCount,
       autoTagAssignments: [],
-      errors: preview.errors
+      errors: commitErrors
     };
   }
 
@@ -785,8 +1052,8 @@ export function commitExpenseImport(db: Database.Database, input: ImportCommitIn
   const autoTagRules = input.autoTagRules ?? [];
   const serviceToVendor = new Map<string, string | undefined>();
   const autoTagAssignments: Array<{ entityId: string; matches: AutoTagMatch[] }> = [];
-  const write = db.transaction(() => {
-    for (const row of preview.acceptedRows) {
+  const writeSingleRow = db.transaction(
+    (row: NormalizedImportRow): { entityId: string; matches: AutoTagMatch[] } => {
       const createdExpenseId = repo.createExpenseLineWithOptionalRecurrence(
         {
           scenarioId: row.scenarioId,
@@ -796,7 +1063,11 @@ export function commitExpenseImport(db: Database.Database, input: ImportCommitIn
           expenseType: row.expenseType,
           status: row.status,
           amountMinor: row.amountMinor,
-          currency: "USD",
+          currency: row.currency,
+          capexOpex: row.capexOpex ?? null,
+          glAccountCode: row.glAccountCode ?? null,
+          costCenterCode: row.costCenterCode ?? null,
+          fundingSource: row.fundingSource ?? null,
           startDate: row.startDate,
           endDate: row.endDate
         },
@@ -812,6 +1083,7 @@ export function commitExpenseImport(db: Database.Database, input: ImportCommitIn
           : undefined
       );
 
+      let matches: AutoTagMatch[] = [];
       if (autoTagRules.length > 0) {
         let vendorId = serviceToVendor.get(row.serviceId);
         if (!serviceToVendor.has(row.serviceId)) {
@@ -822,27 +1094,50 @@ export function commitExpenseImport(db: Database.Database, input: ImportCommitIn
           serviceToVendor.set(row.serviceId, vendorId);
         }
 
-        const matches = applyAutoTagRules(db, autoTagRules, {
+        matches = applyAutoTagRules(db, autoTagRules, {
           entityType: "expense_line",
           entityId: createdExpenseId,
           vendorId,
           description: row.name,
+          costCenter: row.costCenterCode,
           amountMinor: row.amountMinor
         });
-        autoTagAssignments.push({ entityId: createdExpenseId, matches });
       }
+
+      // Required dimensions are enforced at commit so unresolved rows fail loudly.
+      repo.assertRequiredDimensionsSatisfied("expense_line", createdExpenseId);
+      return {
+        entityId: createdExpenseId,
+        matches
+      };
     }
-  });
-  write();
+  );
+
+  let insertedCount = 0;
+  for (const row of preview.acceptedRows) {
+    try {
+      const result = writeSingleRow(row);
+      insertedCount += 1;
+      autoTagAssignments.push(result);
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      commitErrors.push({
+        rowNumber: row.rowNumber,
+        code: "validation",
+        field: "row",
+        message: detail
+      });
+    }
+  }
 
   return {
     totalRows: preview.totalRows,
-    acceptedCount: preview.acceptedCount,
-    rejectedCount: preview.rejectedCount,
+    acceptedCount: insertedCount,
+    rejectedCount: commitErrors.length,
     duplicateCount: preview.duplicateCount,
-    insertedCount: preview.acceptedRows.length,
+    insertedCount,
     skippedDuplicateCount: preview.duplicateCount,
     autoTagAssignments,
-    errors: preview.errors
+    errors: commitErrors
   };
 }

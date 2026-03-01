@@ -6,15 +6,27 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { commitImport, previewImport } from "../../lib/ipcClient";
+import {
+  commitImport,
+  deleteImportTemplate,
+  isIpcAvailable,
+  listImportTemplates,
+  previewImport
+} from "../../lib/ipcClient";
 import { budgetItLightTheme } from "../../ui/theme";
 import { ImportPage } from "./ImportPage";
 
 vi.mock("../../lib/ipcClient", () => ({
+  isIpcAvailable: vi.fn(),
+  listImportTemplates: vi.fn(),
+  deleteImportTemplate: vi.fn(),
   previewImport: vi.fn(),
   commitImport: vi.fn()
 }));
 
+const isIpcAvailableMock = vi.mocked(isIpcAvailable);
+const listImportTemplatesMock = vi.mocked(listImportTemplates);
+const deleteImportTemplateMock = vi.mocked(deleteImportTemplate);
 const previewImportMock = vi.mocked(previewImport);
 const commitImportMock = vi.mocked(commitImport);
 
@@ -30,8 +42,21 @@ function renderImportPage() {
 
 describe("ImportPage", () => {
   beforeEach(() => {
+    isIpcAvailableMock.mockReset();
+    listImportTemplatesMock.mockReset();
+    deleteImportTemplateMock.mockReset();
     previewImportMock.mockReset();
     commitImportMock.mockReset();
+    isIpcAvailableMock.mockReturnValue(true);
+    listImportTemplatesMock.mockResolvedValue({
+      version: 2,
+      templates: []
+    });
+    deleteImportTemplateMock.mockResolvedValue({
+      ok: true,
+      deleted: true,
+      remaining: 0
+    });
     previewImportMock.mockResolvedValue({
       totalRows: 6,
       acceptedCount: 4,
@@ -82,6 +107,9 @@ describe("ImportPage", () => {
 
   it("sends preview and commit IPC payloads with selected template and options", async () => {
     renderImportPage();
+    await waitFor(() => {
+      expect(listImportTemplatesMock).toHaveBeenCalledTimes(1);
+    });
 
     fireEvent.change(screen.getByLabelText("Import mode"), {
       target: { value: "actuals" }
@@ -105,8 +133,10 @@ describe("ImportPage", () => {
         mode: "actuals",
         filePath: "C:\\imports\\actuals.xlsx",
         templateName: "actuals-template",
+        templatePack: undefined,
         useSavedTemplate: false,
-        saveTemplate: true
+        saveTemplate: true,
+        requireFinanceMetadata: false
       });
     });
 
@@ -118,8 +148,10 @@ describe("ImportPage", () => {
         mode: "actuals",
         filePath: "C:\\imports\\actuals.xlsx",
         templateName: "actuals-template",
+        templatePack: undefined,
         useSavedTemplate: false,
-        saveTemplate: true
+        saveTemplate: true,
+        requireFinanceMetadata: false
       });
     });
   });

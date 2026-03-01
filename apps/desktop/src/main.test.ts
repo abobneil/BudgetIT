@@ -79,6 +79,10 @@ describe("desktop bootstrap", () => {
       "nlq.saved",
       "variance.monthly",
       "replacement.detail",
+      "scenario.comparison",
+      "actuals.unmatched.summary",
+      "showback.summary",
+      "dataQuality.summary",
       "maintenance.materialize",
       "maintenance.diagnostics"
     ] as const;

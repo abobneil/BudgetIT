@@ -43,8 +43,10 @@ describe("import wizard model", () => {
       mode: "actuals",
       filePath: "C:\\imports\\actuals.xlsx",
       templateName: "actuals-template",
+      templatePack: undefined,
       useSavedTemplate: true,
-      saveTemplate: true
+      saveTemplate: true,
+      requireFinanceMetadata: false
     });
   });
 });

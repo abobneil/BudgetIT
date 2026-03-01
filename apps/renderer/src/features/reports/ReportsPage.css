@@ -73,6 +73,36 @@
   flex-wrap: wrap;
 }
 
+.reports-grid-wrapper {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.reports-grid-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.reports-grid {
+  width: 100%;
+  min-height: 18rem;
+  --ag-border-color: var(--colorNeutralStroke2);
+  --ag-background-color: var(--colorNeutralBackground1);
+  --ag-foreground-color: var(--colorNeutralForeground1);
+  --ag-header-background-color: var(--colorNeutralBackground2);
+  --ag-header-foreground-color: var(--colorNeutralForeground2);
+  --ag-row-hover-color: color-mix(in srgb, var(--status-info) 12%, transparent);
+}
+
+.reports-grid--tall {
+  min-height: 22rem;
+}
+
+.reports-grid-cell-stack {
+  display: grid;
+  gap: 0.3rem;
+}
+
 .reports-save-preset {
   grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
 }

@@ -19,8 +19,10 @@ export type ImportWizardDraft = {
   mode: "expenses" | "actuals";
   filePath: string;
   templateName: string;
+  templatePack: "" | "aws-cur" | "azure-cost" | "gcp-billing";
   useSavedTemplate: boolean;
   saveTemplate: boolean;
+  requireFinanceMetadata: boolean;
   previewResult: ImportPreviewResult | null;
   commitResult: ImportCommitResult | null;
 };
@@ -30,8 +32,10 @@ export function createInitialImportWizardDraft(): ImportWizardDraft {
     mode: "expenses",
     filePath: "",
     templateName: "default-expense-import",
+    templatePack: "",
     useSavedTemplate: true,
     saveTemplate: true,
+    requireFinanceMetadata: false,
     previewResult: null,
     commitResult: null
   };
@@ -48,7 +52,7 @@ export function canAdvanceStep(
     return draft.filePath.trim().length > 0;
   }
   if (step === "mapping") {
-    return draft.templateName.trim().length > 0;
+    return draft.templateName.trim().length > 0 || draft.templatePack.length > 0;
   }
   if (step === "preview") {
     return draft.previewResult !== null;
@@ -98,15 +102,19 @@ export function buildImportPayload(draft: ImportWizardDraft): {
   mode: "expenses" | "actuals";
   filePath: string;
   templateName: string;
+  templatePack?: "aws-cur" | "azure-cost" | "gcp-billing";
   useSavedTemplate: boolean;
   saveTemplate: boolean;
+  requireFinanceMetadata: boolean;
 } {
   return {
     mode: draft.mode,
     filePath: draft.filePath.trim(),
     templateName: draft.templateName.trim(),
+    templatePack: draft.templatePack || undefined,
     useSavedTemplate: draft.useSavedTemplate,
-    saveTemplate: draft.saveTemplate
+    saveTemplate: draft.saveTemplate,
+    requireFinanceMetadata: draft.requireFinanceMetadata
   };
 }
 

@@ -21,6 +21,11 @@ import { budgetItLightTheme } from "../../ui/theme";
 import { ScenarioProvider } from "./ScenarioContext";
 
 vi.mock("../../lib/ipcClient", () => ({
+  isIpcAvailable: vi.fn(() => false),
+  listScenarios: vi.fn(),
+  cloneScenario: vi.fn(),
+  approveScenario: vi.fn(),
+  lockScenario: vi.fn(),
   queryReport: vi.fn(),
   exportReport: vi.fn()
 }));

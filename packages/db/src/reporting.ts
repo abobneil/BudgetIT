@@ -43,6 +43,7 @@ export type NarrativeBlock = {
 
 export type DashboardDataset = {
   scenarioId: string;
+  currency: string;
   staleForecast: boolean;
   spendTrend: SpendTrendRow[];
   renewals: RenewalRow[];
@@ -165,6 +166,24 @@ function normalizeTagFilter(tag: string | undefined): string | null {
     return null;
   }
   return normalized;
+}
+
+function getScenarioCurrency(db: Database.Database, scenarioId: string): string {
+  const row = db
+    .prepare(
+      `
+        SELECT default_currency AS defaultCurrency
+        FROM scenario_settings
+        WHERE scenario_id = ?
+      `
+    )
+    .get(scenarioId) as { defaultCurrency: string | null } | undefined;
+  const candidate = row?.defaultCurrency?.trim().toUpperCase();
+  return candidate && /^[A-Z]{3}$/.test(candidate) ? candidate : "USD";
+}
+
+function formatMinorWithCurrencyCode(value: number, currency: string): string {
+  return `${currency} ${(value / 100).toFixed(2)}`;
 }
 
 function queryRenewals(db: Database.Database): RenewalRow[] {
@@ -319,6 +338,7 @@ function queryReplacementStatus(
 }
 
 function buildNarratives(input: {
+  currency: string;
   staleForecast: boolean;
   spendTrend: SpendTrendRow[];
   renewals: RenewalRow[];
@@ -333,7 +353,7 @@ function buildNarratives(input: {
     {
       id: "spend-summary",
       title: "Spend Summary",
-      body: `Forecast ${(totalForecast / 100).toFixed(2)} USD vs actual ${(totalActual / 100).toFixed(2)} USD (delta ${(delta / 100).toFixed(2)} USD).`
+      body: `Forecast ${formatMinorWithCurrencyCode(totalForecast, input.currency)} vs actual ${formatMinorWithCurrencyCode(totalActual, input.currency)} (delta ${formatMinorWithCurrencyCode(delta, input.currency)}).`
     },
     {
       id: "renewal-summary",
@@ -364,6 +384,7 @@ export function buildDashboardDataset(
   const growth = buildGrowthSeries(spendTrend);
   const taggingCompleteness = queryTaggingCompleteness(db, scenarioId);
   const replacementStatus = queryReplacementStatus(db, scenarioId);
+  const currency = getScenarioCurrency(db, scenarioId);
   const metaRow = db
     .prepare("SELECT forecast_stale FROM meta WHERE id = 1")
     .get() as { forecast_stale: number | null } | undefined;
@@ -371,6 +392,7 @@ export function buildDashboardDataset(
 
   const base: DashboardDataset = {
     scenarioId,
+    currency,
     staleForecast,
     spendTrend,
     renewals,
@@ -379,6 +401,7 @@ export function buildDashboardDataset(
     taggingCompleteness,
     replacementStatus,
     narrativeBlocks: buildNarratives({
+      currency,
       staleForecast,
       spendTrend,
       renewals,
@@ -416,7 +439,9 @@ export function buildSpendByTagDataset(
   const breakdownSummary =
     top.length === 0
       ? "No tag spend rows were found for the selected scope."
-      : top.map((row) => `${row.tagName}: ${(row.totalMinor / 100).toFixed(2)} USD`).join("; ");
+      : top
+          .map((row) => `${row.tagName}: ${formatMinorWithCurrencyCode(row.totalMinor, base.currency)}`)
+          .join("; ");
 
   return withNarrative(base, {
     id: "spend-by-tag-focus",
@@ -435,7 +460,9 @@ export function buildSpendByVendorDataset(
   const summary =
     top.length === 0
       ? "No vendor spend rows were found for the selected scope."
-      : top.map((row) => `${row.vendorName}: ${(row.totalMinor / 100).toFixed(2)} USD`).join("; ");
+      : top
+          .map((row) => `${row.vendorName}: ${formatMinorWithCurrencyCode(row.totalMinor, base.currency)}`)
+          .join("; ");
 
   return withNarrative(base, {
     id: "spend-by-vendor-focus",

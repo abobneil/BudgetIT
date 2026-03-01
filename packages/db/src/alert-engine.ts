@@ -199,7 +199,7 @@ function collectCandidatesForRule(
         SELECT id, must_replace_by
         FROM service_plan
         WHERE scenario_id = ?
-          AND reason_code = 'EOL'
+          AND LOWER(COALESCE(reason_code, '')) = 'eol'
           AND must_replace_by IS NOT NULL
           AND must_replace_by BETWEEN ? AND ?
       `

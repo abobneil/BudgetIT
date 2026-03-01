@@ -12,9 +12,15 @@ import { budgetItLightTheme } from "../../ui/theme";
 import { ReportsPage } from "./ReportsPage";
 
 vi.mock("../../lib/ipcClient", () => ({
+  isIpcAvailable: vi.fn(() => false),
   queryReport: vi.fn(),
   exportReport: vi.fn(),
-  previewReport: vi.fn()
+  previewReport: vi.fn(),
+  listUnmatchedActuals: vi.fn(),
+  reviewUnmatchedActual: vi.fn(),
+  createExpenseFromUnmatchedActual: vi.fn(),
+  generateShowbackStatement: vi.fn(),
+  exportShowbackStatement: vi.fn()
 }));
 
 const queryReportMock = vi.mocked(queryReport);

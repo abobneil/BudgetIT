@@ -2,6 +2,19 @@
 
 This runbook is for single-device Windows operation of BudgetIT.
 
+## Local Toolchain Baseline
+
+1. Use Node 22 (`.nvmrc` is pinned to `22`).
+2. Install dependencies with `npm ci`.
+3. Rebuild the local Node native module before running DB/desktop tests:
+   - `npm run rebuild:native:node`
+4. Run local quality checks:
+   - `npm run test --workspace @budgetit/db`
+   - `npm run test --workspace @budgetit/desktop`
+   - `npm run test --workspace @budgetit/renderer`
+5. Rebuild native module for packaged Electron artifacts when releasing:
+   - `npm run rebuild:native:electron`
+
 ## Backup
 
 1. Open BudgetIT and run backup from the runtime panel.

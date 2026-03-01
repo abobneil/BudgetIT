@@ -2,13 +2,23 @@ import crypto from "node:crypto";
 
 import type Database from "better-sqlite3-multiple-ciphers";
 
+const ISO_4217_CURRENCY_CODE = /^[A-Z]{3}$/;
+
+function normalizeCurrencyCode(value: string): string {
+  return value.trim().toUpperCase();
+}
+
+function isIso4217CurrencyCode(value: string): boolean {
+  return ISO_4217_CURRENCY_CODE.test(value);
+}
+
 export type ActualTransactionInput = {
   scenarioId: string;
   serviceId: string;
   contractId?: string | null;
   transactionDate: string;
   amountMinor: number;
-  currency: "USD";
+  currency: string;
   description?: string;
 };
 
@@ -26,7 +36,7 @@ export type UnmatchedActualTransaction = {
   contractId: string | null;
   transactionDate: string;
   amountMinor: number;
-  currency: "USD";
+  currency: string;
   description: string | null;
 };
 
@@ -59,6 +69,9 @@ function assertTransactionInput(input: ActualTransactionInput): void {
   }
   if (!Number.isInteger(input.amountMinor) || input.amountMinor < 0) {
     throw new Error("amountMinor must be a non-negative integer.");
+  }
+  if (!isIso4217CurrencyCode(normalizeCurrencyCode(input.currency))) {
+    throw new Error("currency must be a valid ISO 4217 code.");
   }
 }
 
@@ -104,8 +117,12 @@ export function ingestActualTransactions(
 
   const write = db.transaction(() => {
     for (const input of inputs) {
-      assertTransactionInput(input);
-      const candidates = findMatchCandidates(db, input);
+      const normalizedInput: ActualTransactionInput = {
+        ...input,
+        currency: normalizeCurrencyCode(input.currency)
+      };
+      assertTransactionInput(normalizedInput);
+      const candidates = findMatchCandidates(db, normalizedInput);
       const selected = candidates.find((entry) => !usedOccurrenceIds.has(entry.id));
       const matchedOccurrenceId = selected?.id ?? null;
       if (matchedOccurrenceId) {
@@ -130,13 +147,13 @@ export function ingestActualTransactions(
         `
       ).run(
         crypto.randomUUID(),
-        input.scenarioId,
-        input.serviceId,
-        input.contractId ?? null,
-        input.transactionDate,
-        input.amountMinor,
-        input.currency,
-        input.description ?? null,
+        normalizedInput.scenarioId,
+        normalizedInput.serviceId,
+        normalizedInput.contractId ?? null,
+        normalizedInput.transactionDate,
+        normalizedInput.amountMinor,
+        normalizedInput.currency,
+        normalizedInput.description ?? null,
         matchedOccurrenceId
       );
 

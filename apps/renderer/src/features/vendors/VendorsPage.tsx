@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Button,
   Card,
@@ -23,6 +23,15 @@ import {
   PageHeader,
   StatusChip
 } from "../../ui/primitives";
+import {
+  createVendor as createVendorIpc,
+  deleteVendor as deleteVendorIpc,
+  isIpcAvailable,
+  listContracts as listContractsIpc,
+  listServices as listServicesIpc,
+  listVendors as listVendorsIpc,
+  updateVendor as updateVendorIpc
+} from "../../lib/ipcClient";
 import { CONTRACT_BY_ID, SERVICE_BY_ID } from "../services/service-contract-data";
 import {
   INITIAL_VENDOR_RECORDS,
@@ -130,6 +139,7 @@ function normalizeVendorId(name: string): string {
 
 export function VendorsPage() {
   const navigate = useNavigate();
+  const hasIpc = isIpcAvailable();
   const [vendors, setVendors] = useState<VendorRecord[]>(INITIAL_VENDOR_RECORDS);
   const [searchText, setSearchText] = useState("");
   const [sortKey, setSortKey] = useState<VendorSortKey>("name");
@@ -145,6 +155,61 @@ export function VendorsPage() {
   const [archiveVendorId, setArchiveVendorId] = useState<string | null>(null);
   const [deleteVendorId, setDeleteVendorId] = useState<string | null>(null);
   const [pageMessage, setPageMessage] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const loadWorkspaceData = useCallback(async () => {
+    if (!hasIpc) {
+      return;
+    }
+    setLoading(true);
+    try {
+      const [vendorRows, serviceRows, contractRows] = await Promise.all([
+        listVendorsIpc(),
+        listServicesIpc(),
+        listContractsIpc()
+      ]);
+      const serviceIdsByVendor = new Map<string, string[]>();
+      for (const service of serviceRows) {
+        const current = serviceIdsByVendor.get(service.vendorId) ?? [];
+        current.push(service.id);
+        serviceIdsByVendor.set(service.vendorId, current);
+      }
+      const contractIdsByVendor = new Map<string, string[]>();
+      const serviceById = new Map(serviceRows.map((service) => [service.id, service]));
+      for (const contract of contractRows) {
+        const service = serviceById.get(contract.serviceId);
+        if (!service) {
+          continue;
+        }
+        const current = contractIdsByVendor.get(service.vendorId) ?? [];
+        current.push(contract.id);
+        contractIdsByVendor.set(service.vendorId, current);
+      }
+      const mapped: VendorRecord[] = vendorRows.map((vendor) => ({
+        id: vendor.id,
+        name: vendor.name,
+        owner: vendor.owner ?? "",
+        annualSpendMinor: vendor.annualSpendMinor,
+        status: vendor.status,
+        risk: vendor.risk,
+        linkedServiceIds: serviceIdsByVendor.get(vendor.id) ?? [],
+        linkedContractIds: contractIdsByVendor.get(vendor.id) ?? []
+      }));
+      setVendors(mapped);
+      if (mapped.length > 0 && !mapped.some((vendor) => vendor.id === selectedVendorId)) {
+        setSelectedVendorId(mapped[0].id);
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      setPageMessage(`Failed to load vendors: ${message}`);
+    } finally {
+      setLoading(false);
+    }
+  }, [hasIpc, selectedVendorId]);
+
+  useEffect(() => {
+    void loadWorkspaceData();
+  }, [loadWorkspaceData]);
 
   const filteredVendors = useMemo(() => {
     const query = searchText.trim().toLowerCase();
@@ -223,12 +288,49 @@ export function VendorsPage() {
       setFormError("Vendor name already exists.");
       return;
     }
-    if (linkedServiceIds.some((serviceId) => !SERVICE_BY_ID[serviceId])) {
+    if (!hasIpc && linkedServiceIds.some((serviceId) => !SERVICE_BY_ID[serviceId])) {
       setFormError("One or more linked service IDs are invalid.");
       return;
     }
-    if (linkedContractIds.some((contractId) => !CONTRACT_BY_ID[contractId])) {
+    if (!hasIpc && linkedContractIds.some((contractId) => !CONTRACT_BY_ID[contractId])) {
       setFormError("One or more linked contract IDs are invalid.");
+      return;
+    }
+
+    if (hasIpc) {
+      void (async () => {
+        try {
+          if (drawerMode === "create") {
+            const created = await createVendorIpc({
+              name: trimmedName,
+              owner: trimmedOwner,
+              annualSpendMinor,
+              status: formState.status,
+              risk: formState.risk
+            });
+            if (created) {
+              setSelectedVendorId(created.id);
+            }
+            setPageMessage(`Vendor ${trimmedName} created.`);
+          } else if (editingVendorId) {
+            await updateVendorIpc({
+              id: editingVendorId,
+              name: trimmedName,
+              owner: trimmedOwner,
+              annualSpendMinor,
+              status: formState.status,
+              risk: formState.risk
+            });
+            setPageMessage(`Vendor ${trimmedName} updated.`);
+          }
+          setDrawerOpen(false);
+          setFormError(null);
+          await loadWorkspaceData();
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          setFormError(message);
+        }
+      })();
       return;
     }
 
@@ -274,6 +376,27 @@ export function VendorsPage() {
     if (!archiveVendorId) {
       return;
     }
+    if (hasIpc) {
+      const vendor = vendors.find((entry) => entry.id === archiveVendorId);
+      if (!vendor) {
+        setArchiveVendorId(null);
+        return;
+      }
+      void (async () => {
+        await updateVendorIpc({
+          id: vendor.id,
+          name: vendor.name,
+          owner: vendor.owner,
+          annualSpendMinor: vendor.annualSpendMinor,
+          status: "archived",
+          risk: vendor.risk
+        });
+        setPageMessage(`Vendor ${vendor.name} archived.`);
+        setArchiveVendorId(null);
+        await loadWorkspaceData();
+      })();
+      return;
+    }
     setVendors((current) =>
       current.map((vendor) =>
         vendor.id === archiveVendorId ? { ...vendor, status: "archived" } : vendor
@@ -296,6 +419,21 @@ export function VendorsPage() {
 
   function confirmDelete(): void {
     if (!deleteVendorId) {
+      return;
+    }
+    if (hasIpc) {
+      const deletingId = deleteVendorId;
+      const vendorName =
+        vendors.find((vendor) => vendor.id === deletingId)?.name ?? deletingId;
+      void (async () => {
+        await deleteVendorIpc(deletingId);
+        if (selectedVendorId === deletingId) {
+          setSelectedVendorId("");
+        }
+        setPageMessage(`Vendor ${vendorName} deleted.`);
+        setDeleteVendorId(null);
+        await loadWorkspaceData();
+      })();
       return;
     }
     const deletedVendorName =
@@ -328,6 +466,7 @@ export function VendorsPage() {
           onChange={(_event, data) => setSearchText(data.value)}
         />
       </div>
+      {loading ? <Text>Loading vendors...</Text> : null}
 
       {pageMessage ? <Text>{pageMessage}</Text> : null}
 

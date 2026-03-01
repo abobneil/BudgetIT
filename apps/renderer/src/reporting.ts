@@ -1,5 +1,6 @@
 export type DashboardDataset = {
   scenarioId: string;
+  currency?: string;
   staleForecast: boolean;
   spendTrend: Array<{
     month: string;

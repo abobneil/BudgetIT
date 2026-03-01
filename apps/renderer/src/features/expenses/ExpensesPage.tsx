@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Badge,
   Button,
@@ -15,6 +15,8 @@ import {
   Text,
   Title3
 } from "@fluentui/react-components";
+import { AgGridReact } from "ag-grid-react";
+import type { ColDef, GridApi, GridReadyEvent, RowClickedEvent } from "ag-grid-community";
 import { useSearchParams } from "react-router-dom";
 
 import {
@@ -25,6 +27,32 @@ import {
   PageHeader,
   StatusChip
 } from "../../ui/primitives";
+import { isAgGridAvailable } from "../../lib/agGrid";
+import {
+  assignTag as assignTagIpc,
+  createExpense as createExpenseIpc,
+  createRecurrence as createRecurrenceIpc,
+  deleteExpense as deleteExpenseIpc,
+  deleteRecurrence as deleteRecurrenceIpc,
+  isIpcAvailable,
+  listContracts as listContractsIpc,
+  listDimensions as listDimensionsIpc,
+  listExpenses as listExpensesIpc,
+  listRecurrences as listRecurrencesIpc,
+  listServices as listServicesIpc,
+  listTags as listTagsIpc,
+  listVendors as listVendorsIpc,
+  unassignTag as unassignTagIpc,
+  updateExpense as updateExpenseIpc,
+  updateRecurrence as updateRecurrenceIpc,
+  type ContractRecord as IpcContractRecord,
+  type DimensionRecord as IpcDimensionRecord,
+  type RecurrenceRuleRecord as IpcRecurrenceRuleRecord,
+  type ServiceRecord as IpcServiceRecord,
+  type TagRecord as IpcTagRecord,
+  type VendorRecord as IpcVendorRecord
+} from "../../lib/ipcClient";
+import { useScenarioContext } from "../scenarios/ScenarioContext";
 import { TAG_DIMENSIONS } from "../tags/tagging-fixtures";
 import {
   removeTag,
@@ -52,7 +80,9 @@ type ExpenseRecord = {
   status: ExpenseStatus;
   vendorId: string;
   vendorName: string;
+  serviceId: string;
   serviceName: string;
+  contractId: string | null;
   contractNumber: string;
   tags: string[];
   tagAssignments: TagAssignments;
@@ -75,7 +105,9 @@ const INITIAL_EXPENSES: ExpenseRecord[] = [
     status: "approved",
     vendorId: "vend-aws",
     vendorName: "AWS",
+    serviceId: "svc-aws-core",
     serviceName: "AWS",
+    contractId: "ctr-aws-2026-base",
     contractNumber: "AWS-2026-BASE",
     tags: ["infra", "production"],
     tagAssignments: {
@@ -96,7 +128,9 @@ const INITIAL_EXPENSES: ExpenseRecord[] = [
     status: "planned",
     vendorId: "vend-msft",
     vendorName: "Microsoft",
+    serviceId: "svc-msft-defender",
     serviceName: "Defender",
+    contractId: "ctr-ms-sec-2026",
     contractNumber: "MS-SEC-2026",
     tags: ["security"],
     tagAssignments: {},
@@ -114,7 +148,9 @@ const INITIAL_EXPENSES: ExpenseRecord[] = [
     status: "committed",
     vendorId: "vend-datadog",
     vendorName: "Datadog",
+    serviceId: "svc-datadog-looker",
     serviceName: "Looker",
+    contractId: "ctr-look-anl-01",
     contractNumber: "LOOK-ANL-01",
     tags: ["bi", "finance"],
     tagAssignments: {
@@ -266,12 +302,39 @@ function findTagByLabelOrId(
   };
 }
 
+function mapIpcDimensions(
+  dimensionRows: IpcDimensionRecord[],
+  tagRows: IpcTagRecord[]
+): DimensionDefinition[] {
+  return dimensionRows.map((dimension) => ({
+    id: dimension.id,
+    name: dimension.name,
+    mode: dimension.mode,
+    required: dimension.required,
+    tags: tagRows
+      .filter((tag) => tag.dimensionId === dimension.id)
+      .map((tag) => ({
+        id: tag.id,
+        label: tag.name,
+        retired: tag.archivedAt !== null
+      }))
+  }));
+}
+
 export function ExpensesPage() {
+  const hasIpc = isIpcAvailable();
+  const useAgGrid = isAgGridAvailable();
+  const { selectedScenarioId } = useScenarioContext();
   const [searchParams, setSearchParams] = useSearchParams();
   const [expenses, setExpenses] = useState<ExpenseRecord[]>(INITIAL_EXPENSES);
-  const [dimensions] = useState<DimensionDefinition[]>(() =>
+  const [dimensions, setDimensions] = useState<DimensionDefinition[]>(() =>
     structuredClone(TAG_DIMENSIONS)
   );
+  const [vendors, setVendors] = useState<IpcVendorRecord[]>([]);
+  const [services, setServices] = useState<IpcServiceRecord[]>([]);
+  const [contracts, setContracts] = useState<IpcContractRecord[]>([]);
+  const [recurrences, setRecurrences] = useState<IpcRecurrenceRuleRecord[]>([]);
+  const [loading, setLoading] = useState(false);
   const [searchText, setSearchText] = useState("");
   const [vendorFilter, setVendorFilter] = useState<string>(() => {
     return searchParams.get("vendor") ?? "all";
@@ -300,22 +363,127 @@ export function ExpensesPage() {
   );
   const [detailTagQuery, setDetailTagQuery] = useState("");
   const [pageMessage, setPageMessage] = useState<string | null>(null);
+  const [expensesGridApi, setExpensesGridApi] = useState<GridApi<ExpenseRecord> | null>(null);
 
   const vendorOptions = useMemo(
     () =>
       buildVendorFilterOptions(
-        expenses.map((expense) => ({
-          vendorId: expense.vendorId,
-          vendorName: expense.vendorName
-        }))
+        hasIpc
+          ? vendors.map((vendor) => ({
+              vendorId: vendor.id,
+              vendorName: vendor.name
+            }))
+          : expenses.map((expense) => ({
+              vendorId: expense.vendorId,
+              vendorName: expense.vendorName
+            }))
       ),
-    [expenses]
+    [expenses, hasIpc, vendors]
   );
   const vendorNamesById = useMemo(
     () =>
       Object.fromEntries(vendorOptions.map((option) => [option.value, option.label])),
     [vendorOptions]
   );
+
+  const loadWorkspaceData = useCallback(async () => {
+    if (!hasIpc) {
+      return;
+    }
+    setLoading(true);
+    try {
+      const [vendorRows, serviceRows, contractRows, expenseRows, recurrenceRows, tagRows, dimensionRows] =
+        await Promise.all([
+          listVendorsIpc(),
+          listServicesIpc(),
+          listContractsIpc(),
+          listExpensesIpc({ scenarioId: selectedScenarioId }),
+          listRecurrencesIpc(),
+          listTagsIpc({ entityType: "expense_line" }),
+          listDimensionsIpc()
+        ]);
+
+      const vendorById = new Map(vendorRows.map((vendor) => [vendor.id, vendor]));
+      const serviceById = new Map(serviceRows.map((service) => [service.id, service]));
+      const contractById = new Map(contractRows.map((contract) => [contract.id, contract]));
+      const recurrenceByExpenseId = new Map(
+        recurrenceRows.map((recurrence) => [recurrence.expenseLineId, recurrence])
+      );
+      const assignmentsByExpenseId = new Map<string, TagAssignments>();
+      for (const assignment of tagRows.assignments) {
+        if (assignment.entityType !== "expense_line") {
+          continue;
+        }
+        const existing = assignmentsByExpenseId.get(assignment.entityId) ?? {};
+        const forDimension = existing[assignment.dimensionId] ?? [];
+        existing[assignment.dimensionId] = forDimension.includes(assignment.tagId)
+          ? forDimension
+          : [...forDimension, assignment.tagId];
+        assignmentsByExpenseId.set(assignment.entityId, existing);
+      }
+      const mappedDimensions = mapIpcDimensions(dimensionRows, tagRows.tags);
+      const mappedExpenses: ExpenseRecord[] = expenseRows.map((expense) => {
+        const service = serviceById.get(expense.serviceId);
+        const vendor = service ? vendorById.get(service.vendorId) : undefined;
+        const contract = expense.contractId ? contractById.get(expense.contractId) : undefined;
+        const recurrence = recurrenceByExpenseId.get(expense.id);
+        const tagAssignments = assignmentsByExpenseId.get(expense.id) ?? {};
+        return {
+          id: expense.id,
+          name: expense.name,
+          amountMinor: expense.amountMinor,
+          status: expense.status,
+          vendorId: service?.vendorId ?? "",
+          vendorName: vendor?.name ?? service?.vendorId ?? "Unassigned",
+          serviceId: expense.serviceId,
+          serviceName: service?.name ?? expense.serviceId,
+          contractId: expense.contractId ?? null,
+          contractNumber: contract?.contractNumber ?? expense.contractId ?? "",
+          tags: getAssignedTagLabels(tagAssignments, mappedDimensions),
+          tagAssignments,
+          recurrenceRule: {
+            frequency: recurrence?.frequency ?? "monthly",
+            interval: recurrence?.interval ?? 1,
+            dayOfMonth: recurrence?.dayOfMonth ?? 1,
+            anchorDate: recurrence?.anchorDate ?? new Date().toISOString().slice(0, 10)
+          }
+        };
+      });
+
+      setVendors(vendorRows);
+      setServices(serviceRows);
+      setContracts(contractRows);
+      setRecurrences(recurrenceRows);
+      setDimensions(mappedDimensions.length > 0 ? mappedDimensions : []);
+      setExpenses(mappedExpenses);
+      if (!mappedExpenses.some((entry) => entry.id === selectedExpenseId)) {
+        setSelectedExpenseId(mappedExpenses[0]?.id ?? null);
+      }
+      if (mappedDimensions.length > 0) {
+        setBulkTagDimensionId((current) => {
+          if (mappedDimensions.some((dimension) => dimension.id === current)) {
+            return current;
+          }
+          return mappedDimensions[0].id;
+        });
+        setDetailTagDimensionId((current) => {
+          if (mappedDimensions.some((dimension) => dimension.id === current)) {
+            return current;
+          }
+          return mappedDimensions[0].id;
+        });
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      setPageMessage(`Failed to load expenses workspace: ${message}`);
+    } finally {
+      setLoading(false);
+    }
+  }, [hasIpc, selectedExpenseId, selectedScenarioId]);
+
+  useEffect(() => {
+    void loadWorkspaceData();
+  }, [loadWorkspaceData]);
 
   useEffect(() => {
     setSearchParams(
@@ -405,6 +573,149 @@ export function ExpensesPage() {
     return generateRecurrencePreview(selectedExpense.recurrenceRule, 12);
   }, [selectedExpense]);
 
+  const expenseGridColumns = useMemo<ColDef<ExpenseRecord>[]>(
+    () => [
+      {
+        headerName: "Select",
+        field: "id",
+        sortable: false,
+        filter: false,
+        width: 88,
+        cellRenderer: (params: { data?: ExpenseRecord }) => {
+          if (!params.data) {
+            return null;
+          }
+          return (
+            <Checkbox
+              checked={selectedRowIds.includes(params.data.id)}
+              onChange={(event) => {
+                event.stopPropagation();
+                toggleRowSelection(params.data!.id);
+              }}
+            />
+          );
+        }
+      },
+      {
+        headerName: "Name",
+        field: "name",
+        sortable: true,
+        filter: "agTextColumnFilter",
+        minWidth: 190
+      },
+      {
+        headerName: "Amount",
+        field: "amountMinor",
+        sortable: true,
+        filter: "agNumberColumnFilter",
+        minWidth: 140,
+        valueFormatter: (params) => formatUsd(Number(params.value ?? 0))
+      },
+      {
+        headerName: "Status",
+        field: "status",
+        sortable: true,
+        filter: "agTextColumnFilter",
+        minWidth: 138,
+        cellRenderer: (params: { value?: ExpenseStatus }) =>
+          params.value ? (
+            <StatusChip
+              label={params.value.toUpperCase()}
+              tone={statusToTone(params.value)}
+            />
+          ) : null
+      },
+      {
+        headerName: "Vendor",
+        field: "vendorName",
+        sortable: true,
+        filter: "agTextColumnFilter",
+        minWidth: 140
+      },
+      {
+        headerName: "Service",
+        field: "serviceName",
+        sortable: true,
+        filter: "agTextColumnFilter",
+        minWidth: 140
+      },
+      {
+        headerName: "Contract",
+        field: "contractNumber",
+        sortable: true,
+        filter: "agTextColumnFilter",
+        minWidth: 150,
+        valueGetter: (params) => params.data?.contractNumber || "Unassigned"
+      },
+      {
+        headerName: "Tags",
+        field: "tags",
+        sortable: false,
+        filter: "agTextColumnFilter",
+        minWidth: 200,
+        valueGetter: (params) => {
+          if (!params.data) {
+            return "";
+          }
+          return Array.from(
+            new Set([
+              ...params.data.tags,
+              ...getAssignedTagLabels(params.data.tagAssignments, dimensions)
+            ])
+          ).join(", ");
+        }
+      },
+      {
+        headerName: "Actions",
+        field: "id",
+        sortable: false,
+        filter: false,
+        minWidth: 170,
+        cellRenderer: (params: { data?: ExpenseRecord }) => {
+          if (!params.data) {
+            return null;
+          }
+          return (
+            <div className="expenses-row__actions">
+              <Button
+                size="small"
+                appearance="secondary"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  openEditDrawer(params.data!);
+                }}
+              >
+                Edit
+              </Button>
+              <Button
+                size="small"
+                appearance="secondary"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setDeleteExpenseId(params.data!.id);
+                }}
+              >
+                Delete
+              </Button>
+            </div>
+          );
+        }
+      }
+    ],
+    [dimensions, selectedRowIds]
+  );
+
+  function onExpensesGridReady(event: GridReadyEvent<ExpenseRecord>): void {
+    setExpensesGridApi(event.api);
+  }
+
+  function onExpensesGridRowClick(event: RowClickedEvent<ExpenseRecord>): void {
+    if (!event.data) {
+      return;
+    }
+    focusExpense(event.data.id);
+  }
+
   function toggleSort(nextSortKey: SortKey): void {
     if (sortKey === nextSortKey) {
       setSortDirection((current) => (current === "asc" ? "desc" : "asc"));
@@ -474,6 +785,104 @@ export function ExpensesPage() {
       return;
     }
 
+    if (hasIpc) {
+      const normalizedServiceName = formState.serviceName.trim().toLowerCase();
+      const serviceForVendor = services.filter((entry) => entry.vendorId === formState.vendorId);
+      const linkedService =
+        serviceForVendor.find(
+          (entry) => entry.name.trim().toLowerCase() === normalizedServiceName
+        ) ?? (normalizedServiceName.length === 0 ? serviceForVendor[0] : undefined);
+      if (!linkedService) {
+        setFormError(
+          "Linked service must match an existing service for the selected vendor."
+        );
+        return;
+      }
+
+      const normalizedContractNumber = formState.contractNumber.trim().toLowerCase();
+      const linkedContract =
+        normalizedContractNumber.length === 0
+          ? contracts.find((entry) => entry.serviceId === linkedService.id) ?? null
+          : contracts.find(
+              (entry) =>
+                entry.serviceId === linkedService.id &&
+                (entry.contractNumber ?? "").trim().toLowerCase() === normalizedContractNumber
+            ) ?? null;
+      if (formState.contractNumber.trim().length > 0 && !linkedContract) {
+        setFormError(
+          "Linked contract must match an existing contract number for the selected service."
+        );
+        return;
+      }
+
+      void (async () => {
+        try {
+          if (drawerMode === "create") {
+            const created = await createExpenseIpc({
+              scenarioId: selectedScenarioId,
+              serviceId: linkedService.id,
+              contractId: linkedContract?.id ?? null,
+              name: trimmedName,
+              expenseType: "recurring",
+              status: formState.status,
+              amountMinor,
+              recurrence: {
+                frequency: formState.recurrenceFrequency,
+                interval,
+                dayOfMonth,
+                anchorDate: formState.recurrenceAnchorDate
+              }
+            });
+            if (created) {
+              setSelectedExpenseId(created.id);
+            }
+            setPageMessage("Expense created.");
+          } else if (editingExpenseId) {
+            await updateExpenseIpc({
+              id: editingExpenseId,
+              scenarioId: selectedScenarioId,
+              serviceId: linkedService.id,
+              contractId: linkedContract?.id ?? null,
+              name: trimmedName,
+              expenseType: "recurring",
+              status: formState.status,
+              amountMinor
+            });
+
+            const existingRecurrence = recurrences.find(
+              (entry) => entry.expenseLineId === editingExpenseId
+            );
+            if (existingRecurrence) {
+              await updateRecurrenceIpc({
+                id: existingRecurrence.id,
+                expenseLineId: editingExpenseId,
+                frequency: formState.recurrenceFrequency,
+                interval,
+                dayOfMonth,
+                anchorDate: formState.recurrenceAnchorDate
+              });
+            } else {
+              await createRecurrenceIpc({
+                expenseLineId: editingExpenseId,
+                frequency: formState.recurrenceFrequency,
+                interval,
+                dayOfMonth,
+                anchorDate: formState.recurrenceAnchorDate
+              });
+            }
+            setPageMessage(`Expense ${editingExpenseId} updated.`);
+          }
+          setDrawerOpen(false);
+          setFormError(null);
+          await loadWorkspaceData();
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          setFormError(message);
+        }
+      })();
+      return;
+    }
+
     const editingExpense = editingExpenseId
       ? expenses.find((expense) => expense.id === editingExpenseId)
       : null;
@@ -485,7 +894,9 @@ export function ExpensesPage() {
       status: formState.status,
       vendorId: formState.vendorId,
       vendorName,
+      serviceId: editingExpense?.serviceId ?? `svc-${crypto.randomUUID()}`,
       serviceName: formState.serviceName.trim(),
+      contractId: editingExpense?.contractId ?? null,
       contractNumber: formState.contractNumber.trim(),
       tags: formState.tagsCsv
         .split(",")
@@ -520,6 +931,29 @@ export function ExpensesPage() {
     if (!deleteExpenseId) {
       return;
     }
+    if (hasIpc) {
+      const removingId = deleteExpenseId;
+      void (async () => {
+        try {
+          const recurrence = recurrences.find((entry) => entry.expenseLineId === removingId);
+          if (recurrence) {
+            await deleteRecurrenceIpc(recurrence.id);
+          }
+          await deleteExpenseIpc(removingId);
+          setSelectedRowIds((current) => current.filter((id) => id !== removingId));
+          if (selectedExpenseId === removingId) {
+            setSelectedExpenseId(null);
+          }
+          setPageMessage(`Expense ${removingId} deleted.`);
+          setDeleteExpenseId(null);
+          await loadWorkspaceData();
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          setPageMessage(`Failed to delete expense: ${message}`);
+        }
+      })();
+      return;
+    }
     setExpenses((current) => current.filter((expense) => expense.id !== deleteExpenseId));
     setSelectedRowIds((current) => current.filter((id) => id !== deleteExpenseId));
     if (selectedExpenseId === deleteExpenseId) {
@@ -540,6 +974,33 @@ export function ExpensesPage() {
   function applyBulkStatus(nextStatus: ExpenseStatus): void {
     if (selectedRowIds.length === 0) {
       setPageMessage("Select at least one expense for bulk update.");
+      return;
+    }
+    if (hasIpc) {
+      void (async () => {
+        try {
+          const selected = expenses.filter((expense) => selectedRowIds.includes(expense.id));
+          await Promise.all(
+            selected.map((expense) =>
+              updateExpenseIpc({
+                id: expense.id,
+                scenarioId: selectedScenarioId,
+                serviceId: expense.serviceId,
+                contractId: expense.contractId,
+                name: expense.name,
+                expenseType: "recurring",
+                status: nextStatus,
+                amountMinor: expense.amountMinor
+              })
+            )
+          );
+          setPageMessage(`Updated ${selectedRowIds.length} expense(s) to ${nextStatus}.`);
+          await loadWorkspaceData();
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          setPageMessage(`Bulk status update failed: ${message}`);
+        }
+      })();
       return;
     }
     setExpenses((current) =>
@@ -565,6 +1026,47 @@ export function ExpensesPage() {
     }
     if (selectedRowIds.length === 0) {
       setPageMessage("Select at least one expense for bulk tag assignment.");
+      return;
+    }
+    if (hasIpc) {
+      void (async () => {
+        try {
+          for (const expenseId of selectedRowIds) {
+            const expense = expenses.find((entry) => entry.id === expenseId);
+            if (!expense) {
+              continue;
+            }
+            const existingForDimension = expense.tagAssignments[dimension.id] ?? [];
+            if (dimension.mode === "single_select") {
+              await Promise.all(
+                existingForDimension
+                  .filter((existingTagId) => existingTagId !== tag.id)
+                  .map((existingTagId) =>
+                    unassignTagIpc({
+                      entityType: "expense_line",
+                      entityId: expense.id,
+                      dimensionId: dimension.id,
+                      tagId: existingTagId
+                    })
+                  )
+              );
+            }
+            await assignTagIpc({
+              entityType: "expense_line",
+              entityId: expense.id,
+              dimensionId: dimension.id,
+              tagId: tag.id
+            });
+          }
+          setPageMessage(
+            `Applied ${tag.label} in ${dimension.name} to ${selectedRowIds.length} expense(s).`
+          );
+          await loadWorkspaceData();
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          setPageMessage(`Bulk tag assignment failed: ${message}`);
+        }
+      })();
       return;
     }
     setExpenses((current) =>
@@ -602,6 +1104,41 @@ export function ExpensesPage() {
       return;
     }
 
+    if (hasIpc) {
+      void (async () => {
+        try {
+          if (dimension.mode === "single_select") {
+            const existing = selectedExpense.tagAssignments[dimension.id] ?? [];
+            await Promise.all(
+              existing
+                .filter((existingTagId) => existingTagId !== matchedTag.id)
+                .map((existingTagId) =>
+                  unassignTagIpc({
+                    entityType: "expense_line",
+                    entityId: selectedExpense.id,
+                    dimensionId: dimension.id,
+                    tagId: existingTagId
+                  })
+                )
+            );
+          }
+          await assignTagIpc({
+            entityType: "expense_line",
+            entityId: selectedExpense.id,
+            dimensionId: dimension.id,
+            tagId: matchedTag.id
+          });
+          setDetailTagQuery("");
+          setPageMessage(`Assigned ${matchedTag.label} to ${selectedExpense.name}.`);
+          await loadWorkspaceData();
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          setPageMessage(`Tag assignment failed: ${message}`);
+        }
+      })();
+      return;
+    }
+
     setExpenses((current) =>
       current.map((expense) =>
         expense.id === selectedExpense.id
@@ -626,6 +1163,24 @@ export function ExpensesPage() {
     tagId: string,
     tagLabel: string
   ): void {
+    if (hasIpc) {
+      void (async () => {
+        try {
+          await unassignTagIpc({
+            entityType: "expense_line",
+            entityId: expenseId,
+            dimensionId,
+            tagId
+          });
+          setPageMessage(`Removed ${tagLabel}.`);
+          await loadWorkspaceData();
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          setPageMessage(`Failed to remove tag: ${message}`);
+        }
+      })();
+      return;
+    }
     setExpenses((current) =>
       current.map((expense) =>
         expense.id === expenseId
@@ -740,6 +1295,7 @@ export function ExpensesPage() {
         </div>
       </div>
 
+      {loading ? <Text>Loading expenses...</Text> : null}
       {pageMessage ? <Text>{pageMessage}</Text> : null}
 
       <div className="expenses-layout">
@@ -750,98 +1306,136 @@ export function ExpensesPage() {
               description="Adjust search, vendor, or quick filters to find matching expenses."
             />
           ) : (
-            <Table aria-label="Expenses table">
-              <TableHeader>
-                <TableRow>
-                  <TableHeaderCell>Select</TableHeaderCell>
-                  <TableHeaderCell>
-                    <Button size="small" appearance="subtle" onClick={() => toggleSort("name")}>
-                      Name
-                    </Button>
-                  </TableHeaderCell>
-                  <TableHeaderCell>
-                    <Button size="small" appearance="subtle" onClick={() => toggleSort("amount")}>
-                      Amount
-                    </Button>
-                  </TableHeaderCell>
-                  <TableHeaderCell>
-                    <Button size="small" appearance="subtle" onClick={() => toggleSort("status")}>
-                      Status
-                    </Button>
-                  </TableHeaderCell>
-                  <TableHeaderCell>Vendor</TableHeaderCell>
-                  <TableHeaderCell>Service</TableHeaderCell>
-                  <TableHeaderCell>Contract</TableHeaderCell>
-                  <TableHeaderCell>Tags</TableHeaderCell>
-                  <TableHeaderCell>Actions</TableHeaderCell>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredExpenses.map((expense) => {
-                  const checked = selectedRowIds.includes(expense.id);
-                  const focused = selectedExpense?.id === expense.id;
-                  const tagSummary = Array.from(
-                    new Set([
-                      ...expense.tags,
-                      ...getAssignedTagLabels(expense.tagAssignments, dimensions)
-                    ])
-                  );
-                  return (
-                    <TableRow
-                      key={expense.id}
-                      className={focused ? "expenses-row expenses-row--focused" : "expenses-row"}
-                      onClick={() => focusExpense(expense.id)}
-                    >
-                      <TableCell>
-                        <Checkbox
-                          checked={checked}
-                          onChange={(event) => {
-                            event.stopPropagation();
-                            toggleRowSelection(expense.id);
-                          }}
-                        />
-                      </TableCell>
-                      <TableCell>{expense.name}</TableCell>
-                      <TableCell>{formatUsd(expense.amountMinor)}</TableCell>
-                      <TableCell>
-                        <StatusChip
-                          label={expense.status.toUpperCase()}
-                          tone={statusToTone(expense.status)}
-                        />
-                      </TableCell>
-                      <TableCell>{expense.vendorName}</TableCell>
-                      <TableCell>{expense.serviceName || "Unassigned"}</TableCell>
-                      <TableCell>{expense.contractNumber || "Unassigned"}</TableCell>
-                      <TableCell>{tagSummary.join(", ") || "None"}</TableCell>
-                      <TableCell>
-                        <div className="expenses-row__actions">
-                          <Button
-                            size="small"
-                            appearance="secondary"
-                            onClick={(event) => {
+            useAgGrid ? (
+              <div className="expenses-grid-wrapper">
+                <div className="expenses-grid-actions">
+                  <Button
+                    size="small"
+                    appearance="secondary"
+                    disabled={expensesGridApi === null}
+                    onClick={() => {
+                      expensesGridApi?.exportDataAsCsv({
+                        fileName: `expenses-${selectedScenarioId}.csv`
+                      });
+                    }}
+                  >
+                    Export grid CSV
+                  </Button>
+                </div>
+                <div
+                  className="ag-theme-quartz expenses-grid"
+                  role="table"
+                  aria-label="Expenses table"
+                >
+                  <AgGridReact<ExpenseRecord>
+                    rowData={filteredExpenses}
+                    columnDefs={expenseGridColumns}
+                    defaultColDef={{
+                      sortable: true,
+                      filter: true,
+                      resizable: true
+                    }}
+                    getRowId={(params) => params.data.id}
+                    onGridReady={onExpensesGridReady}
+                    onRowClicked={onExpensesGridRowClick}
+                    rowHeight={48}
+                  />
+                </div>
+              </div>
+            ) : (
+              <Table aria-label="Expenses table">
+                <TableHeader>
+                  <TableRow>
+                    <TableHeaderCell>Select</TableHeaderCell>
+                    <TableHeaderCell>
+                      <Button size="small" appearance="subtle" onClick={() => toggleSort("name")}>
+                        Name
+                      </Button>
+                    </TableHeaderCell>
+                    <TableHeaderCell>
+                      <Button size="small" appearance="subtle" onClick={() => toggleSort("amount")}>
+                        Amount
+                      </Button>
+                    </TableHeaderCell>
+                    <TableHeaderCell>
+                      <Button size="small" appearance="subtle" onClick={() => toggleSort("status")}>
+                        Status
+                      </Button>
+                    </TableHeaderCell>
+                    <TableHeaderCell>Vendor</TableHeaderCell>
+                    <TableHeaderCell>Service</TableHeaderCell>
+                    <TableHeaderCell>Contract</TableHeaderCell>
+                    <TableHeaderCell>Tags</TableHeaderCell>
+                    <TableHeaderCell>Actions</TableHeaderCell>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredExpenses.map((expense) => {
+                    const checked = selectedRowIds.includes(expense.id);
+                    const focused = selectedExpense?.id === expense.id;
+                    const tagSummary = Array.from(
+                      new Set([
+                        ...expense.tags,
+                        ...getAssignedTagLabels(expense.tagAssignments, dimensions)
+                      ])
+                    );
+                    return (
+                      <TableRow
+                        key={expense.id}
+                        className={focused ? "expenses-row expenses-row--focused" : "expenses-row"}
+                        onClick={() => focusExpense(expense.id)}
+                      >
+                        <TableCell>
+                          <Checkbox
+                            checked={checked}
+                            onChange={(event) => {
                               event.stopPropagation();
-                              openEditDrawer(expense);
+                              toggleRowSelection(expense.id);
                             }}
-                          >
-                            Edit
-                          </Button>
-                          <Button
-                            size="small"
-                            appearance="secondary"
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              setDeleteExpenseId(expense.id);
-                            }}
-                          >
-                            Delete
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
+                          />
+                        </TableCell>
+                        <TableCell>{expense.name}</TableCell>
+                        <TableCell>{formatUsd(expense.amountMinor)}</TableCell>
+                        <TableCell>
+                          <StatusChip
+                            label={expense.status.toUpperCase()}
+                            tone={statusToTone(expense.status)}
+                          />
+                        </TableCell>
+                        <TableCell>{expense.vendorName}</TableCell>
+                        <TableCell>{expense.serviceName || "Unassigned"}</TableCell>
+                        <TableCell>{expense.contractNumber || "Unassigned"}</TableCell>
+                        <TableCell>{tagSummary.join(", ") || "None"}</TableCell>
+                        <TableCell>
+                          <div className="expenses-row__actions">
+                            <Button
+                              size="small"
+                              appearance="secondary"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                openEditDrawer(expense);
+                              }}
+                            >
+                              Edit
+                            </Button>
+                            <Button
+                              size="small"
+                              appearance="secondary"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                setDeleteExpenseId(expense.id);
+                              }}
+                            >
+                              Delete
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            )
           )}
         </section>
 
