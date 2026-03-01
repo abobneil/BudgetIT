@@ -6,14 +6,14 @@ This project publishes Windows `x64` and `arm64` installers for both continuous 
 
 - Source of truth is the Git tag (`v0.1.0`, `v1.2.3`, etc.).
 - Release workflow is triggered by:
-  - Successful `CI` workflow completion for pushes to `main` (publishes/updates prerelease tag `main-latest`)
+  - Successful `CI` workflow completion for pushes to `main` (publishes/updates release tag `main-latest`)
   - Pushes of `v*` tags
   - Manual dispatch with an existing tag
 - Tagged/manual GitHub Release title format: `BudgetIT vX.Y.Z`.
-- Main push prerelease title format: `BudgetIT main latest (v<buildVersion>)`.
+- Main push release title format: `BudgetIT main latest (v<buildVersion>)`.
 - Installer/package version behavior:
   - Tagged/manual release: `package.json` version is set to the tag version (for example `v0.2.0 -> 0.2.0`).
-  - Main push prerelease: version is derived as `<baseVersion>-main.<runNumber>.<shortsha>` (example: `0.2.0-main.128.a1b2c3d`).
+  - Main push release: version is derived as `<baseVersion>-main.<runNumber>.<shortsha>` (example: `0.2.0-main.128.a1b2c3d`).
 
 ## Artifact naming
 

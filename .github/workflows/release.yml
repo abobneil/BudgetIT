@@ -81,7 +81,7 @@ jobs:
             build_version="${base_version}-main.${{ github.event.workflow_run.run_number }}.${short_sha}"
             checkout_ref="${full_sha}"
             release_name="BudgetIT main latest (v${build_version})"
-            prerelease="true"
+            prerelease="false"
             target_commitish="${full_sha}"
           else
             short_sha="${GITHUB_SHA::7}"
@@ -89,7 +89,7 @@ jobs:
             build_version="${base_version}-main.${GITHUB_RUN_NUMBER}.${short_sha}"
             checkout_ref="${GITHUB_SHA}"
             release_name="BudgetIT main latest (v${build_version})"
-            prerelease="true"
+            prerelease="false"
             target_commitish="${GITHUB_SHA}"
           fi
 
@@ -227,13 +227,13 @@ jobs:
           path: dist/release
 
       - name: Checkout (for main-latest tag move)
-        if: needs.preflight.outputs.prerelease == 'true'
+        if: needs.preflight.outputs.tag == 'main-latest'
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
       - name: Move main-latest tag to release commit
-        if: needs.preflight.outputs.prerelease == 'true'
+        if: needs.preflight.outputs.tag == 'main-latest'
         shell: bash
         run: |
           git config user.name "github-actions[bot]"
@@ -243,7 +243,7 @@ jobs:
           git push origin --force main-latest
 
       - name: Publish release
-        if: needs.preflight.outputs.prerelease == 'false'
+        if: needs.preflight.outputs.prerelease == 'false' && needs.preflight.outputs.tag != 'main-latest'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ needs.preflight.outputs.tag }}
@@ -251,18 +251,20 @@ jobs:
           draft: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.draft == 'true' }}
           generate_release_notes: true
           overwrite_files: true
+          make_latest: true
           files: dist/release/*
 
-      - name: Publish main-latest prerelease
-        if: needs.preflight.outputs.prerelease == 'true'
+      - name: Publish main-latest release
+        if: needs.preflight.outputs.tag == 'main-latest'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ needs.preflight.outputs.tag }}
           target_commitish: ${{ needs.preflight.outputs.target_commitish }}
           name: ${{ needs.preflight.outputs.release_name }}
-          prerelease: true
+          prerelease: false
           draft: false
           generate_release_notes: true
           overwrite_files: true
+          make_latest: true
           files: dist/release/*
 

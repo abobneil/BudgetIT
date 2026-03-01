@@ -38,17 +38,17 @@ Behavior:
 
 Triggers:
 
-- Successful completion of `CI` for pushes to `main` (publishes/updates prerelease `main-latest`)
+- Successful completion of `CI` for pushes to `main` (publishes/updates release `main-latest`)
 - Push tag matching `v*` (example: `v0.1.0`)
 - Manual run with required `tag` input (must already exist)
 
 Behavior:
 
 - Resolves release metadata by trigger type:
-  - successful `CI` run on `main`: uses prerelease tag `main-latest` and advances it to the newest commit
+  - successful `CI` run on `main`: uses release tag `main-latest` and advances it to the newest commit
   - `v*` tag push/manual dispatch: uses existing semantic tag
 - Sets build version before quality/build steps:
-  - `main` prerelease: `<baseVersion>-main.<runNumber>.<shortsha>`
+  - `main` release: `<baseVersion>-main.<runNumber>.<shortsha>`
   - `v*` tag/manual: tag version without leading `v`
 - Validates tag and project scaffold for tagged/manual releases.
 - Ensures pushed tag commit is contained in `origin/main` for tagged pushes.
