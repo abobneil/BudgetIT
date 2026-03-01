@@ -1,9 +1,12 @@
 name: Release (Windows)
 
 on:
+  workflow_run:
+    workflows:
+      - "CI"
+    types:
+      - completed
   push:
-    branches:
-      - "main"
     tags:
       - "v*"
   workflow_dispatch:
@@ -19,7 +22,7 @@ on:
         type: boolean
 
 concurrency:
-  group: release-${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || github.ref_name }}
+  group: release-${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || github.event_name == 'workflow_run' && 'main-latest' || github.ref_name }}
   cancel-in-progress: false
 
 permissions:
@@ -28,6 +31,7 @@ permissions:
 jobs:
   preflight:
     name: Resolve Release Metadata
+    if: github.event_name != 'workflow_run' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main' && github.event.workflow_run.event == 'push')
     runs-on: ubuntu-latest
     outputs:
       tag: ${{ steps.meta.outputs.tag }}
@@ -37,7 +41,15 @@ jobs:
       target_commitish: ${{ steps.meta.outputs.target_commitish }}
       build_version: ${{ steps.meta.outputs.build_version }}
     steps:
-      - name: Checkout
+      - name: Checkout (workflow_run)
+        if: github.event_name == 'workflow_run'
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Checkout (default)
+        if: github.event_name != 'workflow_run'
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
@@ -62,12 +74,21 @@ jobs:
             release_name="BudgetIT $release_tag"
             prerelease="false"
             target_commitish=""
+          elif [[ "${{ github.event_name }}" == "workflow_run" ]]; then
+            full_sha="${{ github.event.workflow_run.head_sha }}"
+            short_sha="${full_sha::7}"
+            release_tag="main-latest"
+            build_version="${base_version}-main.${{ github.event.workflow_run.run_number }}.${short_sha}"
+            checkout_ref="${full_sha}"
+            release_name="BudgetIT main latest (v${build_version})"
+            prerelease="true"
+            target_commitish="${full_sha}"
           else
             short_sha="${GITHUB_SHA::7}"
-            release_tag="main-${short_sha}"
+            release_tag="main-latest"
             build_version="${base_version}-main.${GITHUB_RUN_NUMBER}.${short_sha}"
             checkout_ref="${GITHUB_SHA}"
-            release_name="BudgetIT main ${short_sha} (v${build_version})"
+            release_name="BudgetIT main latest (v${build_version})"
             prerelease="true"
             target_commitish="${GITHUB_SHA}"
           fi
@@ -205,6 +226,22 @@ jobs:
           name: windows-release-${{ needs.preflight.outputs.tag }}
           path: dist/release
 
+      - name: Checkout (for main-latest tag move)
+        if: needs.preflight.outputs.prerelease == 'true'
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Move main-latest tag to release commit
+        if: needs.preflight.outputs.prerelease == 'true'
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch --tags --force
+          git tag -f main-latest "${{ needs.preflight.outputs.target_commitish }}"
+          git push origin --force main-latest
+
       - name: Publish release
         if: needs.preflight.outputs.prerelease == 'false'
         uses: softprops/action-gh-release@v2
@@ -213,9 +250,10 @@ jobs:
           name: ${{ needs.preflight.outputs.release_name }}
           draft: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.draft == 'true' }}
           generate_release_notes: true
+          overwrite_files: true
           files: dist/release/*
 
-      - name: Publish push-to-main prerelease
+      - name: Publish main-latest prerelease
         if: needs.preflight.outputs.prerelease == 'true'
         uses: softprops/action-gh-release@v2
         with:
@@ -225,5 +263,6 @@ jobs:
           prerelease: true
           draft: false
           generate_release_notes: true
+          overwrite_files: true
           files: dist/release/*
 
