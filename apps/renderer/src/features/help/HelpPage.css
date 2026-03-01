@@ -1,6 +1,15 @@
 .help-page {
   display: grid;
   gap: 1rem;
+  padding: 1rem;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+.help-page__chooser,
+.help-page__content-card {
+  display: grid;
+  gap: 0.75rem;
 }
 
 .help-page__topic-controls {
@@ -10,22 +19,117 @@
   align-items: center;
 }
 
-.help-page__markdown {
+.help-page__topic-meta {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.help-page__fallback-note {
+  color: var(--status-warning);
+}
+
+.help-page__source-path {
+  color: var(--colorNeutralForeground3);
+}
+
+.help-page__prose {
   margin: 0;
-  white-space: pre-wrap;
-  word-break: break-word;
-  max-height: 26rem;
+  max-height: calc(100vh - 20rem);
   overflow: auto;
-  padding: 0.75rem;
+  padding: 1rem;
   border-radius: 0.5rem;
-  background: rgba(0, 0, 0, 0.12);
-  font-size: 0.85rem;
-  line-height: 1.45;
+  border: 1px solid var(--colorNeutralStroke2);
+  background: color-mix(in srgb, var(--colorNeutralBackground2) 70%, transparent);
+  line-height: 1.55;
+}
+
+.help-page__prose > :first-child {
+  margin-top: 0;
+}
+
+.help-page__prose h1,
+.help-page__prose h2,
+.help-page__prose h3,
+.help-page__prose h4,
+.help-page__prose h5,
+.help-page__prose h6 {
+  margin: 1.1rem 0 0.5rem;
+  line-height: 1.3;
+}
+
+.help-page__prose p {
+  margin: 0.5rem 0;
+}
+
+.help-page__prose ul,
+.help-page__prose ol {
+  margin: 0.5rem 0 0.8rem;
+  padding-left: 1.25rem;
+}
+
+.help-page__prose li {
+  margin: 0.25rem 0;
+}
+
+.help-page__prose a {
+  color: var(--colorBrandForegroundLink);
+}
+
+.help-page__prose blockquote {
+  margin: 0.75rem 0;
+  padding: 0.65rem 0.85rem;
+  border-left: 3px solid var(--colorNeutralStroke1);
+  background: color-mix(in srgb, var(--colorNeutralBackground3) 65%, transparent);
+}
+
+.help-page__prose table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.75rem 0;
+  font-size: 0.92rem;
+}
+
+.help-page__prose th,
+.help-page__prose td {
+  border: 1px solid var(--colorNeutralStroke2);
+  padding: 0.45rem 0.55rem;
+  text-align: left;
+  vertical-align: top;
+}
+
+.help-page__prose code {
+  font-size: 0.86rem;
+  background: color-mix(in srgb, var(--colorNeutralBackground3) 70%, transparent);
+  border: 1px solid var(--colorNeutralStroke2);
+  padding: 0.1rem 0.25rem;
+  border-radius: 4px;
+}
+
+.help-page__prose pre {
+  margin: 0.75rem 0;
+  padding: 0.75rem;
+  border-radius: 8px;
+  border: 1px solid var(--colorNeutralStroke2);
+  background: color-mix(in srgb, var(--colorNeutralBackground3) 75%, transparent);
+  overflow: auto;
+}
+
+.help-page__prose pre code {
+  background: transparent;
+  border: 0;
+  padding: 0;
 }
 
 @media (max-width: 920px) {
+  .help-page {
+    padding: 0.75rem;
+  }
+
   .help-page__topic-controls {
     grid-template-columns: 1fr;
   }
-}
 
+  .help-page__prose {
+    max-height: none;
+  }
+}

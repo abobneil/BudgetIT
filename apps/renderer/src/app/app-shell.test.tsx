@@ -47,4 +47,15 @@ describe("AppShell", () => {
       screen.getByText("Actionable inbox for due, snoozed, and acknowledged alerts.")
     ).toBeInTheDocument();
   });
+
+  it("hides navigation and topbar controls on the help route", async () => {
+    renderAt("/help");
+
+    expect(screen.queryByLabelText("Primary navigation")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Global search")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Command Palette" })
+    ).not.toBeInTheDocument();
+    expect(await screen.findByText("Help Center")).toBeInTheDocument();
+  });
 });

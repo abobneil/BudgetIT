@@ -8,6 +8,10 @@
   color: var(--colorNeutralForeground1);
 }
 
+.desktop-shell--help {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .desktop-shell__nav {
   border-right: 1px solid var(--colorNeutralStroke2);
   padding: 1rem 0.75rem;
@@ -50,22 +54,45 @@
   overflow: hidden;
 }
 
+.desktop-shell__content--help {
+  grid-template-rows: minmax(0, 1fr);
+}
+
 .desktop-shell__topbar {
   position: sticky;
   top: 0;
   z-index: 5;
   border-bottom: 1px solid var(--colorNeutralStroke2);
   padding: 0.75rem 1rem;
-  display: grid;
-  grid-template-columns: 1fr auto minmax(15rem, 1fr) auto auto;
-  gap: 0.75rem;
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem 1rem;
   align-items: center;
   background: var(--colorNeutralBackground1);
+}
+
+.desktop-shell__topbar-main {
+  flex: 1 1 10rem;
+  min-width: 0;
+}
+
+.desktop-shell__topbar-tools {
+  display: flex;
+  flex: 1 1 44rem;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+  justify-content: flex-end;
+  min-width: min(100%, 24rem);
 }
 
 .desktop-shell__title {
   margin: 0;
   font-size: 1.1rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .desktop-shell__toolbar-input,
@@ -76,6 +103,15 @@
   font: inherit;
   color: var(--colorNeutralForeground1);
   background: var(--colorNeutralBackground1);
+}
+
+.desktop-shell__toolbar-input {
+  min-width: clamp(14rem, 30vw, 28rem);
+  flex: 1 1 22rem;
+}
+
+.desktop-shell__toolbar-select {
+  flex: 0 1 11rem;
 }
 
 .desktop-shell__toolbar-button {
@@ -163,6 +199,24 @@
   }
 
   .desktop-shell__topbar {
-    grid-template-columns: 1fr minmax(0, 1fr);
+    align-items: stretch;
+  }
+
+  .desktop-shell__topbar-main {
+    flex-basis: 100%;
+  }
+
+  .desktop-shell__topbar-tools {
+    flex-basis: 100%;
+    justify-content: flex-start;
+  }
+
+  .desktop-shell__toolbar-input {
+    min-width: 0;
+    flex-basis: 100%;
+  }
+
+  .desktop-shell__toolbar-select {
+    flex: 1 1 12rem;
   }
 }

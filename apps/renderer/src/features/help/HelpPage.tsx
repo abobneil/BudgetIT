@@ -1,4 +1,12 @@
-import { useEffect, useMemo, useState } from "react";
+import {
+  createElement,
+  isValidElement,
+  useEffect,
+  useMemo,
+  useState,
+  type ComponentPropsWithoutRef,
+  type ReactNode
+} from "react";
 import {
   Card,
   Input,
@@ -6,6 +14,8 @@ import {
   Text,
   Title3
 } from "@fluentui/react-components";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { useSearchParams } from "react-router-dom";
 
 import { getHelpDocument } from "../../lib/ipcClient";
@@ -16,14 +26,79 @@ import {
 } from "./help-topics";
 import "./HelpPage.css";
 
-function extractSection(markdown: string, sectionHeading: string): string {
+type SectionExtraction = {
+  markdown: string;
+  found: boolean;
+};
+
+function decodeAnchorValue(value: string): string {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
+function toHeadingId(value: string): string {
+  return value
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9\s-]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
+}
+
+function flattenNodeText(node: ReactNode): string {
+  if (node === null || node === undefined || typeof node === "boolean") {
+    return "";
+  }
+  if (typeof node === "string" || typeof node === "number") {
+    return String(node);
+  }
+  if (Array.isArray(node)) {
+    return node.map((entry) => flattenNodeText(entry)).join(" ");
+  }
+  if (isValidElement<{ children?: ReactNode }>(node)) {
+    return flattenNodeText(node.props.children);
+  }
+  return "";
+}
+
+type HeadingTag = "h1" | "h2" | "h3" | "h4" | "h5" | "h6";
+type HeadingProps = ComponentPropsWithoutRef<"h1">;
+
+function createHeadingRenderer(tag: HeadingTag) {
+  return function MarkdownHeading({
+    children,
+    node: _node,
+    ...props
+  }: HeadingProps & { node?: unknown }) {
+    const derivedId = toHeadingId(flattenNodeText(children));
+    return createElement(tag, { ...props, id: derivedId }, children);
+  };
+}
+
+const MARKDOWN_COMPONENTS = {
+  h1: createHeadingRenderer("h1"),
+  h2: createHeadingRenderer("h2"),
+  h3: createHeadingRenderer("h3"),
+  h4: createHeadingRenderer("h4"),
+  h5: createHeadingRenderer("h5"),
+  h6: createHeadingRenderer("h6")
+};
+
+function extractSection(markdown: string, sectionHeading: string): SectionExtraction {
   const lines = markdown.split(/\r?\n/);
   const headingLine = `## ${sectionHeading}`;
   const sectionStart = lines.findIndex(
     (line) => line.trim() === headingLine
   );
   if (sectionStart < 0) {
-    return markdown;
+    return {
+      markdown: markdown.trim(),
+      found: false
+    };
   }
 
   let sectionEnd = lines.length;
@@ -33,7 +108,10 @@ function extractSection(markdown: string, sectionHeading: string): string {
       break;
     }
   }
-  return lines.slice(sectionStart, sectionEnd).join("\n").trim();
+  return {
+    markdown: lines.slice(sectionStart, sectionEnd).join("\n").trim(),
+    found: true
+  };
 }
 
 export function HelpPage() {
@@ -43,6 +121,7 @@ export function HelpPage() {
   const [error, setError] = useState<string | null>(null);
   const [documentMarkdown, setDocumentMarkdown] = useState("");
   const [documentSourcePath, setDocumentSourcePath] = useState<string | null>(null);
+  const selectedAnchor = searchParams.get("anchor")?.trim() ?? "";
 
   const selectedTopic = resolveHelpTopic(searchParams.get("topic"));
   const filteredTopics = useMemo(() => {
@@ -57,6 +136,7 @@ export function HelpPage() {
         topic.docSection.toLowerCase().includes(normalized)
     );
   }, [topicFilter]);
+  const selectableTopics = filteredTopics.length > 0 ? filteredTopics : [selectedTopic];
 
   const selectedSection = useMemo(
     () => extractSection(documentMarkdown, selectedTopic.docSection),
@@ -94,6 +174,57 @@ export function HelpPage() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!selectedAnchor || loading || error) {
+      return;
+    }
+
+    const decodedAnchor = decodeAnchorValue(selectedAnchor);
+    const anchorCandidates = Array.from(
+      new Set(
+        [
+          selectedAnchor,
+          decodedAnchor,
+          toHeadingId(selectedAnchor),
+          toHeadingId(decodedAnchor)
+        ].filter((candidate) => candidate.length > 0)
+      )
+    );
+
+    const scrollToAnchor = () => {
+      for (const candidate of anchorCandidates) {
+        const target = document.getElementById(candidate);
+        if (target) {
+          target.scrollIntoView({ block: "start" });
+          return true;
+        }
+      }
+
+      const headings = Array.from(
+        document.querySelectorAll<HTMLElement>(
+          ".help-page__prose h1, .help-page__prose h2, .help-page__prose h3, .help-page__prose h4, .help-page__prose h5, .help-page__prose h6"
+        )
+      );
+      const matchingHeading = headings.find((heading) => {
+        const text = heading.textContent ?? "";
+        const headingId = toHeadingId(text);
+        return anchorCandidates.includes(headingId);
+      });
+      if (!matchingHeading) {
+        return false;
+      }
+      matchingHeading.scrollIntoView({ block: "start" });
+      return true;
+    };
+
+    const timeout = window.setTimeout(() => {
+      scrollToAnchor();
+    }, 0);
+    return () => {
+      window.clearTimeout(timeout);
+    };
+  }, [error, loading, selectedAnchor, selectedSection.markdown]);
+
   if (loading) {
     return (
       <section className="help-page">
@@ -111,7 +242,7 @@ export function HelpPage() {
 
       {error ? <InlineError message={error} /> : null}
 
-      <Card>
+      <Card className="help-page__chooser">
         <Title3>Choose Help Topic</Title3>
         <div className="help-page__topic-controls">
           <Input
@@ -134,38 +265,45 @@ export function HelpPage() {
               )
             }
           >
-            {filteredTopics.map((topic) => (
+            {selectableTopics.map((topic) => (
               <option key={topic.id} value={topic.id}>
                 {topic.title}
               </option>
             ))}
           </Select>
         </div>
-      </Card>
-
-      <Card>
-        <Title3>{selectedTopic.title}</Title3>
-        <Text>{selectedTopic.inAppSnippet}</Text>
-        <Text size={200}>{`Guide section: ${selectedTopic.docSection}`}</Text>
-      </Card>
-
-      <Card>
-        <Title3>Guide Excerpt</Title3>
-        <pre className="help-page__markdown" data-testid="help-topic-excerpt">
-          {selectedSection}
-        </pre>
-      </Card>
-
-      <Card>
-        <Title3>Full Help Document</Title3>
-        {documentSourcePath ? (
-          <Text size={200}>{`Source: ${documentSourcePath}`}</Text>
+        {filteredTopics.length === 0 ? (
+          <Text size={200}>No topics matched this filter. Showing the selected topic.</Text>
         ) : null}
-        <details>
-          <summary>Show full document</summary>
-          <pre className="help-page__markdown">{documentMarkdown}</pre>
-        </details>
       </Card>
+
+      {!error ? (
+        <Card className="help-page__content-card">
+          <div className="help-page__topic-meta">
+            <Title3>{selectedTopic.title}</Title3>
+            <Text>{selectedTopic.inAppSnippet}</Text>
+            <Text size={200}>{`Guide section: ${selectedTopic.docSection}`}</Text>
+            {!selectedSection.found ? (
+              <Text size={200} className="help-page__fallback-note">
+                {`Couldn't find "${selectedTopic.docSection}" in the guide. Showing the full help document instead.`}
+              </Text>
+            ) : null}
+            {documentSourcePath ? (
+              <Text size={200} className="help-page__source-path">
+                {`Source: ${documentSourcePath}`}
+              </Text>
+            ) : null}
+          </div>
+          <article className="help-page__prose" data-testid="help-topic-content">
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm]}
+              components={MARKDOWN_COMPONENTS}
+            >
+              {selectedSection.markdown}
+            </ReactMarkdown>
+          </article>
+        </Card>
+      ) : null}
     </section>
   );
 }

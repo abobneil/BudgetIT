@@ -98,6 +98,7 @@ export function AppShell({ children }: PropsWithChildren) {
   const navigate = useNavigate();
   const { notify } = useFeedback();
   const pageTitle = resolveRouteLabel(location.pathname);
+  const isHelpRoute = location.pathname === "/help";
   const { scenarios, selectedScenarioId, selectScenario } = useScenarioContext();
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [keyboardHelpOpen, setKeyboardHelpOpen] = useState(false);
@@ -256,100 +257,118 @@ export function AppShell({ children }: PropsWithChildren) {
   }
 
   return (
-    <div className="desktop-shell">
-      <aside className="desktop-shell__nav" aria-label="Primary navigation">
-        <p className="desktop-shell__brand">BudgetIT</p>
-        {NAV_ROUTES.map((route) => (
-          <NavLink
-            key={route.path}
-            to={route.path}
-            className={({ isActive }) =>
-              isActive
-                ? "desktop-shell__link desktop-shell__link--active"
-                : "desktop-shell__link"
-            }
-          >
-            {route.label}
-          </NavLink>
-        ))}
-      </aside>
-      <div className="desktop-shell__content">
-        <header className="desktop-shell__topbar">
-          <Text
-            as="h1"
-            className="desktop-shell__title"
-            data-testid="page-title"
-            weight="semibold"
-            size={500}
-          >
-            {pageTitle}
-          </Text>
-          <Select
-            aria-label="Scenario selector"
-            className="desktop-shell__toolbar-select"
-            value={selectedScenarioId}
-            onChange={(event) => selectScenario(event.target.value)}
-          >
-            {scenarios.map((scenario) => (
-              <option key={scenario.id} value={scenario.id}>
-                {scenario.name}
-              </option>
-            ))}
-          </Select>
-          <Input
-            aria-label="Global search"
-            className="desktop-shell__toolbar-input"
-            list="global-search-options"
-            placeholder="Search entities (Ctrl+Shift+F)"
-            ref={globalSearchRef}
-            type="search"
-            value={globalSearchValue}
-            onChange={(_event, data) => setGlobalSearchValue(data.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") {
-                event.preventDefault();
-                handleGlobalSearchEnter();
+    <div
+      className={
+        isHelpRoute ? "desktop-shell desktop-shell--help" : "desktop-shell"
+      }
+    >
+      {!isHelpRoute ? (
+        <aside className="desktop-shell__nav" aria-label="Primary navigation">
+          <p className="desktop-shell__brand">BudgetIT</p>
+          {NAV_ROUTES.map((route) => (
+            <NavLink
+              key={route.path}
+              to={route.path}
+              className={({ isActive }) =>
+                isActive
+                  ? "desktop-shell__link desktop-shell__link--active"
+                  : "desktop-shell__link"
               }
-            }}
-          />
-          <datalist id="global-search-options">
-            {globalSearchEntries.map((entry) => (
-              <option key={entry.id} value={entry.label} />
-            ))}
-          </datalist>
-          <Button
-            appearance="secondary"
-            className="desktop-shell__toolbar-button"
-            onClick={() => setCommandPaletteOpen(true)}
-            type="button"
-          >
-            Command Palette
-          </Button>
-          <Button
-            appearance="secondary"
-            className="desktop-shell__toolbar-button"
-            disabled={commandBusy}
-            onClick={() => {
-              const command = findCommandByActionId("new-expense");
-              if (command) {
-                void executeCommand(command);
-              }
-            }}
-            type="button"
-          >
-            Create
-          </Button>
-          <Button
-            appearance="secondary"
-            className="desktop-shell__toolbar-button"
-            onClick={() => {
-              void openHelpWindow({ topic: "quick-start" });
-            }}
-            type="button"
-          >
-            Help
-          </Button>
-        </header>
+            >
+              {route.label}
+            </NavLink>
+          ))}
+        </aside>
+      ) : null}
+      <div
+        className={
+          isHelpRoute
+            ? "desktop-shell__content desktop-shell__content--help"
+            : "desktop-shell__content"
+        }
+      >
+        {!isHelpRoute ? (
+          <header className="desktop-shell__topbar">
+            <div className="desktop-shell__topbar-main">
+              <Text
+                as="h1"
+                className="desktop-shell__title"
+                data-testid="page-title"
+                weight="semibold"
+                size={500}
+              >
+                {pageTitle}
+              </Text>
+            </div>
+            <div className="desktop-shell__topbar-tools">
+              <Select
+                aria-label="Scenario selector"
+                className="desktop-shell__toolbar-select"
+                value={selectedScenarioId}
+                onChange={(event) => selectScenario(event.target.value)}
+              >
+                {scenarios.map((scenario) => (
+                  <option key={scenario.id} value={scenario.id}>
+                    {scenario.name}
+                  </option>
+                ))}
+              </Select>
+              <Input
+                aria-label="Global search"
+                className="desktop-shell__toolbar-input"
+                list="global-search-options"
+                placeholder="Search entities (Ctrl+Shift+F)"
+                ref={globalSearchRef}
+                type="search"
+                value={globalSearchValue}
+                onChange={(_event, data) => setGlobalSearchValue(data.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    handleGlobalSearchEnter();
+                  }
+                }}
+              />
+              <datalist id="global-search-options">
+                {globalSearchEntries.map((entry) => (
+                  <option key={entry.id} value={entry.label} />
+                ))}
+              </datalist>
+              <Button
+                appearance="secondary"
+                className="desktop-shell__toolbar-button"
+                onClick={() => setCommandPaletteOpen(true)}
+                type="button"
+              >
+                Command Palette
+              </Button>
+              <Button
+                appearance="secondary"
+                className="desktop-shell__toolbar-button"
+                disabled={commandBusy}
+                onClick={() => {
+                  const command = findCommandByActionId("new-expense");
+                  if (command) {
+                    void executeCommand(command);
+                  }
+                }}
+                type="button"
+              >
+                Create
+              </Button>
+              <Button
+                appearance="secondary"
+                className="desktop-shell__toolbar-button"
+                onClick={() => {
+                  void openHelpWindow({ topic: "quick-start" });
+                }}
+                type="button"
+              >
+                Help
+              </Button>
+            </div>
+          </header>
+        ) : null}
         <main className="desktop-shell__page">{children}</main>
       </div>
 
