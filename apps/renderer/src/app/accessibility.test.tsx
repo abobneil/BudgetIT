@@ -162,6 +162,8 @@ describe("accessibility and keyboard reachability", () => {
     const scenarioSelector = screen.getByLabelText("Scenario selector");
     const globalSearch = screen.getByLabelText("Global search");
     const scenarioSelectWrap = screen.getByTestId("scenario-select-wrap");
+    expect(screen.getByTestId("topbar-search-region")).toBeInTheDocument();
+    expect(screen.getByTestId("topbar-actions-region")).toBeInTheDocument();
     const helpButton = screen.getByRole("button", { name: "Help" });
 
     globalSearch.focus();

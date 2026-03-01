@@ -74,6 +74,7 @@ describe("HelpPage", () => {
     ).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Help Center" })).toBeInTheDocument();
     expect(screen.getByLabelText("Selected help topic")).toBeInTheDocument();
+    expect(view.container.querySelector(".help-page__header")).toBeInTheDocument();
     expect(screen.queryByLabelText("Filter help topics")).not.toBeInTheDocument();
     expect(screen.queryByText("Choose Help Topic")).not.toBeInTheDocument();
     expect(screen.queryByText(/^Guide section:/)).not.toBeInTheDocument();

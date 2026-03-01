@@ -289,7 +289,7 @@ export function AppShell({ children }: PropsWithChildren) {
                 {pageTitle}
               </Text>
             </div>
-            <div className="desktop-shell__topbar-search">
+            <div className="desktop-shell__topbar-search" data-testid="topbar-search-region">
               <Input
                 aria-label="Global search"
                 className="desktop-shell__toolbar-input"
@@ -312,7 +312,7 @@ export function AppShell({ children }: PropsWithChildren) {
                 ))}
               </datalist>
             </div>
-            <div className="desktop-shell__topbar-actions">
+            <div className="desktop-shell__topbar-actions" data-testid="topbar-actions-region">
               <div className="desktop-shell__scenario-group">
                 <Text as="span" className="desktop-shell__scenario-label" size={200}>
                   Scenario

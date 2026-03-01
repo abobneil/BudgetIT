@@ -32,6 +32,8 @@ describe("AppShell", () => {
 
     expect(screen.getByLabelText("Primary navigation")).toBeInTheDocument();
     expect(screen.getByTestId("page-title")).toHaveTextContent("Dashboard");
+    expect(screen.getByTestId("topbar-search-region")).toBeInTheDocument();
+    expect(screen.getByTestId("topbar-actions-region")).toBeInTheDocument();
     expect(screen.getByLabelText("Global search")).toBeInTheDocument();
     expect(screen.getByLabelText("Scenario selector")).toBeInTheDocument();
     expect(screen.getByTestId("scenario-select-wrap")).toBeInTheDocument();
