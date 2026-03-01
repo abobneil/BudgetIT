@@ -30,7 +30,7 @@ Behavior:
 - Runs packaging smoke jobs after quality:
   - Windows (`dist:win`, smoke checks, artifact validation)
   - Linux x64 (`dist:linux:x64`, smoke checks, artifact validation)
-  - Linux arm64 (`dist:linux:arm64`, smoke checks, artifact validation) on self-hosted ARM64 runner labels: `self-hosted`, `linux`, `arm64`
+  - Linux arm64 (`dist:linux:arm64`, smoke checks, artifact validation) on self-hosted ARM64 runner labels: `self-hosted`, `linux`, `arm64` (only when repository variable `CI_ENABLE_LINUX_ARM64` is set to `true`)
 - Uploads platform-scoped artifacts from each packaging smoke job.
 
 ## Release workflow (CD)

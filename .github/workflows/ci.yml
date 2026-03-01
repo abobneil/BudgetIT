@@ -188,6 +188,7 @@ jobs:
 
   package-linux-arm64:
     name: Package Linux Artifacts (arm64 Smoke)
+    if: vars.CI_ENABLE_LINUX_ARM64 == 'true'
     needs:
       - help-integrity
       - quality
