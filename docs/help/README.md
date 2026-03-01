@@ -26,6 +26,9 @@ npm run help:check
 
 # Scaffold a new help topic and regenerate outputs
 npm run help:new-topic -- --id your-topic-id --title "Your Topic Title"
+
+# Create/update labels, milestones, and roadmap issues in GitHub
+npm run help:issues:create
 ```
 
 ## Update Workflow

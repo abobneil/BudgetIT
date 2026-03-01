@@ -17,6 +17,7 @@
     "help:generate": "node scripts/help-tools.cjs generate",
     "help:new-topic": "node scripts/help-tools.cjs new-topic",
     "help:check": "node scripts/help-tools.cjs check",
+    "help:issues:create": "node scripts/create-help-center-issues.cjs",
     "rebuild:native:node": "node scripts/rebuild-native-node.cjs",
     "rebuild:native:electron": "node scripts/rebuild-native-electron.cjs",
     "rebuild:native:electron:x64": "npm run rebuild:native:electron -- --arch=x64",
