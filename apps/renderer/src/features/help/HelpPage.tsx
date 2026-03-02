@@ -24,7 +24,8 @@ import { InlineError, LoadingState } from "../../ui/primitives";
 import {
   buildHelpHashPath,
   HELP_TOPICS,
-  resolveHelpTopic
+  resolveHelpTopic,
+  type HelpJourneyStep
 } from "./help-topics";
 import "./HelpPage.css";
 
@@ -46,7 +47,31 @@ type QuickStartJourneyLink = {
   anchor?: string;
 };
 
+type TopicGroup = {
+  id: HelpJourneyStep;
+  label: string;
+  topics: (typeof HELP_TOPICS)[number][];
+};
+
 const QUICK_START_CHECKLIST_STORAGE_KEY = "budgetit.help.quick-start-checklist.v1";
+
+const JOURNEY_STEP_ORDER: HelpJourneyStep[] = [
+  "orientation",
+  "setup",
+  "import",
+  "analysis",
+  "reporting",
+  "operations"
+];
+
+const JOURNEY_STEP_LABELS: Record<HelpJourneyStep, string> = {
+  orientation: "Orientation",
+  setup: "Setup",
+  import: "Import & Reconciliation",
+  analysis: "Analysis",
+  reporting: "Reporting",
+  operations: "Operations"
+};
 
 const QUICK_START_CHECKLIST_ITEMS: QuickStartChecklistItem[] = [
   {
@@ -238,7 +263,9 @@ export function HelpPage() {
   const [documentMarkdown, setDocumentMarkdown] = useState("");
   const [quickStartChecklistState, setQuickStartChecklistState] =
     useState<QuickStartChecklistState>(() => loadQuickStartChecklistState());
-  const [topicSearchQuery, setTopicSearchQuery] = useState("");
+  const topicQuerySeed = searchParams.get("q")?.trim() ?? "";
+  const helpContext = searchParams.get("context")?.trim() ?? "";
+  const [topicSearchQuery, setTopicSearchQuery] = useState(topicQuerySeed);
   const selectedAnchor = searchParams.get("anchor")?.trim() ?? "";
 
   const selectedTopic = resolveHelpTopic(searchParams.get("topic"));
@@ -265,6 +292,30 @@ export function HelpPage() {
     }
     return [selectedTopic, ...indexedTopics];
   }, [indexedTopics, normalizedTopicSearchQuery, selectedTopic]);
+
+  const selectableTopicGroups = useMemo<TopicGroup[]>(() => {
+    const groups = new Map<HelpJourneyStep, (typeof HELP_TOPICS)[number][]>();
+    for (const topic of selectableTopics) {
+      const existing = groups.get(topic.journeyStep);
+      if (existing) {
+        existing.push(topic);
+      } else {
+        groups.set(topic.journeyStep, [topic]);
+      }
+    }
+
+    return Array.from(groups.entries())
+      .sort((left, right) => {
+        const leftIndex = JOURNEY_STEP_ORDER.indexOf(left[0]);
+        const rightIndex = JOURNEY_STEP_ORDER.indexOf(right[0]);
+        return leftIndex - rightIndex;
+      })
+      .map(([journeyStep, topics]) => ({
+        id: journeyStep,
+        label: JOURNEY_STEP_LABELS[journeyStep],
+        topics: [...topics].sort((left, right) => left.order - right.order)
+      }));
+  }, [selectableTopics]);
 
   const selectedSection = useMemo(
     () => extractSection(documentMarkdown, selectedTopic.docSection),
@@ -300,6 +351,10 @@ export function HelpPage() {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    setTopicSearchQuery((current) => (current === topicQuerySeed ? current : topicQuerySeed));
+  }, [topicQuerySeed]);
 
   useEffect(() => {
     if (!selectedAnchor || loading || error) {
@@ -384,6 +439,7 @@ export function HelpPage() {
         } else {
           next.delete("anchor");
         }
+        next.delete("q");
         return next;
       },
       { replace: true }
@@ -410,7 +466,23 @@ export function HelpPage() {
             className="help-page__topic-search"
             placeholder="Search topic, keyword, or field..."
             value={topicSearchQuery}
-            onChange={(_event, data) => setTopicSearchQuery(data.value)}
+            onChange={(_event, data) => {
+              const nextQuery = data.value;
+              setTopicSearchQuery(nextQuery);
+              setSearchParams(
+                (current) => {
+                  const next = new URLSearchParams(current);
+                  const trimmed = nextQuery.trim();
+                  if (trimmed) {
+                    next.set("q", trimmed);
+                  } else {
+                    next.delete("q");
+                  }
+                  return next;
+                },
+                { replace: true }
+              );
+            }}
           />
           <Select
             aria-label="Selected help topic"
@@ -424,18 +496,28 @@ export function HelpPage() {
                   const next = new URLSearchParams(current);
                   next.set("topic", nextTopic);
                   next.delete("anchor");
+                  next.delete("q");
                   return next;
                 },
                 { replace: true }
               );
             }}
           >
-            {selectableTopics.map((topic) => (
-              <option key={topic.id} value={topic.id}>
-                {topic.title}
-              </option>
+            {selectableTopicGroups.map((group) => (
+              <optgroup key={group.id} label={group.label}>
+                {group.topics.map((topic) => (
+                  <option key={topic.id} value={topic.id}>
+                    {topic.title}
+                  </option>
+                ))}
+              </optgroup>
             ))}
           </Select>
+          {helpContext ? (
+            <Text size={100} className="help-page__context-note">
+              {`Context: ${helpContext}`}
+            </Text>
+          ) : null}
         </div>
       </header>
 
@@ -460,6 +542,7 @@ export function HelpPage() {
                               const next = new URLSearchParams(current);
                               next.set("topic", topic.id);
                               next.delete("anchor");
+                              next.delete("q");
                               return next;
                             },
                             { replace: true }

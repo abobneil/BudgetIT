@@ -516,10 +516,13 @@ export function DashboardPage() {
   }
 
   function openCardHelp(cardId: DashboardCardId): void {
+    const definition = DASHBOARD_CARD_DEFINITION_MAP[cardId];
     navigate(
       buildHelpHashPath({
         topic: "dashboard-overview",
-        anchor: DASHBOARD_CARD_HELP_ANCHOR_MAP[cardId]
+        anchor: DASHBOARD_CARD_HELP_ANCHOR_MAP[cardId],
+        q: definition.title,
+        context: `dashboard:${cardId}`
       })
     );
   }

@@ -41,6 +41,11 @@
   width: 100%;
 }
 
+.help-page__context-note {
+  display: block;
+  color: var(--colorNeutralForeground2);
+}
+
 .help-page__fallback-note {
   display: block;
   margin-bottom: 0.5rem;

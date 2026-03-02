@@ -11,8 +11,12 @@ BudgetIT Help is route-driven and topic-based. The Help window/page renders cont
 - Base route: `/help`
 - `topic` query parameter selects a help topic ID (example: `dashboard-overview`).
 - `anchor` query parameter scrolls to a heading within the rendered topic section.
+- `q` query parameter seeds the Help search index input.
+- `context` query parameter carries source-page context text for operator orientation.
 - If `topic` is missing/invalid, Help defaults to `quick-start`.
-- Changing the Help topic dropdown updates `topic` and re-renders content.
+- Topic dropdown options are grouped by journey step (Orientation, Setup, Import, Analysis, Reporting, Operations).
+- Changing the Help topic dropdown updates `topic`, clears `anchor`, and re-renders content.
+- When search input changes, Help updates `q` in the URL for reproducible deep links.
 
 ### Section extraction and fallback behavior
 - Each Help topic maps to a `docSection` heading in this file.

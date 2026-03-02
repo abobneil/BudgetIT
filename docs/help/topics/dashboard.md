@@ -7,6 +7,8 @@ Decision summary view for financial and operational signals.
 - Edit layout (toggle card visibility, re-order cards, assign sections, add custom sections)
 - Reset layout defaults
 
+### KPI Cards
+
 ### Forecast KPI
 - Definition: sum of forecast spend in the active scenario + selected window.
 - Use: baseline expected spend for comparison against actuals.

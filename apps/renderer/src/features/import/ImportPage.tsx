@@ -241,11 +241,18 @@ export function ImportPage() {
     }
   }
 
-  function openHelpTopic(topic: string, anchor?: string): void {
+  function openHelpTopic(
+    topic: string,
+    anchor?: string,
+    q?: string,
+    context?: string
+  ): void {
     navigate(
       buildHelpHashPath({
         topic,
-        anchor
+        anchor,
+        q,
+        context
       })
     );
   }
@@ -261,7 +268,9 @@ export function ImportPage() {
               appearance="secondary"
               size="small"
               type="button"
-              onClick={() => openHelpTopic("import-wizard", "5-steps")}
+              onClick={() =>
+                openHelpTopic("import-wizard", "5-steps", "import workflow", "import:wizard")
+              }
             >
               Import Guide
             </Button>
@@ -269,7 +278,14 @@ export function ImportPage() {
               appearance="secondary"
               size="small"
               type="button"
-              onClick={() => openHelpTopic("reports-workspace", "unmatched-actuals-review")}
+              onClick={() =>
+                openHelpTopic(
+                  "reports-workspace",
+                  "unmatched-actuals-review",
+                  "unmatched actuals",
+                  "import:reconciliation"
+                )
+              }
             >
               Reconciliation Guide
             </Button>
@@ -307,7 +323,12 @@ export function ImportPage() {
             size="small"
             type="button"
             onClick={() =>
-              openHelpTopic("import-wizard", "glossary-import-statuses-and-match-outcomes")
+              openHelpTopic(
+                "import-wizard",
+                "glossary-import-statuses-and-match-outcomes",
+                "import statuses",
+                "import:definitions"
+              )
             }
           >
             Open Full Definitions

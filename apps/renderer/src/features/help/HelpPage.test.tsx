@@ -244,4 +244,36 @@ describe("HelpPage", () => {
     expect(await screen.findByRole("heading", { name: "2) Dashboard" })).toBeInTheDocument();
     expect(screen.getByText("Dashboard content paragraph.")).toBeInTheDocument();
   });
+
+  it("seeds search input from q and shows source context when provided", async () => {
+    getHelpDocumentMock.mockResolvedValue({
+      markdown: BASE_HELP_MARKDOWN,
+      sourcePath: "docs/help-system.md"
+    });
+
+    renderHelp("/help?topic=quick-start&q=dashboard&context=reports%3Aworkspace");
+    await screen.findByRole("heading", { name: "Quick Start (First Launch)" });
+
+    expect(screen.getByLabelText("Search help index")).toHaveValue("dashboard");
+    expect(screen.getByText("Context: reports:workspace")).toBeInTheDocument();
+    expect(screen.getByLabelText("Help jump results")).toBeInTheDocument();
+  });
+
+  it("clears seeded q when selecting a topic from dropdown", async () => {
+    getHelpDocumentMock.mockResolvedValue({
+      markdown: BASE_HELP_MARKDOWN,
+      sourcePath: "docs/help-system.md"
+    });
+
+    renderHelp("/help?topic=quick-start&q=dashboard");
+    await screen.findByRole("heading", { name: "Quick Start (First Launch)" });
+    expect(screen.getByLabelText("Search help index")).toHaveValue("dashboard");
+
+    fireEvent.change(screen.getByLabelText("Selected help topic"), {
+      target: { value: "dashboard-overview" }
+    });
+
+    expect(await screen.findByRole("heading", { name: "2) Dashboard" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Search help index")).toHaveValue("");
+  });
 });

@@ -720,11 +720,18 @@ export function ReportsPage() {
     }
   }
 
-  function openHelpTopic(topic: string, anchor?: string): void {
+  function openHelpTopic(
+    topic: string,
+    anchor?: string,
+    q?: string,
+    context?: string
+  ): void {
     navigate(
       buildHelpHashPath({
         topic,
-        anchor
+        anchor,
+        q,
+        context
       })
     );
   }
@@ -757,7 +764,14 @@ export function ReportsPage() {
               appearance="secondary"
               size="small"
               type="button"
-              onClick={() => openHelpTopic("reports-workspace", "unmatched-actuals-review")}
+              onClick={() =>
+                openHelpTopic(
+                  "reports-workspace",
+                  "unmatched-actuals-review",
+                  "reconciliation",
+                  "reports:workspace"
+                )
+              }
             >
               Reports Help
             </Button>
@@ -765,7 +779,9 @@ export function ReportsPage() {
               appearance="secondary"
               size="small"
               type="button"
-              onClick={() => openHelpTopic("import-wizard", "commit-step")}
+              onClick={() =>
+                openHelpTopic("import-wizard", "commit-step", "import commit", "reports:import")
+              }
             >
               Import/Match Help
             </Button>
@@ -1079,7 +1095,12 @@ export function ReportsPage() {
             size="small"
             type="button"
             onClick={() =>
-              openHelpTopic("reports-workspace", "glossary-reconciliation-statuses")
+              openHelpTopic(
+                "reports-workspace",
+                "glossary-reconciliation-statuses",
+                "reconciliation statuses",
+                "reports:definitions"
+              )
             }
           >
             Open Full Definitions

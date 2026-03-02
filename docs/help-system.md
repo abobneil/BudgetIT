@@ -49,20 +49,46 @@ It combines vendor/service/contract tracking, expense planning, scenario compari
 - Settings
 
 ## 1) App Shell (Global Controls)
-Use this area from any page.
+### Overview
+Use App Shell controls from any page to switch context, jump quickly, and open help without breaking task flow.
 
 ### What it includes
-- Left navigation sidebar for all modules.
+- Left navigation sidebar for all workspaces.
 - Top bar with:
   - Scenario selector
   - Global Search
   - Help button
+- Keyboard command entry points:
+  - Command Palette (`Ctrl+K`)
+  - Global Search focus (`Ctrl+Shift+F`)
+  - Help Center (`F1`)
+
+### Start Here Paths
+- New-user path:
+  - Confirm the active scenario (usually `Baseline`).
+  - Open Help (`F1`) and follow `Quick Start`.
+  - Move through setup workspaces in sequence: Vendors -> Services -> Contracts -> Expenses -> Tags.
+- Experienced-user path:
+  - Open Command Palette (`Ctrl+K`) and jump directly to target route.
+  - Use Help search with seeded context from page-level Help buttons.
+  - Resolve the immediate task and return to workflow without route hunting.
 
 ### Why it matters
-- Scenario selector controls which data context many pages use.
-- Global Search helps jump directly to records from anywhere in the app.
-- Command Palette is keyboard-driven (`Ctrl+K`) for quick route/actions.
-- Keyboard shortcuts can be viewed from Command Palette (`Show Keyboard Shortcuts`).
+- Scenario selector controls data scope used by dashboards, reports, and operational queues.
+- Global Search reduces navigation time when reviewing specific entities.
+- Command Palette provides deterministic route/action access in keyboard-first workflows.
+- Consistent help entry points reduce context switching when triaging issues.
+
+### Common issues and fixes
+- Wrong numbers on screen:
+  - Re-check active Scenario first.
+  - Confirm date/filter context in the current workspace.
+- Keyboard command does not open expected UI:
+  - Press `Escape` to clear modal focus.
+  - Re-run `Ctrl+K` command.
+- Help opened but landed on generic content:
+  - Use topic dropdown and search index to refine.
+  - Validate URL query (`topic`, `anchor`, optional `q`, `context`) if deep-linking.
 
 ## 2) Dashboard
 Decision summary view for financial and operational signals.
@@ -73,6 +99,8 @@ Decision summary view for financial and operational signals.
 - Export dashboard (`HTML`, `PDF`, `Excel`, `CSV`, `PNG`)
 - Edit layout (toggle card visibility, re-order cards, assign sections, add custom sections)
 - Reset layout defaults
+
+### KPI Cards
 
 ### Forecast KPI
 - Definition: sum of forecast spend in the active scenario + selected window.
@@ -139,6 +167,7 @@ Decision summary view for financial and operational signals.
 - Use **Open Settings** from the banner to reach maintenance controls.
 
 ## 3) Expenses Workspace
+### Overview
 Manage expense lines, status, tags, and recurrence.
 
 ### Toolbar
@@ -178,6 +207,7 @@ Manage expense lines, status, tags, and recurrence.
 - Delete confirmation dialog
 
 ## 4) Services Workspace
+### Overview
 Track service lifecycle, risk, renewals, and replacement posture.
 
 ### Toolbar
@@ -213,6 +243,7 @@ Track service lifecycle, risk, renewals, and replacement posture.
 - Delete confirmation dialog
 
 ## 5) Contracts Workspace
+### Overview
 Manage contract terms, renewal windows, and linked services.
 
 ### Toolbar
@@ -251,6 +282,7 @@ Manage contract terms, renewal windows, and linked services.
 - Delete confirmation dialog
 
 ## 6) Vendors Workspace
+### Overview
 Manage vendor lifecycle with archive/delete guards.
 
 ### Toolbar
@@ -289,7 +321,8 @@ Manage vendor lifecycle with archive/delete guards.
 - Delete confirmation dialog
 
 ## 7) Tags & Dimensions
-Define taxonomy and improve classification quality.
+### Overview
+Define taxonomy and enforce classification quality across expenses, reports, and allocations.
 
 ### Main capabilities
 - Create dimensions:
@@ -301,12 +334,39 @@ Define taxonomy and improve classification quality.
 - Merge source tag into target tag
 - Fix tagging queue for required dimensions
 
+### Dimension design rules
+- Keep dimensions stable and decision-oriented (example: Cost Center, Environment).
+- Avoid duplicate semantics across dimensions.
+- Mark as `required` only when missing values block downstream reporting decisions.
+
+### Setup sequence for new dimensions
+1. Create dimension and choose mode.
+2. Add initial tags and publish naming guidance.
+3. Mark required only after at least one valid tag exists.
+4. Triage missing-tag queue created by requirement enforcement.
+
+### Merge and retire safeguards
+- Merge when consolidating synonyms or deprecated values.
+- Retire when tag should stop being assigned to new records.
+- Validate report/filter behavior after merge to ensure historical continuity.
+
+### Queue triage playbook
+1. Filter queue by highest-impact missing dimension first.
+2. Assign tags to records with known ownership/context.
+3. Route ambiguous rows back to workspace owner for decision.
+4. Re-check completeness metrics after batch updates.
+
 ### Quality indicators
 - Tag completeness percentage
 - Queue count for missing required tags
+- Suggested thresholds:
+  - Green: >= 98% completeness
+  - Watch: 95% to 97.9%
+  - Action required: < 95%
 
 ## 8) Scenarios Workspace
-Versioned planning controls for simulation and approval flow.
+### Overview
+Versioned planning controls for simulation, approval, and release readiness.
 
 ### Main actions per scenario
 - Select
@@ -323,14 +383,49 @@ Versioned planning controls for simulation and approval flow.
 - Created date
 - Comparison summaries (local and database-based)
 
-## 9) Alerts Inbox
-Central triage for reminders and deadlines.
+### Scenario lifecycle guidance
+- `draft`: active modeling and edits.
+- `reviewed`: candidate scenario ready for stakeholder validation.
+- `approved`: accepted scenario for operational use/reporting.
+- Lock after approval to prevent accidental drift.
 
-### Tabs
-- Due soon
-- Snoozed
-- Acked
-- All
+### Comparison workflow
+1. Select the working scenario.
+2. Run compare against baseline.
+3. Review local change summaries (workspace-level deltas).
+4. Review database summaries (persisted data differences).
+5. Validate that major KPI shifts are explained and traceable.
+
+### Promotion gate checklist
+- Material deltas are documented.
+- Required tags/metadata are complete for changed records.
+- Reconciliation queue risk is reviewed when actuals are involved.
+- Stakeholder sign-off is recorded before promote.
+
+### Governance notes
+- Clone baseline for major planning cycles instead of editing baseline directly.
+- Use lock/unlock intentionally; log owner and reason for unlock events.
+- Treat scenario status as process truth for downstream reporting cadence.
+
+## 9) Alerts Inbox
+### Overview
+Central triage queue for reminders, renewal deadlines, and operational follow-ups.
+
+### Queue views
+- Due soon: active, time-sensitive items requiring near-term action.
+- Snoozed: temporarily deferred alerts with a resume date.
+- Acked: acknowledged items retained for audit trace.
+- All: combined view for broad review and handoffs.
+
+### Triage playbook
+1. Start with `Due soon` and sort by nearest due date.
+2. Open each row and confirm owner + linked entity.
+3. Take one disposition per alert:
+   - `Review` when additional context is needed.
+   - `Ack` when action is complete and trace should remain.
+   - `Snooze +7d` when deferring with an explicit revisit date.
+   - `Open entity` for direct correction in source workspace.
+4. Re-check queue counts after action batch.
 
 ### Row actions
 - Review
@@ -338,12 +433,22 @@ Central triage for reminders and deadlines.
 - Snooze until +7d
 - Open entity
 
-### Detail panel
+### Detail panel fields
 - Message
 - Due date
 - Related entity
 - Trigger reason
 - Recommended next actions
+
+### Alert lifecycle guidance
+- Prefer `Ack` only after a concrete action is performed.
+- Use snooze sparingly and with owner accountability.
+- If alert repeats across cycles, treat as process-quality signal and escalate.
+
+### Weekly operations checkpoint
+- Clear overdue and due-soon items.
+- Confirm high-risk alerts are owned.
+- Track repeated trigger patterns and open remediation tasks.
 
 ## 10) Import Wizard
 Guided import for expenses and actuals.
@@ -468,7 +573,8 @@ Flexible reporting, export orchestration, and operational finance tools.
 - Archive/export run outputs and note unresolved reconciliation exceptions.
 
 ## 12) NLQ Workspace
-Natural-language query interface for report-ready data retrieval.
+### Overview
+Natural-language query interface for report-ready data retrieval with filter explainability.
 
 ### Main flow
 - Enter prompt and run query
@@ -479,10 +585,37 @@ Natural-language query interface for report-ready data retrieval.
 - Export results (`CSV` or `Excel`)
 - Save as report preset
 
+### Prompt construction pattern
+- Preferred template:
+  - Metric or question
+  - Time window
+  - Scope filters (scenario, vendor, tag, owner)
+- Example:
+  - "Show monthly variance for baseline in Q1 for cost center Security."
+
+### Parsed filter review checklist
+- Confirm date range interpretation.
+- Confirm tag/vendor filters match intent.
+- Confirm scenario context is correct before exporting.
+- If parse is off, rewrite prompt with explicit constraints.
+
+### Result validation checklist
+- Spot-check top rows against known source records.
+- Compare aggregates against Dashboard/Reports metrics.
+- Flag major mismatches before sharing exported outputs.
+
 ### Inputs and actions
 - Prompt input
 - Export format + output directory
 - Save report name
+
+### Failure handling
+- No results:
+  - Loosen overly specific filters.
+  - Verify selected scenario contains expected records.
+- Unexpected parse:
+  - Use shorter, explicit prompt terms.
+  - Re-run and inspect parsed filter explanation before export.
 
 ## 13) Settings Center
 Runtime, security, backup, maintenance, and governance configuration.
@@ -540,8 +673,12 @@ BudgetIT Help is route-driven and topic-based. The Help window/page renders cont
 - Base route: `/help`
 - `topic` query parameter selects a help topic ID (example: `dashboard-overview`).
 - `anchor` query parameter scrolls to a heading within the rendered topic section.
+- `q` query parameter seeds the Help search index input.
+- `context` query parameter carries source-page context text for operator orientation.
 - If `topic` is missing/invalid, Help defaults to `quick-start`.
-- Changing the Help topic dropdown updates `topic` and re-renders content.
+- Topic dropdown options are grouped by journey step (Orientation, Setup, Import, Analysis, Reporting, Operations).
+- Changing the Help topic dropdown updates `topic`, clears `anchor`, and re-renders content.
+- When search input changes, Help updates `q` in the URL for reproducible deep links.
 
 ### Section extraction and fallback behavior
 - Each Help topic maps to a `docSection` heading in this file.
