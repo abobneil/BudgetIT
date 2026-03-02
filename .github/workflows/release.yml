@@ -439,6 +439,33 @@ jobs:
             echo "${hash}  ${artifact_name}" >> "${checksum_path}"
           done < <(find dist/release -maxdepth 1 -type f ! -name "SHA256SUMS.txt" -printf "%f\n" | sort)
 
+      - name: Remove existing release assets for tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          tag_name="${{ needs.preflight.outputs.tag }}"
+          release_id="$(gh api "repos/${{ github.repository }}/releases/tags/${tag_name}" --jq ".id" 2>/dev/null || true)"
+
+          if [[ -z "${release_id}" ]]; then
+            echo "No existing release found for tag ${tag_name}; skipping cleanup."
+            exit 0
+          fi
+
+          asset_ids="$(gh api "repos/${{ github.repository }}/releases/${release_id}/assets" --jq ".[].id")"
+          if [[ -z "${asset_ids}" ]]; then
+            echo "No existing assets found for tag ${tag_name}."
+            exit 0
+          fi
+
+          while IFS= read -r asset_id; do
+            if [[ -n "${asset_id}" ]]; then
+              gh api --method DELETE "repos/${{ github.repository }}/releases/assets/${asset_id}" >/dev/null
+            fi
+          done <<< "${asset_ids}"
+
       - name: Publish release
         if: needs.preflight.outputs.prerelease == 'false' && needs.preflight.outputs.tag != 'main-latest'
         uses: softprops/action-gh-release@v2
