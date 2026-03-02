@@ -447,14 +447,14 @@ jobs:
           set -euo pipefail
 
           tag_name="${{ needs.preflight.outputs.tag }}"
-          release_id="$(gh api "repos/${{ github.repository }}/releases/tags/${tag_name}" --jq ".id" 2>/dev/null || true)"
+          release_id="$(gh release view "${tag_name}" --json databaseId --jq ".databaseId" 2>/dev/null || true)"
 
           if [[ -z "${release_id}" ]]; then
             echo "No existing release found for tag ${tag_name}; skipping cleanup."
             exit 0
           fi
 
-          asset_ids="$(gh api "repos/${{ github.repository }}/releases/${release_id}/assets" --jq ".[].id")"
+          asset_ids="$(gh release view "${tag_name}" --json assets --jq ".assets[].id" 2>/dev/null || true)"
           if [[ -z "${asset_ids}" ]]; then
             echo "No existing assets found for tag ${tag_name}."
             exit 0
