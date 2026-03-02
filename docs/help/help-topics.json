@@ -24,7 +24,11 @@
         "getting started"
       ],
       "audience": "new-user",
-      "journeyStep": "setup"
+      "journeyStep": "setup",
+      "outcomes": [
+        "Complete baseline setup tasks for this workspace.",
+        "Apply Quick Start guidance without leaving the app."
+      ]
     },
     {
       "id": "global-keyboard-shortcuts",
@@ -40,7 +44,11 @@
         "f1"
       ],
       "audience": "experienced-user",
-      "journeyStep": "orientation"
+      "journeyStep": "orientation",
+      "outcomes": [
+        "Navigate quickly and locate contextual help entry points.",
+        "Apply Keyboard Shortcuts guidance without leaving the app."
+      ]
     },
     {
       "id": "dashboard-overview",
@@ -55,7 +63,11 @@
         "variance"
       ],
       "audience": "both",
-      "journeyStep": "analysis"
+      "journeyStep": "analysis",
+      "outcomes": [
+        "Interpret KPIs, variance, and scenario signals correctly.",
+        "Apply Dashboard guidance without leaving the app."
+      ]
     },
     {
       "id": "expenses-workspace",
@@ -71,7 +83,11 @@
         "bulk"
       ],
       "audience": "both",
-      "journeyStep": "setup"
+      "journeyStep": "setup",
+      "outcomes": [
+        "Complete baseline setup tasks for this workspace.",
+        "Apply Expenses Workspace guidance without leaving the app."
+      ]
     },
     {
       "id": "expenses-form",
@@ -86,7 +102,11 @@
         "edit expense"
       ],
       "audience": "both",
-      "journeyStep": "setup"
+      "journeyStep": "setup",
+      "outcomes": [
+        "Complete baseline setup tasks for this workspace.",
+        "Apply Expense Form guidance without leaving the app."
+      ]
     },
     {
       "id": "services-workspace",
@@ -102,7 +122,11 @@
         "replacement"
       ],
       "audience": "both",
-      "journeyStep": "setup"
+      "journeyStep": "setup",
+      "outcomes": [
+        "Complete baseline setup tasks for this workspace.",
+        "Apply Services Workspace guidance without leaving the app."
+      ]
     },
     {
       "id": "services-form",
@@ -117,7 +141,11 @@
         "risk"
       ],
       "audience": "both",
-      "journeyStep": "setup"
+      "journeyStep": "setup",
+      "outcomes": [
+        "Complete baseline setup tasks for this workspace.",
+        "Apply Service Form guidance without leaving the app."
+      ]
     },
     {
       "id": "contracts-workspace",
@@ -132,7 +160,11 @@
         "notice period"
       ],
       "audience": "both",
-      "journeyStep": "operations"
+      "journeyStep": "operations",
+      "outcomes": [
+        "Run recurring operations with clear status decisions.",
+        "Apply Contracts Workspace guidance without leaving the app."
+      ]
     },
     {
       "id": "contracts-form",
@@ -147,7 +179,11 @@
         "owner"
       ],
       "audience": "both",
-      "journeyStep": "operations"
+      "journeyStep": "operations",
+      "outcomes": [
+        "Run recurring operations with clear status decisions.",
+        "Apply Contract Form guidance without leaving the app."
+      ]
     },
     {
       "id": "vendors-workspace",
@@ -162,7 +198,11 @@
         "delete guardrails"
       ],
       "audience": "both",
-      "journeyStep": "setup"
+      "journeyStep": "setup",
+      "outcomes": [
+        "Complete baseline setup tasks for this workspace.",
+        "Apply Vendors Workspace guidance without leaving the app."
+      ]
     },
     {
       "id": "vendors-form",
@@ -177,7 +217,11 @@
         "owner"
       ],
       "audience": "both",
-      "journeyStep": "setup"
+      "journeyStep": "setup",
+      "outcomes": [
+        "Complete baseline setup tasks for this workspace.",
+        "Apply Vendor Form guidance without leaving the app."
+      ]
     },
     {
       "id": "tags-workspace",
@@ -192,7 +236,11 @@
         "taxonomy"
       ],
       "audience": "both",
-      "journeyStep": "setup"
+      "journeyStep": "setup",
+      "outcomes": [
+        "Complete baseline setup tasks for this workspace.",
+        "Apply Tags & Dimensions guidance without leaving the app."
+      ]
     },
     {
       "id": "scenarios-workspace",
@@ -207,7 +255,11 @@
         "compare"
       ],
       "audience": "both",
-      "journeyStep": "analysis"
+      "journeyStep": "analysis",
+      "outcomes": [
+        "Interpret KPIs, variance, and scenario signals correctly.",
+        "Apply Scenarios Workspace guidance without leaving the app."
+      ]
     },
     {
       "id": "alerts-inbox",
@@ -222,7 +274,11 @@
         "triage"
       ],
       "audience": "both",
-      "journeyStep": "operations"
+      "journeyStep": "operations",
+      "outcomes": [
+        "Run recurring operations with clear status decisions.",
+        "Apply Alerts Inbox guidance without leaving the app."
+      ]
     },
     {
       "id": "import-wizard",
@@ -238,7 +294,11 @@
         "preview"
       ],
       "audience": "both",
-      "journeyStep": "import"
+      "journeyStep": "import",
+      "outcomes": [
+        "Import data safely and resolve validation outcomes.",
+        "Apply Import Wizard guidance without leaving the app."
+      ]
     },
     {
       "id": "reports-workspace",
@@ -254,7 +314,11 @@
         "unmatched actuals"
       ],
       "audience": "both",
-      "journeyStep": "reporting"
+      "journeyStep": "reporting",
+      "outcomes": [
+        "Produce report outputs with the right audience framing.",
+        "Apply Reports Workspace guidance without leaving the app."
+      ]
     },
     {
       "id": "nlq-workspace",
@@ -269,7 +333,11 @@
         "query"
       ],
       "audience": "experienced-user",
-      "journeyStep": "analysis"
+      "journeyStep": "analysis",
+      "outcomes": [
+        "Interpret KPIs, variance, and scenario signals correctly.",
+        "Apply NLQ Workspace guidance without leaving the app."
+      ]
     },
     {
       "id": "settings-center",
@@ -285,7 +353,11 @@
         "maintenance"
       ],
       "audience": "both",
-      "journeyStep": "operations"
+      "journeyStep": "operations",
+      "outcomes": [
+        "Run recurring operations with clear status decisions.",
+        "Apply Settings Center guidance without leaving the app."
+      ]
     }
   ]
 }

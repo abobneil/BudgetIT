@@ -1,0 +1,283 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://budgetit.local/schemas/verification-results.schema.json",
+  "title": "Help Center Verification Results",
+  "type": "object",
+  "required": [
+    "generatedAt",
+    "strictness",
+    "baseline",
+    "summary",
+    "requirements",
+    "results",
+    "reopenCandidates"
+  ],
+  "properties": {
+    "generatedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "strictness": {
+      "type": "string",
+      "const": "exact-contract"
+    },
+    "baseline": {
+      "type": "object",
+      "required": [
+        "repoRoot",
+        "repoSha",
+        "timestampUtc",
+        "nodeVersion",
+        "platform",
+        "timezone"
+      ],
+      "properties": {
+        "repoRoot": {
+          "type": "string",
+          "minLength": 1
+        },
+        "repoSha": {
+          "type": "string",
+          "minLength": 1
+        },
+        "timestampUtc": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "nodeVersion": {
+          "type": "string",
+          "minLength": 1
+        },
+        "platform": {
+          "type": "string",
+          "minLength": 1
+        },
+        "timezone": {
+          "type": "string",
+          "minLength": 1
+        },
+        "evidenceFiles": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "path",
+              "exists",
+              "sizeBytes",
+              "sha256"
+            ],
+            "properties": {
+              "path": {
+                "type": "string",
+                "minLength": 1
+              },
+              "exists": {
+                "type": "boolean"
+              },
+              "sizeBytes": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "sha256": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "summary": {
+      "type": "object",
+      "required": [
+        "totalRequirements",
+        "passed",
+        "failed",
+        "passRatePercent",
+        "overallStatus"
+      ],
+      "properties": {
+        "totalRequirements": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "passed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "failed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "passRatePercent": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "overallStatus": {
+          "type": "string",
+          "enum": [
+            "pass",
+            "fail"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "requirements": {
+      "$ref": "verification-requirements.schema.json"
+    },
+    "results": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "status",
+          "evidence",
+          "command",
+          "output",
+          "gapType",
+          "remediationIssueTitle"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pass",
+              "fail"
+            ]
+          },
+          "evidence": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "command": {
+            "type": "string"
+          },
+          "output": {
+            "type": "string"
+          },
+          "gapType": {
+            "type": "string",
+            "enum": [
+              "None",
+              "Contract Gap",
+              "Governance Gap",
+              "Evidence Gap"
+            ]
+          },
+          "remediationIssueTitle": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "phaseMatrix": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "phase",
+          "item",
+          "status",
+          "evidence"
+        ],
+        "properties": {
+          "phase": {
+            "type": "string",
+            "minLength": 1
+          },
+          "item": {
+            "type": "string",
+            "minLength": 1
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pass",
+              "fail"
+            ]
+          },
+          "evidence": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "reopenCandidates": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "phase",
+          "gapType",
+          "priority",
+          "target",
+          "expectedEndState"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1
+          },
+          "phase": {
+            "type": "string",
+            "minLength": 1
+          },
+          "gapType": {
+            "type": "string",
+            "enum": [
+              "Contract Gap",
+              "Governance Gap",
+              "Evidence Gap"
+            ]
+          },
+          "priority": {
+            "type": "string",
+            "enum": [
+              "p1",
+              "p2"
+            ]
+          },
+          "target": {
+            "type": "string",
+            "minLength": 1
+          },
+          "expectedEndState": {
+            "type": "string",
+            "minLength": 1
+          },
+          "blockedByRequirement": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

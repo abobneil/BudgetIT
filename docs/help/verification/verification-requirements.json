@@ -1,0 +1,542 @@
+[
+  {
+    "id": "BASE-001",
+    "phase": "Cross-Phase",
+    "requirement": "Capture baseline metadata (repo SHA, timestamp, environment).",
+    "type": "baseline",
+    "source": "git + runtime environment",
+    "passRule": "Baseline metadata is captured in verification output.",
+    "failSeverity": "p1"
+  },
+  {
+    "id": "BASE-002",
+    "phase": "Cross-Phase",
+    "requirement": "Capture raw evidence for required repository files.",
+    "type": "baseline",
+    "source": "help-topics.ts, help-system.md, package.json, ci.yml, ci-cd.md",
+    "passRule": "All required evidence files are present and fingerprinted.",
+    "failSeverity": "p1"
+  },
+  {
+    "id": "GOV-001",
+    "phase": "Cross-Phase",
+    "requirement": "Required Help Center labels exist exactly.",
+    "type": "governance",
+    "source": "GitHub labels",
+    "passRule": "All required labels are present: area:help-center, phase:1..7, type:epic|feature|qa|chore, priority:p1|p2, north-star.",
+    "failSeverity": "p1"
+  },
+  {
+    "id": "GOV-002",
+    "phase": "Cross-Phase",
+    "requirement": "Milestones HC-P1 through HC-P7 exist.",
+    "type": "governance",
+    "source": "GitHub milestones",
+    "passRule": "Milestone titles include HC-P1, HC-P2, HC-P3, HC-P4, HC-P5, HC-P6, HC-P7.",
+    "failSeverity": "p1"
+  },
+  {
+    "id": "GOV-003",
+    "phase": "Cross-Phase",
+    "requirement": "Each HC milestone has exactly 5 issues (1 epic + 4 non-epic).",
+    "type": "governance",
+    "source": "GitHub issues by milestone",
+    "passRule": "For every HC milestone, issue count is 5 and epic count is 1.",
+    "failSeverity": "p1"
+  },
+  {
+    "id": "GOV-004",
+    "phase": "Cross-Phase",
+    "requirement": "All HC milestones are closed after completion.",
+    "type": "governance",
+    "source": "GitHub milestone states",
+    "passRule": "All milestones HC-P1..HC-P7 are state=closed.",
+    "failSeverity": "p1"
+  },
+  {
+    "id": "GOV-005",
+    "phase": "Cross-Phase",
+    "requirement": "At most one HC milestone is active during rollout.",
+    "type": "governance",
+    "source": "GitHub milestone states",
+    "passRule": "Open HC milestones are <= 1.",
+    "failSeverity": "p1"
+  },
+  {
+    "id": "GOV-006",
+    "phase": "Cross-Phase",
+    "requirement": "Closed HC issues have acceptance checklists checked.",
+    "type": "governance",
+    "source": "GitHub issue body",
+    "passRule": "Closed HC issues contain checklist entries and all are checked.",
+    "failSeverity": "p1"
+  },
+  {
+    "id": "GOV-007",
+    "phase": "Cross-Phase",
+    "requirement": "Closed HC issues have linked PR closure evidence.",
+    "type": "governance",
+    "source": "GitHub closedByPullRequestsReferences",
+    "passRule": "Every closed HC issue has at least one closing PR reference.",
+    "failSeverity": "p1"
+  },
+  {
+    "id": "CON-001",
+    "phase": "Cross-Phase",
+    "requirement": "HelpTopic includes audience, journeyStep, keywords, outcomes fields.",
+    "type": "contract",
+    "source": "apps/renderer/src/features/help/help-topics.ts",
+    "passRule": "HelpTopic type includes audience, journeyStep, keywords, outcomes.",
+    "failSeverity": "p1"
+  },
+  {
+    "id": "CON-002",
+    "phase": "Cross-Phase",
+    "requirement": "buildHelpHashPath supports topic, anchor, q, context in the payload contract.",
+    "type": "contract",
+    "source": "apps/renderer/src/features/help/help-topics.ts",
+    "passRule": "buildHelpHashPath payload type includes topic, anchor, q, context.",
+    "failSeverity": "p1"
+  },
+  {
+    "id": "CON-003",
+    "phase": "Cross-Phase",
+    "requirement": "buildHelpHashPath encodes q and context query params.",
+    "type": "contract",
+    "source": "apps/renderer/src/features/help/help-topics.ts",
+    "passRule": "buildHelpHashPath sets q and context in URLSearchParams when present.",
+    "failSeverity": "p1"
+  },
+  {
+    "id": "CON-004",
+    "phase": "Cross-Phase",
+    "requirement": "HelpDefinition type exists in renderer help domain.",
+    "type": "contract",
+    "source": "apps/renderer/src/features/help/**/*",
+    "passRule": "A HelpDefinition type or interface exists with id, term, meaning, appliesTo, relatedTopicId.",
+    "failSeverity": "p1"
+  },
+  {
+    "id": "CON-005",
+    "phase": "Cross-Phase",
+    "requirement": "package.json defines check:help-integrity script.",
+    "type": "contract",
+    "source": "package.json",
+    "passRule": "scripts.check:help-integrity is defined.",
+    "failSeverity": "p1"
+  },
+  {
+    "id": "CON-006",
+    "phase": "Cross-Phase",
+    "requirement": "check:help-integrity points to scripts/check-help-integrity.cjs.",
+    "type": "contract",
+    "source": "package.json",
+    "passRule": "scripts.check:help-integrity invokes node scripts/check-help-integrity.cjs.",
+    "failSeverity": "p1"
+  },
+  {
+    "id": "CON-007",
+    "phase": "Cross-Phase",
+    "requirement": "scripts/check-help-integrity.cjs exists.",
+    "type": "contract",
+    "source": "scripts/check-help-integrity.cjs",
+    "passRule": "scripts/check-help-integrity.cjs exists on disk.",
+    "failSeverity": "p1"
+  },
+  {
+    "id": "CON-008",
+    "phase": "Cross-Phase",
+    "requirement": "CI executes npm run check:help-integrity.",
+    "type": "contract",
+    "source": ".github/workflows/ci.yml",
+    "passRule": "ci.yml contains a step running npm run check:help-integrity.",
+    "failSeverity": "p1"
+  },
+  {
+    "id": "CON-009",
+    "phase": "Cross-Phase",
+    "requirement": "Branch protection on main requires Help Integrity status check.",
+    "type": "contract",
+    "source": "GitHub branch protection",
+    "passRule": "main branch protection required status checks include Help Integrity.",
+    "failSeverity": "p1"
+  },
+  {
+    "id": "BEH-001",
+    "phase": "Cross-Phase",
+    "requirement": "Current integrity check command passes on repository state.",
+    "type": "behavior",
+    "source": "cmd /c npm run help:check",
+    "passRule": "Command exits zero.",
+    "failSeverity": "p1"
+  },
+  {
+    "id": "BEH-002",
+    "phase": "Cross-Phase",
+    "requirement": "Help-related renderer tests pass.",
+    "type": "behavior",
+    "source": "cmd /c npm run test --workspace @budgetit/renderer -- <help-related tests>",
+    "passRule": "HelpPage, ImportPage, ReportsPage, and DashboardPage tests all pass.",
+    "failSeverity": "p1"
+  },
+  {
+    "id": "BEH-003",
+    "phase": "Cross-Phase",
+    "requirement": "Negative check: missing heading scenario fails integrity command with actionable output.",
+    "type": "behavior",
+    "source": "temp workspace mutation + node scripts/help-tools.cjs check",
+    "passRule": "Mutated missing-heading scenario exits non-zero and output is actionable.",
+    "failSeverity": "p1"
+  },
+  {
+    "id": "BEH-004",
+    "phase": "Cross-Phase",
+    "requirement": "Negative check: duplicate heading edge-case scenario fails integrity command.",
+    "type": "behavior",
+    "source": "temp workspace mutation + node scripts/help-tools.cjs check",
+    "passRule": "Duplicate-heading edge-case exits non-zero.",
+    "failSeverity": "p1"
+  },
+  {
+    "id": "BEH-005",
+    "phase": "Cross-Phase",
+    "requirement": "Negative check: stale generated output drift fails integrity command.",
+    "type": "behavior",
+    "source": "temp workspace mutation + node scripts/help-tools.cjs check",
+    "passRule": "Drift mutation exits non-zero with stale generation guidance.",
+    "failSeverity": "p1"
+  },
+  {
+    "id": "NS-001",
+    "phase": "Cross-Phase",
+    "requirement": "North-star scenario for brand-new users is documented with six outcomes.",
+    "type": "north-star",
+    "source": "docs/help/north-star-acceptance.md",
+    "passRule": "Document includes all six new-user outcomes.",
+    "failSeverity": "p2"
+  },
+  {
+    "id": "NS-002",
+    "phase": "Cross-Phase",
+    "requirement": "North-star scenario for experienced users includes F1/search/context under 30 seconds.",
+    "type": "north-star",
+    "source": "docs/help/north-star-acceptance.md",
+    "passRule": "Document includes F1 + search/jump + meaning retrieval under 30s.",
+    "failSeverity": "p2"
+  },
+  {
+    "id": "PH1-1",
+    "phase": "HC-P1",
+    "requirement": "EPIC: HC-P1 Information Architecture and Coverage Map",
+    "type": "phase-item",
+    "source": "GitHub issue + milestone HC-P1",
+    "passRule": "Issue with exact title exists in HC-P1 and has verifiable implementation evidence.",
+    "failSeverity": "p1"
+  },
+  {
+    "id": "PH1-2",
+    "phase": "HC-P1",
+    "requirement": "Create north-star coverage matrix (user goal -> help topic -> anchor)",
+    "type": "phase-item",
+    "source": "GitHub issue + docs/help artifacts",
+    "passRule": "Issue with exact title exists in HC-P1 and has verifiable implementation evidence.",
+    "failSeverity": "p1"
+  },
+  {
+    "id": "PH1-3",
+    "phase": "HC-P1",
+    "requirement": "Refactor help topic metadata model for audience/journey tagging",
+    "type": "phase-item",
+    "source": "GitHub issue + help-topics metadata",
+    "passRule": "Issue with exact title exists in HC-P1 and has verifiable implementation evidence.",
+    "failSeverity": "p1"
+  },
+  {
+    "id": "PH1-4",
+    "phase": "HC-P1",
+    "requirement": "Add Help Center \"Start Here\" entry IA (new user path + experienced user path)",
+    "type": "phase-item",
+    "source": "GitHub issue + help UI content",
+    "passRule": "Issue with exact title exists in HC-P1 and has verifiable implementation evidence.",
+    "failSeverity": "p1"
+  },
+  {
+    "id": "PH1-5",
+    "phase": "HC-P1",
+    "requirement": "QA gate: every primary route has mapped help entry and valid jump target",
+    "type": "phase-item",
+    "source": "GitHub issue + route/help tests",
+    "passRule": "Issue with exact title exists in HC-P1 and has verifiable implementation evidence.",
+    "failSeverity": "p1"
+  },
+  {
+    "id": "PH2-1",
+    "phase": "HC-P2",
+    "requirement": "EPIC: HC-P2 Baseline Setup Journey",
+    "type": "phase-item",
+    "source": "GitHub issue + milestone HC-P2",
+    "passRule": "Issue with exact title exists in HC-P2 and has verifiable implementation evidence.",
+    "failSeverity": "p1"
+  },
+  {
+    "id": "PH2-2",
+    "phase": "HC-P2",
+    "requirement": "Rewrite Quick Start into setup checklist (vendors/services/contracts/expenses/dimensions)",
+    "type": "phase-item",
+    "source": "GitHub issue + quick-start content",
+    "passRule": "Issue with exact title exists in HC-P2 and has verifiable implementation evidence.",
+    "failSeverity": "p1"
+  },
+  {
+    "id": "PH2-3",
+    "phase": "HC-P2",
+    "requirement": "Add \"first session\" guided sequence with route-accurate anchor jumps",
+    "type": "phase-item",
+    "source": "GitHub issue + HelpPage journey links",
+    "passRule": "Issue with exact title exists in HC-P2 and has verifiable implementation evidence.",
+    "failSeverity": "p1"
+  },
+  {
+    "id": "PH2-4",
+    "phase": "HC-P2",
+    "requirement": "Add baseline-completion checklist state (local persisted progress)",
+    "type": "phase-item",
+    "source": "GitHub issue + local storage integration",
+    "passRule": "Issue with exact title exists in HC-P2 and has verifiable implementation evidence.",
+    "failSeverity": "p1"
+  },
+  {
+    "id": "PH2-5",
+    "phase": "HC-P2",
+    "requirement": "QA gate: new user can complete baseline setup without external docs",
+    "type": "phase-item",
+    "source": "GitHub issue + north-star acceptance evidence",
+    "passRule": "Issue with exact title exists in HC-P2 and has verifiable implementation evidence.",
+    "failSeverity": "p1"
+  },
+  {
+    "id": "PH3-1",
+    "phase": "HC-P3",
+    "requirement": "EPIC: HC-P3 Import and Reconciliation",
+    "type": "phase-item",
+    "source": "GitHub issue + milestone HC-P3",
+    "passRule": "Issue with exact title exists in HC-P3 and has verifiable implementation evidence.",
+    "failSeverity": "p1"
+  },
+  {
+    "id": "PH3-2",
+    "phase": "HC-P3",
+    "requirement": "Author import-actuals playbook with failure handling and reconciliation decisions",
+    "type": "phase-item",
+    "source": "GitHub issue + import docs",
+    "passRule": "Issue with exact title exists in HC-P3 and has verifiable implementation evidence.",
+    "failSeverity": "p1"
+  },
+  {
+    "id": "PH3-3",
+    "phase": "HC-P3",
+    "requirement": "Add glossary entries for import statuses, match states, and error classes",
+    "type": "phase-item",
+    "source": "GitHub issue + import glossary content",
+    "passRule": "Issue with exact title exists in HC-P3 and has verifiable implementation evidence.",
+    "failSeverity": "p1"
+  },
+  {
+    "id": "PH3-4",
+    "phase": "HC-P3",
+    "requirement": "Add contextual help entry points from Import and Reports reconciliation surfaces",
+    "type": "phase-item",
+    "source": "GitHub issue + Import/Reports links",
+    "passRule": "Issue with exact title exists in HC-P3 and has verifiable implementation evidence.",
+    "failSeverity": "p1"
+  },
+  {
+    "id": "PH3-5",
+    "phase": "HC-P3",
+    "requirement": "QA gate: import and reconcile flow completion test",
+    "type": "phase-item",
+    "source": "GitHub issue + renderer tests",
+    "passRule": "Issue with exact title exists in HC-P3 and has verifiable implementation evidence.",
+    "failSeverity": "p1"
+  },
+  {
+    "id": "PH4-1",
+    "phase": "HC-P4",
+    "requirement": "EPIC: HC-P4 Dashboard Interpretation",
+    "type": "phase-item",
+    "source": "GitHub issue + milestone HC-P4",
+    "passRule": "Issue with exact title exists in HC-P4 and has verifiable implementation evidence.",
+    "failSeverity": "p1"
+  },
+  {
+    "id": "PH4-2",
+    "phase": "HC-P4",
+    "requirement": "Document KPI definitions and variance math in operator language",
+    "type": "phase-item",
+    "source": "GitHub issue + dashboard docs",
+    "passRule": "Issue with exact title exists in HC-P4 and has verifiable implementation evidence.",
+    "failSeverity": "p1"
+  },
+  {
+    "id": "PH4-3",
+    "phase": "HC-P4",
+    "requirement": "Add variance triage runbook (what changed, where to inspect, what to do next)",
+    "type": "phase-item",
+    "source": "GitHub issue + runbook content",
+    "passRule": "Issue with exact title exists in HC-P4 and has verifiable implementation evidence.",
+    "failSeverity": "p1"
+  },
+  {
+    "id": "PH4-4",
+    "phase": "HC-P4",
+    "requirement": "Add contextual links from dashboard cards to relevant help anchors",
+    "type": "phase-item",
+    "source": "GitHub issue + dashboard help links",
+    "passRule": "Issue with exact title exists in HC-P4 and has verifiable implementation evidence.",
+    "failSeverity": "p1"
+  },
+  {
+    "id": "PH4-5",
+    "phase": "HC-P4",
+    "requirement": "QA gate: first-time user can interpret dashboard and variance correctly",
+    "type": "phase-item",
+    "source": "GitHub issue + dashboard/help tests",
+    "passRule": "Issue with exact title exists in HC-P4 and has verifiable implementation evidence.",
+    "failSeverity": "p1"
+  },
+  {
+    "id": "PH5-1",
+    "phase": "HC-P5",
+    "requirement": "EPIC: HC-P5 Reporting and Operating Rhythm",
+    "type": "phase-item",
+    "source": "GitHub issue + milestone HC-P5",
+    "passRule": "Issue with exact title exists in HC-P5 and has verifiable implementation evidence.",
+    "failSeverity": "p1"
+  },
+  {
+    "id": "PH5-2",
+    "phase": "HC-P5",
+    "requirement": "Create executive export playbook (format choice, quality checks, delivery steps)",
+    "type": "phase-item",
+    "source": "GitHub issue + reporting docs",
+    "passRule": "Issue with exact title exists in HC-P5 and has verifiable implementation evidence.",
+    "failSeverity": "p1"
+  },
+  {
+    "id": "PH5-3",
+    "phase": "HC-P5",
+    "requirement": "Add monthly/weekly operating checklist content and cadence guidance",
+    "type": "phase-item",
+    "source": "GitHub issue + operations content",
+    "passRule": "Issue with exact title exists in HC-P5 and has verifiable implementation evidence.",
+    "failSeverity": "p1"
+  },
+  {
+    "id": "PH5-4",
+    "phase": "HC-P5",
+    "requirement": "Add report-page help shortcuts for export and narrative generation",
+    "type": "phase-item",
+    "source": "GitHub issue + ReportsPage help links",
+    "passRule": "Issue with exact title exists in HC-P5 and has verifiable implementation evidence.",
+    "failSeverity": "p1"
+  },
+  {
+    "id": "PH5-5",
+    "phase": "HC-P5",
+    "requirement": "QA gate: user can produce executive export and follow weekly/monthly tasks",
+    "type": "phase-item",
+    "source": "GitHub issue + reporting acceptance evidence",
+    "passRule": "Issue with exact title exists in HC-P5 and has verifiable implementation evidence.",
+    "failSeverity": "p1"
+  },
+  {
+    "id": "PH6-1",
+    "phase": "HC-P6",
+    "requirement": "EPIC: HC-P6 Findability and Contextual Delivery",
+    "type": "phase-item",
+    "source": "GitHub issue + milestone HC-P6",
+    "passRule": "Issue with exact title exists in HC-P6 and has verifiable implementation evidence.",
+    "failSeverity": "p1"
+  },
+  {
+    "id": "PH6-2",
+    "phase": "HC-P6",
+    "requirement": "Implement Help search/jump index (topic + heading + glossary terms)",
+    "type": "phase-item",
+    "source": "GitHub issue + HelpPage index behavior",
+    "passRule": "Issue with exact title exists in HC-P6 and has verifiable implementation evidence.",
+    "failSeverity": "p1"
+  },
+  {
+    "id": "PH6-3",
+    "phase": "HC-P6",
+    "requirement": "Add command/F1 entry points with pre-seeded query/context",
+    "type": "phase-item",
+    "source": "GitHub issue + AppShell F1/command logic",
+    "passRule": "Issue with exact title exists in HC-P6 and has verifiable implementation evidence.",
+    "failSeverity": "p1"
+  },
+  {
+    "id": "PH6-4",
+    "phase": "HC-P6",
+    "requirement": "Ship contextual (?) definitions for high-friction fields/status chips",
+    "type": "phase-item",
+    "source": "GitHub issue + contextual definitions UI",
+    "passRule": "Issue with exact title exists in HC-P6 and has verifiable implementation evidence.",
+    "failSeverity": "p1"
+  },
+  {
+    "id": "PH6-5",
+    "phase": "HC-P6",
+    "requirement": "QA gate: experienced user can find meaning/definition in <30 seconds",
+    "type": "phase-item",
+    "source": "GitHub issue + north-star evidence",
+    "passRule": "Issue with exact title exists in HC-P6 and has verifiable implementation evidence.",
+    "failSeverity": "p1"
+  },
+  {
+    "id": "PH7-1",
+    "phase": "HC-P7",
+    "requirement": "EPIC: HC-P7 Help Integrity Guardrails",
+    "type": "phase-item",
+    "source": "GitHub issue + milestone HC-P7",
+    "passRule": "Issue with exact title exists in HC-P7 and has verifiable implementation evidence.",
+    "failSeverity": "p1"
+  },
+  {
+    "id": "PH7-2",
+    "phase": "HC-P7",
+    "requirement": "Build integrity checker script for topic->heading validation",
+    "type": "phase-item",
+    "source": "GitHub issue + integrity checker script",
+    "passRule": "Issue with exact title exists in HC-P7 and has verifiable implementation evidence.",
+    "failSeverity": "p1"
+  },
+  {
+    "id": "PH7-3",
+    "phase": "HC-P7",
+    "requirement": "Add checker tests/fixtures (pass + fail + duplicate heading edge cases)",
+    "type": "phase-item",
+    "source": "GitHub issue + checker tests/fixtures",
+    "passRule": "Issue with exact title exists in HC-P7 and has verifiable implementation evidence.",
+    "failSeverity": "p1"
+  },
+  {
+    "id": "PH7-4",
+    "phase": "HC-P7",
+    "requirement": "Wire checker into CI quality pipeline",
+    "type": "phase-item",
+    "source": "GitHub issue + CI workflow",
+    "passRule": "Issue with exact title exists in HC-P7 and has verifiable implementation evidence.",
+    "failSeverity": "p1"
+  },
+  {
+    "id": "PH7-5",
+    "phase": "HC-P7",
+    "requirement": "Document maintenance and enforce required status check",
+    "type": "phase-item",
+    "source": "GitHub issue + docs + branch protection",
+    "passRule": "Issue with exact title exists in HC-P7 and has verifiable implementation evidence.",
+    "failSeverity": "p1"
+  }
+]

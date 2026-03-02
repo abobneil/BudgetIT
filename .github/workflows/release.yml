@@ -160,7 +160,7 @@ jobs:
         run: npm run build
 
       - name: Help Integrity Check
-        run: npm run help:check
+        run: npm run check:help-integrity
 
   package-windows:
     name: Build Windows Installers

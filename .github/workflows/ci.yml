@@ -36,7 +36,7 @@ jobs:
         run: npm ci
 
       - name: Help Integrity Check
-        run: npm run help:check
+        run: npm run check:help-integrity
 
   quality:
     name: Lint, Typecheck, Test, Build
@@ -59,7 +59,7 @@ jobs:
         run: npm ci
 
       - name: Help Integrity Check
-        run: npm run help:check
+        run: npm run check:help-integrity
 
       - name: Lint
         run: npm run lint

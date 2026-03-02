@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://budgetit.local/schemas/verification-requirements.schema.json",
+  "title": "Help Center Verification Requirements",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "required": [
+      "id",
+      "phase",
+      "requirement",
+      "type",
+      "source",
+      "passRule",
+      "failSeverity"
+    ],
+    "properties": {
+      "id": {
+        "type": "string",
+        "minLength": 1
+      },
+      "phase": {
+        "type": "string",
+        "minLength": 1
+      },
+      "requirement": {
+        "type": "string",
+        "minLength": 1
+      },
+      "type": {
+        "type": "string",
+        "enum": [
+          "baseline",
+          "governance",
+          "contract",
+          "behavior",
+          "north-star",
+          "phase-item"
+        ]
+      },
+      "source": {
+        "type": "string",
+        "minLength": 1
+      },
+      "passRule": {
+        "type": "string",
+        "minLength": 1
+      },
+      "failSeverity": {
+        "type": "string",
+        "enum": [
+          "p1",
+          "p2"
+        ]
+      }
+    },
+    "additionalProperties": false
+  }
+}

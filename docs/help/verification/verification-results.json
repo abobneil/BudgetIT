@@ -1,0 +1,1702 @@
+{
+  "generatedAt": "2026-03-02T12:30:58.774Z",
+  "strictness": "exact-contract",
+  "baseline": {
+    "repoRoot": "C:\\Users\\nchester\\Documents\\GitHub\\BudgetIT",
+    "repoSha": "e4664cca8fbae4bc8f7edd044a62bf0e45a24d90",
+    "timestampUtc": "2026-03-02T12:30:58.774Z",
+    "nodeVersion": "v24.14.0",
+    "platform": "win32-x64",
+    "timezone": "America/New_York",
+    "evidenceFiles": [
+      {
+        "path": "apps/renderer/src/features/help/help-topics.ts",
+        "exists": true,
+        "sizeBytes": 10928,
+        "sha256": "a251202ce949551a056a2f10da7fe3d10f69b06d19a66141933ea4cfcdecd4d9"
+      },
+      {
+        "path": "docs/help-system.md",
+        "exists": true,
+        "sizeBytes": 21109,
+        "sha256": "7145e1dba4c2ac0d49150e35640320af36f83065a441bcb196bfa5279c8a0d38"
+      },
+      {
+        "path": "package.json",
+        "exists": true,
+        "sizeBytes": 2854,
+        "sha256": "6b31cd71d63c59bea42b2fff8879c563a6282d60451464d1f7d3c756f3a3b158"
+      },
+      {
+        "path": ".github/workflows/ci.yml",
+        "exists": true,
+        "sizeBytes": 6381,
+        "sha256": "3077f0d1f32ed06ad87da7ccf3bff3bbeb5060333527a9cee38b6e4dde64a185"
+      },
+      {
+        "path": "docs/ci-cd.md",
+        "exists": true,
+        "sizeBytes": 3492,
+        "sha256": "2b0d97c713e8aae3d1e8d72ca6cf62dd9d16ab18583993727858e8367ecc806e"
+      }
+    ]
+  },
+  "summary": {
+    "totalRequirements": 60,
+    "passed": 60,
+    "failed": 0,
+    "passRatePercent": 100,
+    "overallStatus": "pass"
+  },
+  "requirements": [
+    {
+      "id": "BASE-001",
+      "phase": "Cross-Phase",
+      "requirement": "Capture baseline metadata (repo SHA, timestamp, environment).",
+      "type": "baseline",
+      "source": "git + runtime environment",
+      "passRule": "Baseline metadata is captured in verification output.",
+      "failSeverity": "p1"
+    },
+    {
+      "id": "BASE-002",
+      "phase": "Cross-Phase",
+      "requirement": "Capture raw evidence for required repository files.",
+      "type": "baseline",
+      "source": "help-topics.ts, help-system.md, package.json, ci.yml, ci-cd.md",
+      "passRule": "All required evidence files are present and fingerprinted.",
+      "failSeverity": "p1"
+    },
+    {
+      "id": "GOV-001",
+      "phase": "Cross-Phase",
+      "requirement": "Required Help Center labels exist exactly.",
+      "type": "governance",
+      "source": "GitHub labels",
+      "passRule": "All required labels are present: area:help-center, phase:1..7, type:epic|feature|qa|chore, priority:p1|p2, north-star.",
+      "failSeverity": "p1"
+    },
+    {
+      "id": "GOV-002",
+      "phase": "Cross-Phase",
+      "requirement": "Milestones HC-P1 through HC-P7 exist.",
+      "type": "governance",
+      "source": "GitHub milestones",
+      "passRule": "Milestone titles include HC-P1, HC-P2, HC-P3, HC-P4, HC-P5, HC-P6, HC-P7.",
+      "failSeverity": "p1"
+    },
+    {
+      "id": "GOV-003",
+      "phase": "Cross-Phase",
+      "requirement": "Each HC milestone has exactly 5 issues (1 epic + 4 non-epic).",
+      "type": "governance",
+      "source": "GitHub issues by milestone",
+      "passRule": "For every HC milestone, issue count is 5 and epic count is 1.",
+      "failSeverity": "p1"
+    },
+    {
+      "id": "GOV-004",
+      "phase": "Cross-Phase",
+      "requirement": "All HC milestones are closed after completion.",
+      "type": "governance",
+      "source": "GitHub milestone states",
+      "passRule": "All milestones HC-P1..HC-P7 are state=closed.",
+      "failSeverity": "p1"
+    },
+    {
+      "id": "GOV-005",
+      "phase": "Cross-Phase",
+      "requirement": "At most one HC milestone is active during rollout.",
+      "type": "governance",
+      "source": "GitHub milestone states",
+      "passRule": "Open HC milestones are <= 1.",
+      "failSeverity": "p1"
+    },
+    {
+      "id": "GOV-006",
+      "phase": "Cross-Phase",
+      "requirement": "Closed HC issues have acceptance checklists checked.",
+      "type": "governance",
+      "source": "GitHub issue body",
+      "passRule": "Closed HC issues contain checklist entries and all are checked.",
+      "failSeverity": "p1"
+    },
+    {
+      "id": "GOV-007",
+      "phase": "Cross-Phase",
+      "requirement": "Closed HC issues have linked PR closure evidence.",
+      "type": "governance",
+      "source": "GitHub closedByPullRequestsReferences",
+      "passRule": "Every closed HC issue has at least one closing PR reference.",
+      "failSeverity": "p1"
+    },
+    {
+      "id": "CON-001",
+      "phase": "Cross-Phase",
+      "requirement": "HelpTopic includes audience, journeyStep, keywords, outcomes fields.",
+      "type": "contract",
+      "source": "apps/renderer/src/features/help/help-topics.ts",
+      "passRule": "HelpTopic type includes audience, journeyStep, keywords, outcomes.",
+      "failSeverity": "p1"
+    },
+    {
+      "id": "CON-002",
+      "phase": "Cross-Phase",
+      "requirement": "buildHelpHashPath supports topic, anchor, q, context in the payload contract.",
+      "type": "contract",
+      "source": "apps/renderer/src/features/help/help-topics.ts",
+      "passRule": "buildHelpHashPath payload type includes topic, anchor, q, context.",
+      "failSeverity": "p1"
+    },
+    {
+      "id": "CON-003",
+      "phase": "Cross-Phase",
+      "requirement": "buildHelpHashPath encodes q and context query params.",
+      "type": "contract",
+      "source": "apps/renderer/src/features/help/help-topics.ts",
+      "passRule": "buildHelpHashPath sets q and context in URLSearchParams when present.",
+      "failSeverity": "p1"
+    },
+    {
+      "id": "CON-004",
+      "phase": "Cross-Phase",
+      "requirement": "HelpDefinition type exists in renderer help domain.",
+      "type": "contract",
+      "source": "apps/renderer/src/features/help/**/*",
+      "passRule": "A HelpDefinition type or interface exists with id, term, meaning, appliesTo, relatedTopicId.",
+      "failSeverity": "p1"
+    },
+    {
+      "id": "CON-005",
+      "phase": "Cross-Phase",
+      "requirement": "package.json defines check:help-integrity script.",
+      "type": "contract",
+      "source": "package.json",
+      "passRule": "scripts.check:help-integrity is defined.",
+      "failSeverity": "p1"
+    },
+    {
+      "id": "CON-006",
+      "phase": "Cross-Phase",
+      "requirement": "check:help-integrity points to scripts/check-help-integrity.cjs.",
+      "type": "contract",
+      "source": "package.json",
+      "passRule": "scripts.check:help-integrity invokes node scripts/check-help-integrity.cjs.",
+      "failSeverity": "p1"
+    },
+    {
+      "id": "CON-007",
+      "phase": "Cross-Phase",
+      "requirement": "scripts/check-help-integrity.cjs exists.",
+      "type": "contract",
+      "source": "scripts/check-help-integrity.cjs",
+      "passRule": "scripts/check-help-integrity.cjs exists on disk.",
+      "failSeverity": "p1"
+    },
+    {
+      "id": "CON-008",
+      "phase": "Cross-Phase",
+      "requirement": "CI executes npm run check:help-integrity.",
+      "type": "contract",
+      "source": ".github/workflows/ci.yml",
+      "passRule": "ci.yml contains a step running npm run check:help-integrity.",
+      "failSeverity": "p1"
+    },
+    {
+      "id": "CON-009",
+      "phase": "Cross-Phase",
+      "requirement": "Branch protection on main requires Help Integrity status check.",
+      "type": "contract",
+      "source": "GitHub branch protection",
+      "passRule": "main branch protection required status checks include Help Integrity.",
+      "failSeverity": "p1"
+    },
+    {
+      "id": "BEH-001",
+      "phase": "Cross-Phase",
+      "requirement": "Current integrity check command passes on repository state.",
+      "type": "behavior",
+      "source": "cmd /c npm run help:check",
+      "passRule": "Command exits zero.",
+      "failSeverity": "p1"
+    },
+    {
+      "id": "BEH-002",
+      "phase": "Cross-Phase",
+      "requirement": "Help-related renderer tests pass.",
+      "type": "behavior",
+      "source": "cmd /c npm run test --workspace @budgetit/renderer -- <help-related tests>",
+      "passRule": "HelpPage, ImportPage, ReportsPage, and DashboardPage tests all pass.",
+      "failSeverity": "p1"
+    },
+    {
+      "id": "BEH-003",
+      "phase": "Cross-Phase",
+      "requirement": "Negative check: missing heading scenario fails integrity command with actionable output.",
+      "type": "behavior",
+      "source": "temp workspace mutation + node scripts/help-tools.cjs check",
+      "passRule": "Mutated missing-heading scenario exits non-zero and output is actionable.",
+      "failSeverity": "p1"
+    },
+    {
+      "id": "BEH-004",
+      "phase": "Cross-Phase",
+      "requirement": "Negative check: duplicate heading edge-case scenario fails integrity command.",
+      "type": "behavior",
+      "source": "temp workspace mutation + node scripts/help-tools.cjs check",
+      "passRule": "Duplicate-heading edge-case exits non-zero.",
+      "failSeverity": "p1"
+    },
+    {
+      "id": "BEH-005",
+      "phase": "Cross-Phase",
+      "requirement": "Negative check: stale generated output drift fails integrity command.",
+      "type": "behavior",
+      "source": "temp workspace mutation + node scripts/help-tools.cjs check",
+      "passRule": "Drift mutation exits non-zero with stale generation guidance.",
+      "failSeverity": "p1"
+    },
+    {
+      "id": "NS-001",
+      "phase": "Cross-Phase",
+      "requirement": "North-star scenario for brand-new users is documented with six outcomes.",
+      "type": "north-star",
+      "source": "docs/help/north-star-acceptance.md",
+      "passRule": "Document includes all six new-user outcomes.",
+      "failSeverity": "p2"
+    },
+    {
+      "id": "NS-002",
+      "phase": "Cross-Phase",
+      "requirement": "North-star scenario for experienced users includes F1/search/context under 30 seconds.",
+      "type": "north-star",
+      "source": "docs/help/north-star-acceptance.md",
+      "passRule": "Document includes F1 + search/jump + meaning retrieval under 30s.",
+      "failSeverity": "p2"
+    },
+    {
+      "id": "PH1-1",
+      "phase": "HC-P1",
+      "requirement": "EPIC: HC-P1 Information Architecture and Coverage Map",
+      "type": "phase-item",
+      "source": "GitHub issue + milestone HC-P1",
+      "passRule": "Issue with exact title exists in HC-P1 and has verifiable implementation evidence.",
+      "failSeverity": "p1"
+    },
+    {
+      "id": "PH1-2",
+      "phase": "HC-P1",
+      "requirement": "Create north-star coverage matrix (user goal -> help topic -> anchor)",
+      "type": "phase-item",
+      "source": "GitHub issue + docs/help artifacts",
+      "passRule": "Issue with exact title exists in HC-P1 and has verifiable implementation evidence.",
+      "failSeverity": "p1"
+    },
+    {
+      "id": "PH1-3",
+      "phase": "HC-P1",
+      "requirement": "Refactor help topic metadata model for audience/journey tagging",
+      "type": "phase-item",
+      "source": "GitHub issue + help-topics metadata",
+      "passRule": "Issue with exact title exists in HC-P1 and has verifiable implementation evidence.",
+      "failSeverity": "p1"
+    },
+    {
+      "id": "PH1-4",
+      "phase": "HC-P1",
+      "requirement": "Add Help Center \"Start Here\" entry IA (new user path + experienced user path)",
+      "type": "phase-item",
+      "source": "GitHub issue + help UI content",
+      "passRule": "Issue with exact title exists in HC-P1 and has verifiable implementation evidence.",
+      "failSeverity": "p1"
+    },
+    {
+      "id": "PH1-5",
+      "phase": "HC-P1",
+      "requirement": "QA gate: every primary route has mapped help entry and valid jump target",
+      "type": "phase-item",
+      "source": "GitHub issue + route/help tests",
+      "passRule": "Issue with exact title exists in HC-P1 and has verifiable implementation evidence.",
+      "failSeverity": "p1"
+    },
+    {
+      "id": "PH2-1",
+      "phase": "HC-P2",
+      "requirement": "EPIC: HC-P2 Baseline Setup Journey",
+      "type": "phase-item",
+      "source": "GitHub issue + milestone HC-P2",
+      "passRule": "Issue with exact title exists in HC-P2 and has verifiable implementation evidence.",
+      "failSeverity": "p1"
+    },
+    {
+      "id": "PH2-2",
+      "phase": "HC-P2",
+      "requirement": "Rewrite Quick Start into setup checklist (vendors/services/contracts/expenses/dimensions)",
+      "type": "phase-item",
+      "source": "GitHub issue + quick-start content",
+      "passRule": "Issue with exact title exists in HC-P2 and has verifiable implementation evidence.",
+      "failSeverity": "p1"
+    },
+    {
+      "id": "PH2-3",
+      "phase": "HC-P2",
+      "requirement": "Add \"first session\" guided sequence with route-accurate anchor jumps",
+      "type": "phase-item",
+      "source": "GitHub issue + HelpPage journey links",
+      "passRule": "Issue with exact title exists in HC-P2 and has verifiable implementation evidence.",
+      "failSeverity": "p1"
+    },
+    {
+      "id": "PH2-4",
+      "phase": "HC-P2",
+      "requirement": "Add baseline-completion checklist state (local persisted progress)",
+      "type": "phase-item",
+      "source": "GitHub issue + local storage integration",
+      "passRule": "Issue with exact title exists in HC-P2 and has verifiable implementation evidence.",
+      "failSeverity": "p1"
+    },
+    {
+      "id": "PH2-5",
+      "phase": "HC-P2",
+      "requirement": "QA gate: new user can complete baseline setup without external docs",
+      "type": "phase-item",
+      "source": "GitHub issue + north-star acceptance evidence",
+      "passRule": "Issue with exact title exists in HC-P2 and has verifiable implementation evidence.",
+      "failSeverity": "p1"
+    },
+    {
+      "id": "PH3-1",
+      "phase": "HC-P3",
+      "requirement": "EPIC: HC-P3 Import and Reconciliation",
+      "type": "phase-item",
+      "source": "GitHub issue + milestone HC-P3",
+      "passRule": "Issue with exact title exists in HC-P3 and has verifiable implementation evidence.",
+      "failSeverity": "p1"
+    },
+    {
+      "id": "PH3-2",
+      "phase": "HC-P3",
+      "requirement": "Author import-actuals playbook with failure handling and reconciliation decisions",
+      "type": "phase-item",
+      "source": "GitHub issue + import docs",
+      "passRule": "Issue with exact title exists in HC-P3 and has verifiable implementation evidence.",
+      "failSeverity": "p1"
+    },
+    {
+      "id": "PH3-3",
+      "phase": "HC-P3",
+      "requirement": "Add glossary entries for import statuses, match states, and error classes",
+      "type": "phase-item",
+      "source": "GitHub issue + import glossary content",
+      "passRule": "Issue with exact title exists in HC-P3 and has verifiable implementation evidence.",
+      "failSeverity": "p1"
+    },
+    {
+      "id": "PH3-4",
+      "phase": "HC-P3",
+      "requirement": "Add contextual help entry points from Import and Reports reconciliation surfaces",
+      "type": "phase-item",
+      "source": "GitHub issue + Import/Reports links",
+      "passRule": "Issue with exact title exists in HC-P3 and has verifiable implementation evidence.",
+      "failSeverity": "p1"
+    },
+    {
+      "id": "PH3-5",
+      "phase": "HC-P3",
+      "requirement": "QA gate: import and reconcile flow completion test",
+      "type": "phase-item",
+      "source": "GitHub issue + renderer tests",
+      "passRule": "Issue with exact title exists in HC-P3 and has verifiable implementation evidence.",
+      "failSeverity": "p1"
+    },
+    {
+      "id": "PH4-1",
+      "phase": "HC-P4",
+      "requirement": "EPIC: HC-P4 Dashboard Interpretation",
+      "type": "phase-item",
+      "source": "GitHub issue + milestone HC-P4",
+      "passRule": "Issue with exact title exists in HC-P4 and has verifiable implementation evidence.",
+      "failSeverity": "p1"
+    },
+    {
+      "id": "PH4-2",
+      "phase": "HC-P4",
+      "requirement": "Document KPI definitions and variance math in operator language",
+      "type": "phase-item",
+      "source": "GitHub issue + dashboard docs",
+      "passRule": "Issue with exact title exists in HC-P4 and has verifiable implementation evidence.",
+      "failSeverity": "p1"
+    },
+    {
+      "id": "PH4-3",
+      "phase": "HC-P4",
+      "requirement": "Add variance triage runbook (what changed, where to inspect, what to do next)",
+      "type": "phase-item",
+      "source": "GitHub issue + runbook content",
+      "passRule": "Issue with exact title exists in HC-P4 and has verifiable implementation evidence.",
+      "failSeverity": "p1"
+    },
+    {
+      "id": "PH4-4",
+      "phase": "HC-P4",
+      "requirement": "Add contextual links from dashboard cards to relevant help anchors",
+      "type": "phase-item",
+      "source": "GitHub issue + dashboard help links",
+      "passRule": "Issue with exact title exists in HC-P4 and has verifiable implementation evidence.",
+      "failSeverity": "p1"
+    },
+    {
+      "id": "PH4-5",
+      "phase": "HC-P4",
+      "requirement": "QA gate: first-time user can interpret dashboard and variance correctly",
+      "type": "phase-item",
+      "source": "GitHub issue + dashboard/help tests",
+      "passRule": "Issue with exact title exists in HC-P4 and has verifiable implementation evidence.",
+      "failSeverity": "p1"
+    },
+    {
+      "id": "PH5-1",
+      "phase": "HC-P5",
+      "requirement": "EPIC: HC-P5 Reporting and Operating Rhythm",
+      "type": "phase-item",
+      "source": "GitHub issue + milestone HC-P5",
+      "passRule": "Issue with exact title exists in HC-P5 and has verifiable implementation evidence.",
+      "failSeverity": "p1"
+    },
+    {
+      "id": "PH5-2",
+      "phase": "HC-P5",
+      "requirement": "Create executive export playbook (format choice, quality checks, delivery steps)",
+      "type": "phase-item",
+      "source": "GitHub issue + reporting docs",
+      "passRule": "Issue with exact title exists in HC-P5 and has verifiable implementation evidence.",
+      "failSeverity": "p1"
+    },
+    {
+      "id": "PH5-3",
+      "phase": "HC-P5",
+      "requirement": "Add monthly/weekly operating checklist content and cadence guidance",
+      "type": "phase-item",
+      "source": "GitHub issue + operations content",
+      "passRule": "Issue with exact title exists in HC-P5 and has verifiable implementation evidence.",
+      "failSeverity": "p1"
+    },
+    {
+      "id": "PH5-4",
+      "phase": "HC-P5",
+      "requirement": "Add report-page help shortcuts for export and narrative generation",
+      "type": "phase-item",
+      "source": "GitHub issue + ReportsPage help links",
+      "passRule": "Issue with exact title exists in HC-P5 and has verifiable implementation evidence.",
+      "failSeverity": "p1"
+    },
+    {
+      "id": "PH5-5",
+      "phase": "HC-P5",
+      "requirement": "QA gate: user can produce executive export and follow weekly/monthly tasks",
+      "type": "phase-item",
+      "source": "GitHub issue + reporting acceptance evidence",
+      "passRule": "Issue with exact title exists in HC-P5 and has verifiable implementation evidence.",
+      "failSeverity": "p1"
+    },
+    {
+      "id": "PH6-1",
+      "phase": "HC-P6",
+      "requirement": "EPIC: HC-P6 Findability and Contextual Delivery",
+      "type": "phase-item",
+      "source": "GitHub issue + milestone HC-P6",
+      "passRule": "Issue with exact title exists in HC-P6 and has verifiable implementation evidence.",
+      "failSeverity": "p1"
+    },
+    {
+      "id": "PH6-2",
+      "phase": "HC-P6",
+      "requirement": "Implement Help search/jump index (topic + heading + glossary terms)",
+      "type": "phase-item",
+      "source": "GitHub issue + HelpPage index behavior",
+      "passRule": "Issue with exact title exists in HC-P6 and has verifiable implementation evidence.",
+      "failSeverity": "p1"
+    },
+    {
+      "id": "PH6-3",
+      "phase": "HC-P6",
+      "requirement": "Add command/F1 entry points with pre-seeded query/context",
+      "type": "phase-item",
+      "source": "GitHub issue + AppShell F1/command logic",
+      "passRule": "Issue with exact title exists in HC-P6 and has verifiable implementation evidence.",
+      "failSeverity": "p1"
+    },
+    {
+      "id": "PH6-4",
+      "phase": "HC-P6",
+      "requirement": "Ship contextual (?) definitions for high-friction fields/status chips",
+      "type": "phase-item",
+      "source": "GitHub issue + contextual definitions UI",
+      "passRule": "Issue with exact title exists in HC-P6 and has verifiable implementation evidence.",
+      "failSeverity": "p1"
+    },
+    {
+      "id": "PH6-5",
+      "phase": "HC-P6",
+      "requirement": "QA gate: experienced user can find meaning/definition in <30 seconds",
+      "type": "phase-item",
+      "source": "GitHub issue + north-star evidence",
+      "passRule": "Issue with exact title exists in HC-P6 and has verifiable implementation evidence.",
+      "failSeverity": "p1"
+    },
+    {
+      "id": "PH7-1",
+      "phase": "HC-P7",
+      "requirement": "EPIC: HC-P7 Help Integrity Guardrails",
+      "type": "phase-item",
+      "source": "GitHub issue + milestone HC-P7",
+      "passRule": "Issue with exact title exists in HC-P7 and has verifiable implementation evidence.",
+      "failSeverity": "p1"
+    },
+    {
+      "id": "PH7-2",
+      "phase": "HC-P7",
+      "requirement": "Build integrity checker script for topic->heading validation",
+      "type": "phase-item",
+      "source": "GitHub issue + integrity checker script",
+      "passRule": "Issue with exact title exists in HC-P7 and has verifiable implementation evidence.",
+      "failSeverity": "p1"
+    },
+    {
+      "id": "PH7-3",
+      "phase": "HC-P7",
+      "requirement": "Add checker tests/fixtures (pass + fail + duplicate heading edge cases)",
+      "type": "phase-item",
+      "source": "GitHub issue + checker tests/fixtures",
+      "passRule": "Issue with exact title exists in HC-P7 and has verifiable implementation evidence.",
+      "failSeverity": "p1"
+    },
+    {
+      "id": "PH7-4",
+      "phase": "HC-P7",
+      "requirement": "Wire checker into CI quality pipeline",
+      "type": "phase-item",
+      "source": "GitHub issue + CI workflow",
+      "passRule": "Issue with exact title exists in HC-P7 and has verifiable implementation evidence.",
+      "failSeverity": "p1"
+    },
+    {
+      "id": "PH7-5",
+      "phase": "HC-P7",
+      "requirement": "Document maintenance and enforce required status check",
+      "type": "phase-item",
+      "source": "GitHub issue + docs + branch protection",
+      "passRule": "Issue with exact title exists in HC-P7 and has verifiable implementation evidence.",
+      "failSeverity": "p1"
+    }
+  ],
+  "results": [
+    {
+      "id": "BASE-001",
+      "status": "pass",
+      "evidence": [
+        "repoSha=e4664cca8fbae4bc8f7edd044a62bf0e45a24d90",
+        "timestampUtc=2026-03-02T12:30:58.774Z",
+        "node=v24.14.0"
+      ],
+      "command": "git rev-parse HEAD",
+      "output": "e4664cca8fbae4bc8f7edd044a62bf0e45a24d90",
+      "gapType": "None",
+      "remediationIssueTitle": "None"
+    },
+    {
+      "id": "BASE-002",
+      "status": "pass",
+      "evidence": [
+        "apps/renderer/src/features/help/help-topics.ts (a251202ce949)",
+        "docs/help-system.md (7145e1dba4c2)",
+        "package.json (6b31cd71d63c)",
+        ".github/workflows/ci.yml (3077f0d1f32e)",
+        "docs/ci-cd.md (2b0d97c713e8)"
+      ],
+      "command": "",
+      "output": "",
+      "gapType": "None",
+      "remediationIssueTitle": "None"
+    },
+    {
+      "id": "GOV-001",
+      "status": "pass",
+      "evidence": [
+        "All required labels found (15)."
+      ],
+      "command": "",
+      "output": "",
+      "gapType": "None",
+      "remediationIssueTitle": "None"
+    },
+    {
+      "id": "GOV-002",
+      "status": "pass",
+      "evidence": [
+        "Found milestone: HC-P1",
+        "Found milestone: HC-P2",
+        "Found milestone: HC-P3",
+        "Found milestone: HC-P4",
+        "Found milestone: HC-P5",
+        "Found milestone: HC-P6",
+        "Found milestone: HC-P7"
+      ],
+      "command": "",
+      "output": "",
+      "gapType": "None",
+      "remediationIssueTitle": "None"
+    },
+    {
+      "id": "GOV-003",
+      "status": "pass",
+      "evidence": [
+        "HC-P1: 5 issues with 1 epic",
+        "HC-P2: 5 issues with 1 epic",
+        "HC-P3: 5 issues with 1 epic",
+        "HC-P4: 5 issues with 1 epic",
+        "HC-P5: 5 issues with 1 epic",
+        "HC-P6: 5 issues with 1 epic",
+        "HC-P7: 5 issues with 1 epic"
+      ],
+      "command": "",
+      "output": "",
+      "gapType": "None",
+      "remediationIssueTitle": "None"
+    },
+    {
+      "id": "GOV-004",
+      "status": "pass",
+      "evidence": [
+        "All HC milestones are closed."
+      ],
+      "command": "",
+      "output": "",
+      "gapType": "None",
+      "remediationIssueTitle": "None"
+    },
+    {
+      "id": "GOV-005",
+      "status": "pass",
+      "evidence": [
+        "Open HC milestones: 0"
+      ],
+      "command": "",
+      "output": "",
+      "gapType": "None",
+      "remediationIssueTitle": "None"
+    },
+    {
+      "id": "GOV-006",
+      "status": "pass",
+      "evidence": [
+        "All closed HC issues have checked checklists."
+      ],
+      "command": "",
+      "output": "",
+      "gapType": "None",
+      "remediationIssueTitle": "None"
+    },
+    {
+      "id": "GOV-007",
+      "status": "pass",
+      "evidence": [
+        "All closed HC issues have linked closing PR references."
+      ],
+      "command": "",
+      "output": "",
+      "gapType": "None",
+      "remediationIssueTitle": "None"
+    },
+    {
+      "id": "CON-001",
+      "status": "pass",
+      "evidence": [
+        "HelpTopic field found: audience",
+        "HelpTopic field found: journeyStep",
+        "HelpTopic field found: keywords",
+        "HelpTopic field found: outcomes"
+      ],
+      "command": "",
+      "output": "",
+      "gapType": "None",
+      "remediationIssueTitle": "None"
+    },
+    {
+      "id": "CON-002",
+      "status": "pass",
+      "evidence": [
+        "buildHelpHashPath payload field found: topic",
+        "buildHelpHashPath payload field found: anchor",
+        "buildHelpHashPath payload field found: q",
+        "buildHelpHashPath payload field found: context"
+      ],
+      "command": "",
+      "output": "",
+      "gapType": "None",
+      "remediationIssueTitle": "None"
+    },
+    {
+      "id": "CON-003",
+      "status": "pass",
+      "evidence": [
+        "q and context are encoded in help URL query params."
+      ],
+      "command": "",
+      "output": "",
+      "gapType": "None",
+      "remediationIssueTitle": "None"
+    },
+    {
+      "id": "CON-004",
+      "status": "pass",
+      "evidence": [
+        "HelpDefinition type exists with required fields."
+      ],
+      "command": "",
+      "output": "",
+      "gapType": "None",
+      "remediationIssueTitle": "None"
+    },
+    {
+      "id": "CON-005",
+      "status": "pass",
+      "evidence": [
+        "check:help-integrity=node scripts/check-help-integrity.cjs"
+      ],
+      "command": "",
+      "output": "",
+      "gapType": "None",
+      "remediationIssueTitle": "None"
+    },
+    {
+      "id": "CON-006",
+      "status": "pass",
+      "evidence": [
+        "check:help-integrity points to node scripts/check-help-integrity.cjs"
+      ],
+      "command": "",
+      "output": "",
+      "gapType": "None",
+      "remediationIssueTitle": "None"
+    },
+    {
+      "id": "CON-007",
+      "status": "pass",
+      "evidence": [
+        "scripts/check-help-integrity.cjs exists."
+      ],
+      "command": "",
+      "output": "",
+      "gapType": "None",
+      "remediationIssueTitle": "None"
+    },
+    {
+      "id": "CON-008",
+      "status": "pass",
+      "evidence": [
+        "ci.yml runs npm run check:help-integrity."
+      ],
+      "command": "",
+      "output": "",
+      "gapType": "None",
+      "remediationIssueTitle": "None"
+    },
+    {
+      "id": "CON-009",
+      "status": "pass",
+      "evidence": [
+        "Branch protection requires Help Integrity status check."
+      ],
+      "command": "gh api repos/abobneil/BudgetIT/branches/main/protection",
+      "output": "{\n  \"url\": \"https://api.github.com/repos/abobneil/BudgetIT/branches/main/protection\",\n  \"required_status_checks\": {\n    \"url\": \"https://api.github.com/repos/abobneil/BudgetIT/branches/main/protection/required_status_checks\",\n    \"strict\": true,\n    \"contexts\": [\n      \"Help Integrity\",\n      \"Lint, Typecheck, Test, Build\"\n    ],\n    \"contexts_url\": \"https://api.github.com/repos/abobneil/BudgetIT/branches/main/protection/required_status_checks/contexts\",\n    \"checks\": [\n      {\n        \"context\": \"Help Integrity\",\n        \"app_id\": 15368\n      },\n      {\n        \"context\": \"Lint, Typecheck, Test, Build\",\n        \"app_id\": 15368\n      }\n    ]\n  },\n  \"required_signatures\": {\n    \"url\": \"https://api.github.com/repos/abobneil/BudgetIT/branches/main/protection/required_signatures\",\n    \"enabled\": false\n  },\n  \"enforce_admins\": {\n    \"url\": \"https://api.github.com/repos/abobneil/BudgetIT/branches/main/protection/enforce_admins\",\n    \"enabled\": false\n  },\n  \"required_linear_history\": {\n    \"enabled\": false\n  },\n  \"allow_force_pushes\": {\n    \"enabled\": false\n  },\n  \"allow_deletions\": {\n    \"enabled\": false\n  },\n  \"block_creations\": {\n    \"enabled\": false\n  },\n  \"required_conversation_resolution\": {\n    \"enabled\": false\n  },\n  \"lock_branch\": {\n    \"enabled\": false\n  },\n  \"allow_fork_syncing\": {\n    \"enabled\": false\n  }\n}",
+      "gapType": "None",
+      "remediationIssueTitle": "None"
+    },
+    {
+      "id": "BEH-001",
+      "status": "pass",
+      "evidence": [
+        "Exit code: 0"
+      ],
+      "command": "npm run help:check",
+      "output": "> budgetit@0.1.0 help:check\n> node scripts/help-tools.cjs check\n\n[help-tools] Help integrity checks passed.",
+      "gapType": "None",
+      "remediationIssueTitle": "None"
+    },
+    {
+      "id": "BEH-002",
+      "status": "pass",
+      "evidence": [
+        "Exit code: 0"
+      ],
+      "command": "npm run test --workspace @budgetit/renderer -- src/features/help/HelpPage.test.tsx src/features/import/ImportPage.test.tsx src/features/reports/ReportsPage.test.tsx src/features/dashboard/DashboardPage.test.tsx",
+      "output": "> @budgetit/renderer@0.1.0 test\n> vitest run src/features/help/HelpPage.test.tsx src/features/import/ImportPage.test.tsx src/features/reports/ReportsPage.test.tsx src/features/dashboard/DashboardPage.test.tsx\n\n\n\u001b[1m\u001b[46m RUN \u001b[49m\u001b[22m \u001b[36mv3.2.4 \u001b[39m\u001b[90mC:/Users/nchester/Documents/GitHub/BudgetIT/apps/renderer\u001b[39m\n\n \u001b[32m✓\u001b[39m src/features/import/ImportPage.test.tsx \u001b[2m(\u001b[22m\u001b[2m2 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[33m 951\u001b[2mms\u001b[22m\u001b[39m\n   \u001b[33m\u001b[2m✓\u001b[22m\u001b[39m ImportPage\u001b[2m > \u001b[22msends preview and commit IPC payloads with selected template and options \u001b[33m 558\u001b[2mms\u001b[22m\u001b[39m\n   \u001b[33m\u001b[2m✓\u001b[22m\u001b[39m ImportPage\u001b[2m > \u001b[22mruns full wizard and displays accepted/rejected/duplicate and unmatched queue counts \u001b[33m 392\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m src/features/help/HelpPage.test.tsx \u001b[2m(\u001b[22m\u001b[2m9 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[33m 1073\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m src/features/reports/ReportsPage.test.tsx \u001b[2m(\u001b[22m\u001b[2m3 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[33m 1463\u001b[2mms\u001b[22m\u001b[39m\n   \u001b[33m\u001b[2m✓\u001b[22m\u001b[39m ReportsPage\u001b[2m > \u001b[22mrefreshes dataset when filters change and preserves visualization toggle state \u001b[33m 547\u001b[2mms\u001b[22m\u001b[39m\n   \u001b[33m\u001b[2m✓\u001b[22m\u001b[39m ReportsPage\u001b[2m > \u001b[22mopens gallery report, updates filters, exports two formats, and shows job results \u001b[33m 623\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m src/features/dashboard/DashboardPage.test.tsx \u001b[2m(\u001b[22m\u001b[2m6 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[33m 2146\u001b[2mms\u001b[22m\u001b[39m\n   \u001b[33m\u001b[2m✓\u001b[22m\u001b[39m DashboardPage\u001b[2m > \u001b[22mrenders KPI cards and chart sections from dashboard dataset \u001b[33m 345\u001b[2mms\u001b[22m\u001b[39m\n   \u001b[33m\u001b[2m✓\u001b[22m\u001b[39m DashboardPage\u001b[2m > \u001b[22mapplies 1m/3m/12m/60m range chips to visible dashboard data \u001b[33m 327\u001b[2mms\u001b[22m\u001b[39m\n   \u001b[33m\u001b[2m✓\u001b[22m\u001b[39m DashboardPage\u001b[2m > \u001b[22mrenders dashboard as default app route and completes one export flow \u001b[33m 306\u001b[2mms\u001b[22m\u001b[39m\n   \u001b[33m\u001b[2m✓\u001b[22m\u001b[39m DashboardPage\u001b[2m > \u001b[22msupports editing dashboard cards, visibility toggles, and section grouping \u001b[33m 739\u001b[2mms\u001b[22m\u001b[39m\n\n\u001b[2m Test Files \u001b[22m \u001b[1m\u001b[32m4 passed\u001b[39m\u001b[22m\u001b[90m (4)\u001b[39m\n\u001b[2m      Tests \u001b[22m \u001b[1m\u001b[32m20 passed\u001b[39m\u001b[22m\u001b[90m (20)\u001b[39m\n\u001b[2m   Start at \u001b[22m 07:31:03\n\u001b[2m   Duration \u001b[22m 4.63s\u001b[2m (transform 618ms, setup 0ms, collect 6.09s, tests 5.63s, environment 1.84s, prepare 241ms)\u001b[22m",
+      "gapType": "None",
+      "remediationIssueTitle": "None"
+    },
+    {
+      "id": "BEH-003",
+      "status": "pass",
+      "evidence": [
+        "Exit code: 1"
+      ],
+      "command": "node scripts/help-tools.cjs check (mutated missing-heading scenario)",
+      "output": "[help-tools] Generated docs/help-system.md is out of date. Run: npm run help:generate",
+      "gapType": "None",
+      "remediationIssueTitle": "None"
+    },
+    {
+      "id": "BEH-004",
+      "status": "pass",
+      "evidence": [
+        "Exit code: 1"
+      ],
+      "command": "node scripts/help-tools.cjs check (mutated duplicate-heading scenario)",
+      "output": "[help-tools] docSection \"Quick Start (First Launch)\" is mapped to multiple topic files: \"topics/quick-start.md\" and \"topics/app-shell.md\".",
+      "gapType": "None",
+      "remediationIssueTitle": "None"
+    },
+    {
+      "id": "BEH-005",
+      "status": "pass",
+      "evidence": [
+        "Exit code: 1"
+      ],
+      "command": "node scripts/help-tools.cjs check (mutated drift scenario)",
+      "output": "[help-tools] Generated apps/renderer/src/features/help/help-topics.ts is out of date. Run: npm run help:generate",
+      "gapType": "None",
+      "remediationIssueTitle": "None"
+    },
+    {
+      "id": "NS-001",
+      "status": "pass",
+      "evidence": [
+        "All six new-user outcomes are documented."
+      ],
+      "command": "",
+      "output": "",
+      "gapType": "None",
+      "remediationIssueTitle": "None"
+    },
+    {
+      "id": "NS-002",
+      "status": "pass",
+      "evidence": [
+        "Experienced-user F1/search/<30s scenario is documented."
+      ],
+      "command": "",
+      "output": "",
+      "gapType": "None",
+      "remediationIssueTitle": "None"
+    },
+    {
+      "id": "PH1-1",
+      "status": "pass",
+      "evidence": [
+        "Issue: #88 (CLOSED)",
+        "URL: https://github.com/abobneil/BudgetIT/issues/88",
+        "Artifact hints found: 2/2"
+      ],
+      "command": "",
+      "output": "",
+      "gapType": "None",
+      "remediationIssueTitle": "None"
+    },
+    {
+      "id": "PH1-2",
+      "status": "pass",
+      "evidence": [
+        "Issue: #89 (CLOSED)",
+        "URL: https://github.com/abobneil/BudgetIT/issues/89",
+        "Artifact hints found: 2/2"
+      ],
+      "command": "",
+      "output": "",
+      "gapType": "None",
+      "remediationIssueTitle": "None"
+    },
+    {
+      "id": "PH1-3",
+      "status": "pass",
+      "evidence": [
+        "Issue: #90 (CLOSED)",
+        "URL: https://github.com/abobneil/BudgetIT/issues/90",
+        "Artifact hints found: 3/3"
+      ],
+      "command": "",
+      "output": "",
+      "gapType": "None",
+      "remediationIssueTitle": "None"
+    },
+    {
+      "id": "PH1-4",
+      "status": "pass",
+      "evidence": [
+        "Issue: #91 (CLOSED)",
+        "URL: https://github.com/abobneil/BudgetIT/issues/91",
+        "Artifact hints found: 2/2"
+      ],
+      "command": "",
+      "output": "",
+      "gapType": "None",
+      "remediationIssueTitle": "None"
+    },
+    {
+      "id": "PH1-5",
+      "status": "pass",
+      "evidence": [
+        "Issue: #92 (CLOSED)",
+        "URL: https://github.com/abobneil/BudgetIT/issues/92",
+        "Artifact hints found: 4/4"
+      ],
+      "command": "",
+      "output": "",
+      "gapType": "None",
+      "remediationIssueTitle": "None"
+    },
+    {
+      "id": "PH2-1",
+      "status": "pass",
+      "evidence": [
+        "Issue: #93 (CLOSED)",
+        "URL: https://github.com/abobneil/BudgetIT/issues/93",
+        "Artifact hints found: 2/2"
+      ],
+      "command": "",
+      "output": "",
+      "gapType": "None",
+      "remediationIssueTitle": "None"
+    },
+    {
+      "id": "PH2-2",
+      "status": "pass",
+      "evidence": [
+        "Issue: #94 (CLOSED)",
+        "URL: https://github.com/abobneil/BudgetIT/issues/94",
+        "Artifact hints found: 2/2"
+      ],
+      "command": "",
+      "output": "",
+      "gapType": "None",
+      "remediationIssueTitle": "None"
+    },
+    {
+      "id": "PH2-3",
+      "status": "pass",
+      "evidence": [
+        "Issue: #95 (CLOSED)",
+        "URL: https://github.com/abobneil/BudgetIT/issues/95",
+        "Artifact hints found: 2/2"
+      ],
+      "command": "",
+      "output": "",
+      "gapType": "None",
+      "remediationIssueTitle": "None"
+    },
+    {
+      "id": "PH2-4",
+      "status": "pass",
+      "evidence": [
+        "Issue: #96 (CLOSED)",
+        "URL: https://github.com/abobneil/BudgetIT/issues/96",
+        "Artifact hints found: 2/2"
+      ],
+      "command": "",
+      "output": "",
+      "gapType": "None",
+      "remediationIssueTitle": "None"
+    },
+    {
+      "id": "PH2-5",
+      "status": "pass",
+      "evidence": [
+        "Issue: #97 (CLOSED)",
+        "URL: https://github.com/abobneil/BudgetIT/issues/97",
+        "Artifact hints found: 2/2"
+      ],
+      "command": "",
+      "output": "",
+      "gapType": "None",
+      "remediationIssueTitle": "None"
+    },
+    {
+      "id": "PH3-1",
+      "status": "pass",
+      "evidence": [
+        "Issue: #98 (CLOSED)",
+        "URL: https://github.com/abobneil/BudgetIT/issues/98",
+        "Artifact hints found: 2/2"
+      ],
+      "command": "",
+      "output": "",
+      "gapType": "None",
+      "remediationIssueTitle": "None"
+    },
+    {
+      "id": "PH3-2",
+      "status": "pass",
+      "evidence": [
+        "Issue: #99 (CLOSED)",
+        "URL: https://github.com/abobneil/BudgetIT/issues/99",
+        "Artifact hints found: 2/2"
+      ],
+      "command": "",
+      "output": "",
+      "gapType": "None",
+      "remediationIssueTitle": "None"
+    },
+    {
+      "id": "PH3-3",
+      "status": "pass",
+      "evidence": [
+        "Issue: #100 (CLOSED)",
+        "URL: https://github.com/abobneil/BudgetIT/issues/100",
+        "Artifact hints found: 2/2"
+      ],
+      "command": "",
+      "output": "",
+      "gapType": "None",
+      "remediationIssueTitle": "None"
+    },
+    {
+      "id": "PH3-4",
+      "status": "pass",
+      "evidence": [
+        "Issue: #101 (CLOSED)",
+        "URL: https://github.com/abobneil/BudgetIT/issues/101",
+        "Artifact hints found: 2/2"
+      ],
+      "command": "",
+      "output": "",
+      "gapType": "None",
+      "remediationIssueTitle": "None"
+    },
+    {
+      "id": "PH3-5",
+      "status": "pass",
+      "evidence": [
+        "Issue: #102 (CLOSED)",
+        "URL: https://github.com/abobneil/BudgetIT/issues/102",
+        "Artifact hints found: 2/2"
+      ],
+      "command": "",
+      "output": "",
+      "gapType": "None",
+      "remediationIssueTitle": "None"
+    },
+    {
+      "id": "PH4-1",
+      "status": "pass",
+      "evidence": [
+        "Issue: #103 (CLOSED)",
+        "URL: https://github.com/abobneil/BudgetIT/issues/103",
+        "Artifact hints found: 2/2"
+      ],
+      "command": "",
+      "output": "",
+      "gapType": "None",
+      "remediationIssueTitle": "None"
+    },
+    {
+      "id": "PH4-2",
+      "status": "pass",
+      "evidence": [
+        "Issue: #104 (CLOSED)",
+        "URL: https://github.com/abobneil/BudgetIT/issues/104",
+        "Artifact hints found: 2/2"
+      ],
+      "command": "",
+      "output": "",
+      "gapType": "None",
+      "remediationIssueTitle": "None"
+    },
+    {
+      "id": "PH4-3",
+      "status": "pass",
+      "evidence": [
+        "Issue: #105 (CLOSED)",
+        "URL: https://github.com/abobneil/BudgetIT/issues/105",
+        "Artifact hints found: 1/1"
+      ],
+      "command": "",
+      "output": "",
+      "gapType": "None",
+      "remediationIssueTitle": "None"
+    },
+    {
+      "id": "PH4-4",
+      "status": "pass",
+      "evidence": [
+        "Issue: #106 (CLOSED)",
+        "URL: https://github.com/abobneil/BudgetIT/issues/106",
+        "Artifact hints found: 1/1"
+      ],
+      "command": "",
+      "output": "",
+      "gapType": "None",
+      "remediationIssueTitle": "None"
+    },
+    {
+      "id": "PH4-5",
+      "status": "pass",
+      "evidence": [
+        "Issue: #107 (CLOSED)",
+        "URL: https://github.com/abobneil/BudgetIT/issues/107",
+        "Artifact hints found: 1/1"
+      ],
+      "command": "",
+      "output": "",
+      "gapType": "None",
+      "remediationIssueTitle": "None"
+    },
+    {
+      "id": "PH5-1",
+      "status": "pass",
+      "evidence": [
+        "Issue: #108 (CLOSED)",
+        "URL: https://github.com/abobneil/BudgetIT/issues/108",
+        "Artifact hints found: 2/2"
+      ],
+      "command": "",
+      "output": "",
+      "gapType": "None",
+      "remediationIssueTitle": "None"
+    },
+    {
+      "id": "PH5-2",
+      "status": "pass",
+      "evidence": [
+        "Issue: #109 (CLOSED)",
+        "URL: https://github.com/abobneil/BudgetIT/issues/109",
+        "Artifact hints found: 2/2"
+      ],
+      "command": "",
+      "output": "",
+      "gapType": "None",
+      "remediationIssueTitle": "None"
+    },
+    {
+      "id": "PH5-3",
+      "status": "pass",
+      "evidence": [
+        "Issue: #110 (CLOSED)",
+        "URL: https://github.com/abobneil/BudgetIT/issues/110",
+        "Artifact hints found: 2/2"
+      ],
+      "command": "",
+      "output": "",
+      "gapType": "None",
+      "remediationIssueTitle": "None"
+    },
+    {
+      "id": "PH5-4",
+      "status": "pass",
+      "evidence": [
+        "Issue: #111 (CLOSED)",
+        "URL: https://github.com/abobneil/BudgetIT/issues/111",
+        "Artifact hints found: 1/1"
+      ],
+      "command": "",
+      "output": "",
+      "gapType": "None",
+      "remediationIssueTitle": "None"
+    },
+    {
+      "id": "PH5-5",
+      "status": "pass",
+      "evidence": [
+        "Issue: #112 (CLOSED)",
+        "URL: https://github.com/abobneil/BudgetIT/issues/112",
+        "Artifact hints found: 2/2"
+      ],
+      "command": "",
+      "output": "",
+      "gapType": "None",
+      "remediationIssueTitle": "None"
+    },
+    {
+      "id": "PH6-1",
+      "status": "pass",
+      "evidence": [
+        "Issue: #113 (CLOSED)",
+        "URL: https://github.com/abobneil/BudgetIT/issues/113",
+        "Artifact hints found: 2/2"
+      ],
+      "command": "",
+      "output": "",
+      "gapType": "None",
+      "remediationIssueTitle": "None"
+    },
+    {
+      "id": "PH6-2",
+      "status": "pass",
+      "evidence": [
+        "Issue: #114 (CLOSED)",
+        "URL: https://github.com/abobneil/BudgetIT/issues/114",
+        "Artifact hints found: 2/2"
+      ],
+      "command": "",
+      "output": "",
+      "gapType": "None",
+      "remediationIssueTitle": "None"
+    },
+    {
+      "id": "PH6-3",
+      "status": "pass",
+      "evidence": [
+        "Issue: #115 (CLOSED)",
+        "URL: https://github.com/abobneil/BudgetIT/issues/115",
+        "Artifact hints found: 2/2"
+      ],
+      "command": "",
+      "output": "",
+      "gapType": "None",
+      "remediationIssueTitle": "None"
+    },
+    {
+      "id": "PH6-4",
+      "status": "pass",
+      "evidence": [
+        "Issue: #116 (CLOSED)",
+        "URL: https://github.com/abobneil/BudgetIT/issues/116",
+        "Artifact hints found: 2/2"
+      ],
+      "command": "",
+      "output": "",
+      "gapType": "None",
+      "remediationIssueTitle": "None"
+    },
+    {
+      "id": "PH6-5",
+      "status": "pass",
+      "evidence": [
+        "Issue: #117 (CLOSED)",
+        "URL: https://github.com/abobneil/BudgetIT/issues/117",
+        "Artifact hints found: 2/2"
+      ],
+      "command": "",
+      "output": "",
+      "gapType": "None",
+      "remediationIssueTitle": "None"
+    },
+    {
+      "id": "PH7-1",
+      "status": "pass",
+      "evidence": [
+        "Issue: #118 (CLOSED)",
+        "URL: https://github.com/abobneil/BudgetIT/issues/118",
+        "Artifact hints found: 2/2"
+      ],
+      "command": "",
+      "output": "",
+      "gapType": "None",
+      "remediationIssueTitle": "None"
+    },
+    {
+      "id": "PH7-2",
+      "status": "pass",
+      "evidence": [
+        "Issue: #119 (CLOSED)",
+        "URL: https://github.com/abobneil/BudgetIT/issues/119",
+        "Artifact hints found: 3/3"
+      ],
+      "command": "",
+      "output": "",
+      "gapType": "None",
+      "remediationIssueTitle": "None"
+    },
+    {
+      "id": "PH7-3",
+      "status": "pass",
+      "evidence": [
+        "Issue: #120 (CLOSED)",
+        "URL: https://github.com/abobneil/BudgetIT/issues/120",
+        "Artifact hints found: 1/1"
+      ],
+      "command": "",
+      "output": "",
+      "gapType": "None",
+      "remediationIssueTitle": "None"
+    },
+    {
+      "id": "PH7-4",
+      "status": "pass",
+      "evidence": [
+        "Issue: #121 (CLOSED)",
+        "URL: https://github.com/abobneil/BudgetIT/issues/121",
+        "Artifact hints found: 2/2"
+      ],
+      "command": "",
+      "output": "",
+      "gapType": "None",
+      "remediationIssueTitle": "None"
+    },
+    {
+      "id": "PH7-5",
+      "status": "pass",
+      "evidence": [
+        "Issue: #122 (CLOSED)",
+        "URL: https://github.com/abobneil/BudgetIT/issues/122",
+        "Artifact hints found: 2/2"
+      ],
+      "command": "",
+      "output": "",
+      "gapType": "None",
+      "remediationIssueTitle": "None"
+    }
+  ],
+  "phaseMatrix": [
+    {
+      "phase": "HC-P1",
+      "item": "EPIC: HC-P1 Information Architecture and Coverage Map",
+      "status": "pass",
+      "evidence": [
+        "Issue: #88 (CLOSED)",
+        "URL: https://github.com/abobneil/BudgetIT/issues/88",
+        "Artifact hints found: 2/2"
+      ]
+    },
+    {
+      "phase": "HC-P1",
+      "item": "Create north-star coverage matrix (user goal -> help topic -> anchor)",
+      "status": "pass",
+      "evidence": [
+        "Issue: #89 (CLOSED)",
+        "URL: https://github.com/abobneil/BudgetIT/issues/89",
+        "Artifact hints found: 2/2"
+      ]
+    },
+    {
+      "phase": "HC-P1",
+      "item": "Refactor help topic metadata model for audience/journey tagging",
+      "status": "pass",
+      "evidence": [
+        "Issue: #90 (CLOSED)",
+        "URL: https://github.com/abobneil/BudgetIT/issues/90",
+        "Artifact hints found: 3/3"
+      ]
+    },
+    {
+      "phase": "HC-P1",
+      "item": "Add Help Center \"Start Here\" entry IA (new user path + experienced user path)",
+      "status": "pass",
+      "evidence": [
+        "Issue: #91 (CLOSED)",
+        "URL: https://github.com/abobneil/BudgetIT/issues/91",
+        "Artifact hints found: 2/2"
+      ]
+    },
+    {
+      "phase": "HC-P1",
+      "item": "QA gate: every primary route has mapped help entry and valid jump target",
+      "status": "pass",
+      "evidence": [
+        "Issue: #92 (CLOSED)",
+        "URL: https://github.com/abobneil/BudgetIT/issues/92",
+        "Artifact hints found: 4/4"
+      ]
+    },
+    {
+      "phase": "HC-P2",
+      "item": "EPIC: HC-P2 Baseline Setup Journey",
+      "status": "pass",
+      "evidence": [
+        "Issue: #93 (CLOSED)",
+        "URL: https://github.com/abobneil/BudgetIT/issues/93",
+        "Artifact hints found: 2/2"
+      ]
+    },
+    {
+      "phase": "HC-P2",
+      "item": "Rewrite Quick Start into setup checklist (vendors/services/contracts/expenses/dimensions)",
+      "status": "pass",
+      "evidence": [
+        "Issue: #94 (CLOSED)",
+        "URL: https://github.com/abobneil/BudgetIT/issues/94",
+        "Artifact hints found: 2/2"
+      ]
+    },
+    {
+      "phase": "HC-P2",
+      "item": "Add \"first session\" guided sequence with route-accurate anchor jumps",
+      "status": "pass",
+      "evidence": [
+        "Issue: #95 (CLOSED)",
+        "URL: https://github.com/abobneil/BudgetIT/issues/95",
+        "Artifact hints found: 2/2"
+      ]
+    },
+    {
+      "phase": "HC-P2",
+      "item": "Add baseline-completion checklist state (local persisted progress)",
+      "status": "pass",
+      "evidence": [
+        "Issue: #96 (CLOSED)",
+        "URL: https://github.com/abobneil/BudgetIT/issues/96",
+        "Artifact hints found: 2/2"
+      ]
+    },
+    {
+      "phase": "HC-P2",
+      "item": "QA gate: new user can complete baseline setup without external docs",
+      "status": "pass",
+      "evidence": [
+        "Issue: #97 (CLOSED)",
+        "URL: https://github.com/abobneil/BudgetIT/issues/97",
+        "Artifact hints found: 2/2"
+      ]
+    },
+    {
+      "phase": "HC-P3",
+      "item": "EPIC: HC-P3 Import and Reconciliation",
+      "status": "pass",
+      "evidence": [
+        "Issue: #98 (CLOSED)",
+        "URL: https://github.com/abobneil/BudgetIT/issues/98",
+        "Artifact hints found: 2/2"
+      ]
+    },
+    {
+      "phase": "HC-P3",
+      "item": "Author import-actuals playbook with failure handling and reconciliation decisions",
+      "status": "pass",
+      "evidence": [
+        "Issue: #99 (CLOSED)",
+        "URL: https://github.com/abobneil/BudgetIT/issues/99",
+        "Artifact hints found: 2/2"
+      ]
+    },
+    {
+      "phase": "HC-P3",
+      "item": "Add glossary entries for import statuses, match states, and error classes",
+      "status": "pass",
+      "evidence": [
+        "Issue: #100 (CLOSED)",
+        "URL: https://github.com/abobneil/BudgetIT/issues/100",
+        "Artifact hints found: 2/2"
+      ]
+    },
+    {
+      "phase": "HC-P3",
+      "item": "Add contextual help entry points from Import and Reports reconciliation surfaces",
+      "status": "pass",
+      "evidence": [
+        "Issue: #101 (CLOSED)",
+        "URL: https://github.com/abobneil/BudgetIT/issues/101",
+        "Artifact hints found: 2/2"
+      ]
+    },
+    {
+      "phase": "HC-P3",
+      "item": "QA gate: import and reconcile flow completion test",
+      "status": "pass",
+      "evidence": [
+        "Issue: #102 (CLOSED)",
+        "URL: https://github.com/abobneil/BudgetIT/issues/102",
+        "Artifact hints found: 2/2"
+      ]
+    },
+    {
+      "phase": "HC-P4",
+      "item": "EPIC: HC-P4 Dashboard Interpretation",
+      "status": "pass",
+      "evidence": [
+        "Issue: #103 (CLOSED)",
+        "URL: https://github.com/abobneil/BudgetIT/issues/103",
+        "Artifact hints found: 2/2"
+      ]
+    },
+    {
+      "phase": "HC-P4",
+      "item": "Document KPI definitions and variance math in operator language",
+      "status": "pass",
+      "evidence": [
+        "Issue: #104 (CLOSED)",
+        "URL: https://github.com/abobneil/BudgetIT/issues/104",
+        "Artifact hints found: 2/2"
+      ]
+    },
+    {
+      "phase": "HC-P4",
+      "item": "Add variance triage runbook (what changed, where to inspect, what to do next)",
+      "status": "pass",
+      "evidence": [
+        "Issue: #105 (CLOSED)",
+        "URL: https://github.com/abobneil/BudgetIT/issues/105",
+        "Artifact hints found: 1/1"
+      ]
+    },
+    {
+      "phase": "HC-P4",
+      "item": "Add contextual links from dashboard cards to relevant help anchors",
+      "status": "pass",
+      "evidence": [
+        "Issue: #106 (CLOSED)",
+        "URL: https://github.com/abobneil/BudgetIT/issues/106",
+        "Artifact hints found: 1/1"
+      ]
+    },
+    {
+      "phase": "HC-P4",
+      "item": "QA gate: first-time user can interpret dashboard and variance correctly",
+      "status": "pass",
+      "evidence": [
+        "Issue: #107 (CLOSED)",
+        "URL: https://github.com/abobneil/BudgetIT/issues/107",
+        "Artifact hints found: 1/1"
+      ]
+    },
+    {
+      "phase": "HC-P5",
+      "item": "EPIC: HC-P5 Reporting and Operating Rhythm",
+      "status": "pass",
+      "evidence": [
+        "Issue: #108 (CLOSED)",
+        "URL: https://github.com/abobneil/BudgetIT/issues/108",
+        "Artifact hints found: 2/2"
+      ]
+    },
+    {
+      "phase": "HC-P5",
+      "item": "Create executive export playbook (format choice, quality checks, delivery steps)",
+      "status": "pass",
+      "evidence": [
+        "Issue: #109 (CLOSED)",
+        "URL: https://github.com/abobneil/BudgetIT/issues/109",
+        "Artifact hints found: 2/2"
+      ]
+    },
+    {
+      "phase": "HC-P5",
+      "item": "Add monthly/weekly operating checklist content and cadence guidance",
+      "status": "pass",
+      "evidence": [
+        "Issue: #110 (CLOSED)",
+        "URL: https://github.com/abobneil/BudgetIT/issues/110",
+        "Artifact hints found: 2/2"
+      ]
+    },
+    {
+      "phase": "HC-P5",
+      "item": "Add report-page help shortcuts for export and narrative generation",
+      "status": "pass",
+      "evidence": [
+        "Issue: #111 (CLOSED)",
+        "URL: https://github.com/abobneil/BudgetIT/issues/111",
+        "Artifact hints found: 1/1"
+      ]
+    },
+    {
+      "phase": "HC-P5",
+      "item": "QA gate: user can produce executive export and follow weekly/monthly tasks",
+      "status": "pass",
+      "evidence": [
+        "Issue: #112 (CLOSED)",
+        "URL: https://github.com/abobneil/BudgetIT/issues/112",
+        "Artifact hints found: 2/2"
+      ]
+    },
+    {
+      "phase": "HC-P6",
+      "item": "EPIC: HC-P6 Findability and Contextual Delivery",
+      "status": "pass",
+      "evidence": [
+        "Issue: #113 (CLOSED)",
+        "URL: https://github.com/abobneil/BudgetIT/issues/113",
+        "Artifact hints found: 2/2"
+      ]
+    },
+    {
+      "phase": "HC-P6",
+      "item": "Implement Help search/jump index (topic + heading + glossary terms)",
+      "status": "pass",
+      "evidence": [
+        "Issue: #114 (CLOSED)",
+        "URL: https://github.com/abobneil/BudgetIT/issues/114",
+        "Artifact hints found: 2/2"
+      ]
+    },
+    {
+      "phase": "HC-P6",
+      "item": "Add command/F1 entry points with pre-seeded query/context",
+      "status": "pass",
+      "evidence": [
+        "Issue: #115 (CLOSED)",
+        "URL: https://github.com/abobneil/BudgetIT/issues/115",
+        "Artifact hints found: 2/2"
+      ]
+    },
+    {
+      "phase": "HC-P6",
+      "item": "Ship contextual (?) definitions for high-friction fields/status chips",
+      "status": "pass",
+      "evidence": [
+        "Issue: #116 (CLOSED)",
+        "URL: https://github.com/abobneil/BudgetIT/issues/116",
+        "Artifact hints found: 2/2"
+      ]
+    },
+    {
+      "phase": "HC-P6",
+      "item": "QA gate: experienced user can find meaning/definition in <30 seconds",
+      "status": "pass",
+      "evidence": [
+        "Issue: #117 (CLOSED)",
+        "URL: https://github.com/abobneil/BudgetIT/issues/117",
+        "Artifact hints found: 2/2"
+      ]
+    },
+    {
+      "phase": "HC-P7",
+      "item": "EPIC: HC-P7 Help Integrity Guardrails",
+      "status": "pass",
+      "evidence": [
+        "Issue: #118 (CLOSED)",
+        "URL: https://github.com/abobneil/BudgetIT/issues/118",
+        "Artifact hints found: 2/2"
+      ]
+    },
+    {
+      "phase": "HC-P7",
+      "item": "Build integrity checker script for topic->heading validation",
+      "status": "pass",
+      "evidence": [
+        "Issue: #119 (CLOSED)",
+        "URL: https://github.com/abobneil/BudgetIT/issues/119",
+        "Artifact hints found: 3/3"
+      ]
+    },
+    {
+      "phase": "HC-P7",
+      "item": "Add checker tests/fixtures (pass + fail + duplicate heading edge cases)",
+      "status": "pass",
+      "evidence": [
+        "Issue: #120 (CLOSED)",
+        "URL: https://github.com/abobneil/BudgetIT/issues/120",
+        "Artifact hints found: 1/1"
+      ]
+    },
+    {
+      "phase": "HC-P7",
+      "item": "Wire checker into CI quality pipeline",
+      "status": "pass",
+      "evidence": [
+        "Issue: #121 (CLOSED)",
+        "URL: https://github.com/abobneil/BudgetIT/issues/121",
+        "Artifact hints found: 2/2"
+      ]
+    },
+    {
+      "phase": "HC-P7",
+      "item": "Document maintenance and enforce required status check",
+      "status": "pass",
+      "evidence": [
+        "Issue: #122 (CLOSED)",
+        "URL: https://github.com/abobneil/BudgetIT/issues/122",
+        "Artifact hints found: 2/2"
+      ]
+    }
+  ],
+  "reopenCandidates": []
+}

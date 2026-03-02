@@ -13,8 +13,17 @@ export type HelpTopic = {
   order: number;
   topicFile: string;
   keywords: string[];
+  outcomes: string[];
   audience: HelpAudience;
   journeyStep: HelpJourneyStep;
+};
+
+export type HelpDefinition = {
+  id: string;
+  term: string;
+  meaning: string;
+  appliesTo: string[];
+  relatedTopicId: string;
 };
 
 export const HELP_TOPICS: HelpTopic[] = [
@@ -26,6 +35,7 @@ export const HELP_TOPICS: HelpTopic[] = [
     order: 10,
     topicFile: "topics/quick-start.md",
     keywords: ["setup", "first launch", "getting started"],
+    outcomes: ["Complete baseline setup tasks for this workspace.", "Apply Quick Start guidance without leaving the app."],
     audience: "new-user",
     journeyStep: "setup"
   },
@@ -37,6 +47,7 @@ export const HELP_TOPICS: HelpTopic[] = [
     order: 20,
     topicFile: "topics/app-shell.md",
     keywords: ["keyboard", "shortcuts", "navigation", "f1"],
+    outcomes: ["Navigate quickly and locate contextual help entry points.", "Apply Keyboard Shortcuts guidance without leaving the app."],
     audience: "experienced-user",
     journeyStep: "orientation"
   },
@@ -48,6 +59,7 @@ export const HELP_TOPICS: HelpTopic[] = [
     order: 30,
     topicFile: "topics/dashboard.md",
     keywords: ["dashboard", "kpi", "variance"],
+    outcomes: ["Interpret KPIs, variance, and scenario signals correctly.", "Apply Dashboard guidance without leaving the app."],
     audience: "both",
     journeyStep: "analysis"
   },
@@ -59,6 +71,7 @@ export const HELP_TOPICS: HelpTopic[] = [
     order: 40,
     topicFile: "topics/expenses-workspace.md",
     keywords: ["expenses", "workspace", "recurrence", "bulk"],
+    outcomes: ["Complete baseline setup tasks for this workspace.", "Apply Expenses Workspace guidance without leaving the app."],
     audience: "both",
     journeyStep: "setup"
   },
@@ -70,6 +83,7 @@ export const HELP_TOPICS: HelpTopic[] = [
     order: 41,
     topicFile: "topics/expenses-workspace.md",
     keywords: ["expense form", "create expense", "edit expense"],
+    outcomes: ["Complete baseline setup tasks for this workspace.", "Apply Expense Form guidance without leaving the app."],
     audience: "both",
     journeyStep: "setup"
   },
@@ -81,6 +95,7 @@ export const HELP_TOPICS: HelpTopic[] = [
     order: 50,
     topicFile: "topics/services-workspace.md",
     keywords: ["services", "lifecycle", "renewals", "replacement"],
+    outcomes: ["Complete baseline setup tasks for this workspace.", "Apply Services Workspace guidance without leaving the app."],
     audience: "both",
     journeyStep: "setup"
   },
@@ -92,6 +107,7 @@ export const HELP_TOPICS: HelpTopic[] = [
     order: 51,
     topicFile: "topics/services-workspace.md",
     keywords: ["service form", "owner", "risk"],
+    outcomes: ["Complete baseline setup tasks for this workspace.", "Apply Service Form guidance without leaving the app."],
     audience: "both",
     journeyStep: "setup"
   },
@@ -103,6 +119,7 @@ export const HELP_TOPICS: HelpTopic[] = [
     order: 60,
     topicFile: "topics/contracts-workspace.md",
     keywords: ["contracts", "renewal", "notice period"],
+    outcomes: ["Run recurring operations with clear status decisions.", "Apply Contracts Workspace guidance without leaving the app."],
     audience: "both",
     journeyStep: "operations"
   },
@@ -114,6 +131,7 @@ export const HELP_TOPICS: HelpTopic[] = [
     order: 61,
     topicFile: "topics/contracts-workspace.md",
     keywords: ["contract form", "renewal action", "owner"],
+    outcomes: ["Run recurring operations with clear status decisions.", "Apply Contract Form guidance without leaving the app."],
     audience: "both",
     journeyStep: "operations"
   },
@@ -125,6 +143,7 @@ export const HELP_TOPICS: HelpTopic[] = [
     order: 70,
     topicFile: "topics/vendors-workspace.md",
     keywords: ["vendors", "archive", "delete guardrails"],
+    outcomes: ["Complete baseline setup tasks for this workspace.", "Apply Vendors Workspace guidance without leaving the app."],
     audience: "both",
     journeyStep: "setup"
   },
@@ -136,6 +155,7 @@ export const HELP_TOPICS: HelpTopic[] = [
     order: 71,
     topicFile: "topics/vendors-workspace.md",
     keywords: ["vendor form", "risk", "owner"],
+    outcomes: ["Complete baseline setup tasks for this workspace.", "Apply Vendor Form guidance without leaving the app."],
     audience: "both",
     journeyStep: "setup"
   },
@@ -147,6 +167,7 @@ export const HELP_TOPICS: HelpTopic[] = [
     order: 80,
     topicFile: "topics/tags-workspace.md",
     keywords: ["tags", "dimensions", "taxonomy"],
+    outcomes: ["Complete baseline setup tasks for this workspace.", "Apply Tags & Dimensions guidance without leaving the app."],
     audience: "both",
     journeyStep: "setup"
   },
@@ -158,6 +179,7 @@ export const HELP_TOPICS: HelpTopic[] = [
     order: 90,
     topicFile: "topics/scenarios-workspace.md",
     keywords: ["scenarios", "baseline", "compare"],
+    outcomes: ["Interpret KPIs, variance, and scenario signals correctly.", "Apply Scenarios Workspace guidance without leaving the app."],
     audience: "both",
     journeyStep: "analysis"
   },
@@ -169,6 +191,7 @@ export const HELP_TOPICS: HelpTopic[] = [
     order: 100,
     topicFile: "topics/alerts-inbox.md",
     keywords: ["alerts", "snooze", "triage"],
+    outcomes: ["Run recurring operations with clear status decisions.", "Apply Alerts Inbox guidance without leaving the app."],
     audience: "both",
     journeyStep: "operations"
   },
@@ -180,6 +203,7 @@ export const HELP_TOPICS: HelpTopic[] = [
     order: 110,
     topicFile: "topics/import-wizard.md",
     keywords: ["import", "actuals", "mapping", "preview"],
+    outcomes: ["Import data safely and resolve validation outcomes.", "Apply Import Wizard guidance without leaving the app."],
     audience: "both",
     journeyStep: "import"
   },
@@ -191,6 +215,7 @@ export const HELP_TOPICS: HelpTopic[] = [
     order: 120,
     topicFile: "topics/reports-workspace.md",
     keywords: ["reports", "export", "showback", "unmatched actuals"],
+    outcomes: ["Produce report outputs with the right audience framing.", "Apply Reports Workspace guidance without leaving the app."],
     audience: "both",
     journeyStep: "reporting"
   },
@@ -202,6 +227,7 @@ export const HELP_TOPICS: HelpTopic[] = [
     order: 130,
     topicFile: "topics/nlq-workspace.md",
     keywords: ["nlq", "natural language", "query"],
+    outcomes: ["Interpret KPIs, variance, and scenario signals correctly.", "Apply NLQ Workspace guidance without leaving the app."],
     audience: "experienced-user",
     journeyStep: "analysis"
   },
@@ -213,6 +239,7 @@ export const HELP_TOPICS: HelpTopic[] = [
     order: 140,
     topicFile: "topics/settings-center.md",
     keywords: ["settings", "backup", "security", "maintenance"],
+    outcomes: ["Run recurring operations with clear status decisions.", "Apply Settings Center guidance without leaving the app."],
     audience: "both",
     journeyStep: "operations"
   }
@@ -234,15 +261,25 @@ export function resolveHelpTopic(topicId: string | null | undefined): HelpTopic 
 export function buildHelpHashPath(payload?: {
   topic?: string;
   anchor?: string;
+  q?: string;
+  context?: string;
 }): string {
   const params = new URLSearchParams();
   const topic = payload?.topic?.trim();
   const anchor = payload?.anchor?.trim();
+  const q = payload?.q?.trim();
+  const context = payload?.context?.trim();
   if (topic) {
     params.set("topic", topic);
   }
   if (anchor) {
     params.set("anchor", anchor);
+  }
+  if (q) {
+    params.set("q", q);
+  }
+  if (context) {
+    params.set("context", context);
   }
   const query = params.toString();
   return query ? `/help?${query}` : "/help";

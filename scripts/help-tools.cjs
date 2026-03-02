@@ -147,6 +147,16 @@ function validateManifest(manifest) {
       assertString(keyword, `topic.keywords[] for topic "${topic.id}"`);
     }
 
+    if (!Array.isArray(topic.outcomes)) {
+      fail(`topic.outcomes must be an array for topic "${topic.id}".`);
+    }
+    if (topic.outcomes.length === 0) {
+      fail(`topic.outcomes must include at least one outcome for topic "${topic.id}".`);
+    }
+    for (const outcome of topic.outcomes) {
+      assertString(outcome, `topic.outcomes[] for topic "${topic.id}"`);
+    }
+
     assertString(topic.audience, `topic.audience for topic "${topic.id}"`);
     if (!ALLOWED_AUDIENCES.has(topic.audience)) {
       fail(
@@ -268,6 +278,7 @@ function buildUnionType(values) {
 
 function renderTopicForTs(topic) {
   const renderedKeywords = topic.keywords.map((keyword) => escapeTsString(keyword)).join(", ");
+  const renderedOutcomes = topic.outcomes.map((outcome) => escapeTsString(outcome)).join(", ");
   return [
     "  {",
     `    id: ${escapeTsString(topic.id)},`,
@@ -277,6 +288,7 @@ function renderTopicForTs(topic) {
     `    order: ${topic.order},`,
     `    topicFile: ${escapeTsString(topic.topicFile)},`,
     `    keywords: [${renderedKeywords}],`,
+    `    outcomes: [${renderedOutcomes}],`,
     `    audience: ${escapeTsString(topic.audience)},`,
     `    journeyStep: ${escapeTsString(topic.journeyStep)}`,
     "  }"
@@ -305,8 +317,17 @@ function generateHelpTopicsTs(manifest) {
     "  order: number;",
     "  topicFile: string;",
     "  keywords: string[];",
+    "  outcomes: string[];",
     "  audience: HelpAudience;",
     "  journeyStep: HelpJourneyStep;",
+    "};",
+    "",
+    "export type HelpDefinition = {",
+    "  id: string;",
+    "  term: string;",
+    "  meaning: string;",
+    "  appliesTo: string[];",
+    "  relatedTopicId: string;",
     "};",
     "",
     "export const HELP_TOPICS: HelpTopic[] = [",
@@ -329,15 +350,25 @@ function generateHelpTopicsTs(manifest) {
     "export function buildHelpHashPath(payload?: {",
     "  topic?: string;",
     "  anchor?: string;",
+    "  q?: string;",
+    "  context?: string;",
     "}): string {",
     "  const params = new URLSearchParams();",
     "  const topic = payload?.topic?.trim();",
     "  const anchor = payload?.anchor?.trim();",
+    "  const q = payload?.q?.trim();",
+    "  const context = payload?.context?.trim();",
     "  if (topic) {",
     '    params.set("topic", topic);',
     "  }",
     "  if (anchor) {",
     '    params.set("anchor", anchor);',
+    "  }",
+    "  if (q) {",
+    '    params.set("q", q);',
+    "  }",
+    "  if (context) {",
+    '    params.set("context", context);',
     "  }",
     "  const query = params.toString();",
     '  return query ? `/help?${query}` : "/help";',
@@ -478,6 +509,7 @@ function handleNewTopic(argv) {
   const journeyStep = parseFlagValue(argv, "journey-step") ?? "reference";
   const docSection = parseFlagValue(argv, "doc-section") ?? title;
   const keywordsRaw = parseFlagValue(argv, "keywords");
+  const outcomesRaw = parseFlagValue(argv, "outcomes");
 
   if (!id) {
     fail("Missing required --id for new-topic.");
@@ -522,6 +554,13 @@ function handleNewTopic(argv) {
           .map((value) => value.trim())
           .filter((value) => value.length > 0)
       : id.split("-").filter((value) => value.length > 0);
+  const outcomes =
+    outcomesRaw && outcomesRaw.trim().length > 0
+      ? outcomesRaw
+          .split(",")
+          .map((value) => value.trim())
+          .filter((value) => value.length > 0)
+      : [`Understand ${title}`, `Complete ${title} actions`];
 
   const maxOrder = Math.max(...manifest.topics.map((topic) => topic.order), 0);
   const nextOrder = maxOrder + 1;
@@ -549,6 +588,7 @@ function handleNewTopic(argv) {
     order: nextOrder,
     topicFile: normalizeToPosix(topicFile),
     keywords,
+    outcomes,
     audience,
     journeyStep
   });
@@ -567,7 +607,7 @@ function printUsage() {
       "Usage:",
       "  node scripts/help-tools.cjs generate",
       "  node scripts/help-tools.cjs check",
-      "  node scripts/help-tools.cjs new-topic --id <id> --title <title> [--doc-section <heading>] [--snippet <text>] [--audience new-user|experienced-user|both] [--journey-step orientation|setup|import|analysis|reporting|operations|reference] [--keywords k1,k2]"
+      "  node scripts/help-tools.cjs new-topic --id <id> --title <title> [--doc-section <heading>] [--snippet <text>] [--audience new-user|experienced-user|both] [--journey-step orientation|setup|import|analysis|reporting|operations|reference] [--keywords k1,k2] [--outcomes o1,o2]"
     ].join("\n")
   );
 }
