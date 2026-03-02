@@ -188,15 +188,10 @@ jobs:
 
   package-linux-arm64:
     name: Package Linux Artifacts (arm64 Smoke)
-    if: vars.CI_ENABLE_LINUX_ARM64 == 'true'
     needs:
       - help-integrity
       - quality
-    runs-on:
-      - self-hosted
-      - linux
-      - arm64
-      - budgetit-arm64
+    runs-on: ubuntu-24.04-arm
     timeout-minutes: 90
     steps:
       - name: Checkout

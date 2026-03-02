@@ -30,7 +30,7 @@ Behavior:
 - Runs packaging smoke jobs after quality:
   - Windows (`dist:win`, smoke checks, artifact validation)
   - Linux x64 (`dist:linux:x64`, smoke checks, artifact validation)
-  - Linux arm64 (`dist:linux:arm64`, smoke checks, artifact validation) on self-hosted ARM64 runner labels: `self-hosted`, `linux`, `arm64`, `budgetit-arm64` (only when repository variable `CI_ENABLE_LINUX_ARM64` is set to `true`)
+  - Linux arm64 (`dist:linux:arm64`, smoke checks, artifact validation) on GitHub-hosted ARM runner `ubuntu-24.04-arm`
 - Uploads platform-scoped artifacts from each packaging smoke job.
 
 ## Release workflow (CD)
@@ -48,7 +48,7 @@ Behavior:
 - Builds release artifacts in parallel jobs:
   - Windows (`release:win`)
   - Linux x64 (`release:linux -- --arch=x64`)
-  - Linux arm64 (`release:linux -- --arch=arm64`)
+  - Linux arm64 (`release:linux -- --arch=arm64`) on GitHub-hosted ARM runner `ubuntu-24.04-arm`
 - Runs platform-scoped packaged smoke checks in each packaging job.
 - Aggregates all artifacts, generates `dist/release/SHA256SUMS.txt`, and publishes a single GitHub release.
 
