@@ -5,14 +5,14 @@ This checklist is run before any production `v*` tag is published.
 ## Packaging QA
 
 1. Confirm CI quality job passed (`lint`, `typecheck`, `test`, `build`).
-2. Confirm Windows artifacts exist:
-   - `dist/release/BudgetIT-Setup-<version>-x64.exe`
-   - `dist/release/BudgetIT-Setup-<version>-arm64.exe`
-3. Confirm Linux artifacts exist:
-   - `dist/release/BudgetIT-<version>-linux-x64.AppImage`
-   - `dist/release/BudgetIT-<version>-linux-x64.deb`
-   - `dist/release/BudgetIT-<version>-linux-arm64.AppImage`
-   - `dist/release/BudgetIT-<version>-linux-arm64.deb`
+2. Confirm Windows release assets exist:
+   - `BudgetIT-windows-x64-latest.exe`
+   - `BudgetIT-windows-arm64-latest.exe`
+3. Confirm Linux release assets exist:
+   - `BudgetIT-linux-x64-latest.AppImage`
+   - `BudgetIT-linux-x64-latest.deb`
+   - `BudgetIT-linux-arm64-latest.AppImage`
+   - `BudgetIT-linux-arm64-latest.deb`
 4. Confirm packaged smoke checks passed:
    - `npm run smoke:packaged:win`
    - `npm run smoke:packaged:linux`
@@ -21,7 +21,7 @@ This checklist is run before any production `v*` tag is published.
 
 ## Windows ARM64 Runtime QA (Manual)
 
-1. Install `BudgetIT-Setup-<version>-arm64.exe` on a Windows ARM64 device.
+1. Install `BudgetIT-windows-arm64-latest.exe` on a Windows ARM64 device.
 2. Launch the app and open or create the encrypted database.
 3. Validate core runtime flows:
    - settings save/app restart

@@ -17,21 +17,25 @@ This project publishes Windows and Linux artifacts for `x64` and `arm64` on both
 
 ## Artifact naming
 
-Configured in `electron-builder.yml`:
+Build outputs are produced by `electron-builder` with versioned names, then normalized by the release workflow before publish.
 
-- Windows installer pattern: `BudgetIT-Setup-${version}-${arch}.exe`
-- Linux artifact pattern: `BudgetIT-${version}-linux-${arch}.AppImage`
-- Linux package pattern: `BudgetIT-${version}-linux-${arch}.deb`
-- Output folder: `dist/release`
+Published release asset names:
+
+- `BudgetIT-windows-x64-latest.exe`
+- `BudgetIT-windows-arm64-latest.exe`
+- `BudgetIT-linux-x64-latest.AppImage`
+- `BudgetIT-linux-x64-latest.deb`
+- `BudgetIT-linux-arm64-latest.AppImage`
+- `BudgetIT-linux-arm64-latest.deb`
 
 Required artifacts per release:
 
-- `BudgetIT-Setup-${version}-x64.exe`
-- `BudgetIT-Setup-${version}-arm64.exe`
-- `BudgetIT-${version}-linux-x64.AppImage`
-- `BudgetIT-${version}-linux-x64.deb`
-- `BudgetIT-${version}-linux-arm64.AppImage`
-- `BudgetIT-${version}-linux-arm64.deb`
+- `BudgetIT-windows-x64-latest.exe`
+- `BudgetIT-windows-arm64-latest.exe`
+- `BudgetIT-linux-x64-latest.AppImage`
+- `BudgetIT-linux-x64-latest.deb`
+- `BudgetIT-linux-arm64-latest.AppImage`
+- `BudgetIT-linux-arm64-latest.deb`
 
 ## Packaging commands
 

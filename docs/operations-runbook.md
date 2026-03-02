@@ -56,7 +56,7 @@ This runbook is for single-device operation of BudgetIT on Windows and Linux.
 
 ## Windows ARM64 Release Validation (Manual)
 
-1. Install `dist/release/BudgetIT-Setup-<version>-arm64.exe` on Windows ARM64 hardware.
+1. Install `BudgetIT-windows-arm64-latest.exe` on Windows ARM64 hardware.
 2. Launch BudgetIT and verify DB open/create succeeds.
 3. Run core checks:
    - update Settings and restart app
@@ -69,11 +69,11 @@ This runbook is for single-device operation of BudgetIT on Windows and Linux.
 ## Linux Runtime Validation (Manual)
 
 1. Validate Linux x64 artifacts on Linux x64 hardware:
-   - `dist/release/BudgetIT-<version>-linux-x64.AppImage`
-   - `dist/release/BudgetIT-<version>-linux-x64.deb`
+   - `BudgetIT-linux-x64-latest.AppImage`
+   - `BudgetIT-linux-x64-latest.deb`
 2. Validate Linux arm64 artifacts on Linux arm64 hardware:
-   - `dist/release/BudgetIT-<version>-linux-arm64.AppImage`
-   - `dist/release/BudgetIT-<version>-linux-arm64.deb`
+   - `BudgetIT-linux-arm64-latest.AppImage`
+   - `BudgetIT-linux-arm64-latest.deb`
 3. For both architectures, run core checks:
    - update Settings and restart app
    - load Alerts list
