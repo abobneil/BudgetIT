@@ -196,6 +196,7 @@ jobs:
       - self-hosted
       - linux
       - arm64
+      - budgetit-arm64
     timeout-minutes: 90
     steps:
       - name: Checkout
