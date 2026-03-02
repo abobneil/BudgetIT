@@ -31,7 +31,7 @@
     "dist:win": "node scripts/dist-win.cjs",
     "dist:linux": "node scripts/dist-linux.cjs",
     "release:win": "npm run dist:win",
-    "release:linux": "npm run dist:linux",
+    "release:linux": "npm run dist:linux --",
     "smoke:packaged": "node scripts/release-smoke.cjs --platform=all --arch=all",
     "smoke:packaged:win": "node scripts/release-smoke.cjs --platform=win --arch=all",
     "smoke:packaged:linux": "node scripts/release-smoke.cjs --platform=linux --arch=all"

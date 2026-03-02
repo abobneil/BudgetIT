@@ -22,6 +22,10 @@ const npmExecutable = process.platform === "win32" ? "npm.cmd" : "npm";
 const electronBuilderExecutable =
   process.platform === "win32" ? "electron-builder.cmd" : "electron-builder";
 
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 function runCommand(command, args) {
   console.log(`[dist-linux] > ${command} ${args.join(" ")}`);
   const result = spawnSync(command, args, {
@@ -160,6 +164,29 @@ function resolveLinuxArtifactPath(version, architecture, extension) {
     const candidate = path.join(releaseDir, `BudgetIT-${version}-linux-${alias}.${extension}`);
     if (fs.existsSync(candidate)) {
       return candidate;
+    }
+
+    if (!fs.existsSync(releaseDir)) {
+      continue;
+    }
+
+    const fallbackPattern = new RegExp(
+      `^BudgetIT-.+-linux-${escapeRegExp(alias)}\\.${escapeRegExp(extension)}$`,
+      "u"
+    );
+    const fallbackMatches = fs
+      .readdirSync(releaseDir)
+      .filter((entry) => fallbackPattern.test(entry))
+      .map((entry) => path.join(releaseDir, entry));
+    if (fallbackMatches.length === 1) {
+      return fallbackMatches[0];
+    }
+    if (fallbackMatches.length > 1) {
+      throw new Error(
+        `Ambiguous Linux ${extension} artifacts for architecture ${architecture}: ${fallbackMatches.join(
+          ", "
+        )}`
+      );
     }
   }
 

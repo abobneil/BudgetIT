@@ -19,6 +19,10 @@ const npmExecutable = process.platform === "win32" ? "npm.cmd" : "npm";
 const electronBuilderExecutable =
   process.platform === "win32" ? "electron-builder.cmd" : "electron-builder";
 
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 function quoteWindowsArgument(argument) {
   if (argument.length === 0) {
     return "\"\"";
@@ -93,6 +97,58 @@ function getInstallerPath(version, architecture) {
 
 function getInstallerBlockMapPath(version, architecture) {
   return `${getInstallerPath(version, architecture)}.blockmap`;
+}
+
+function listMatchingInstallerFiles(architecture) {
+  if (!fs.existsSync(releaseDir)) {
+    return [];
+  }
+
+  const suffix = `-${architecture}.exe`;
+  const matcher = new RegExp(
+    `^BudgetIT-Setup-.+${escapeRegExp(suffix)}$`,
+    "u"
+  );
+
+  return fs
+    .readdirSync(releaseDir)
+    .filter((entry) => matcher.test(entry))
+    .map((entry) => path.join(releaseDir, entry));
+}
+
+function resolveInstallerPath(version, architecture) {
+  const canonicalPath = getInstallerPath(version, architecture);
+  if (fs.existsSync(canonicalPath)) {
+    return canonicalPath;
+  }
+
+  const candidates = listMatchingInstallerFiles(architecture);
+  if (candidates.length === 1) {
+    return candidates[0];
+  }
+
+  if (candidates.length === 0) {
+    throw new Error(`Installer missing: ${canonicalPath}`);
+  }
+
+  throw new Error(
+    `Ambiguous installer candidates for ${architecture}: ${candidates.join(", ")}`
+  );
+}
+
+function normalizeInstallerNames(version, architecture) {
+  const canonicalInstallerPath = getInstallerPath(version, architecture);
+  const builtInstallerPath = resolveInstallerPath(version, architecture);
+
+  if (builtInstallerPath !== canonicalInstallerPath) {
+    fs.renameSync(builtInstallerPath, canonicalInstallerPath);
+  }
+
+  const builtBlockMapPath = `${builtInstallerPath}.blockmap`;
+  const canonicalBlockMapPath = getInstallerBlockMapPath(version, architecture);
+  if (fs.existsSync(builtBlockMapPath) && builtBlockMapPath !== canonicalBlockMapPath) {
+    fs.renameSync(builtBlockMapPath, canonicalBlockMapPath);
+  }
 }
 
 function getUnpackedDirectory(architecture) {
@@ -176,6 +232,7 @@ function packageArchitecture(version, architecture) {
     "never"
   ]);
 
+  normalizeInstallerNames(version, architecture);
   assertFileExists(installerPath, "Installer");
   assertNativeModuleArchitecture(architecture);
 }
