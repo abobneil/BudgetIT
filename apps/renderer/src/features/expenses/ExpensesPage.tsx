@@ -22,7 +22,7 @@ import {
 } from "@fluentui/react-components";
 import { AgGridReact } from "ag-grid-react";
 import type { ColDef, GridApi, GridReadyEvent, RowClickedEvent } from "ag-grid-community";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 
 import {
   ConfirmDialog,
@@ -329,7 +329,6 @@ function mapIpcDimensions(
 }
 
 export function ExpensesPage() {
-  const navigate = useNavigate();
   const hasIpc = isIpcAvailable();
   const useAgGrid = isAgGridAvailable();
   const { selectedScenarioId, selectScenario } = useScenarioContext();
