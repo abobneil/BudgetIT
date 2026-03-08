@@ -58,6 +58,7 @@ export const INVOKE_CHANNELS = [
   "scenarios.list",
   "scenarios.create",
   "scenarios.clone",
+  "scenarios.delete",
   "scenarios.approve",
   "scenarios.lock",
   "scenarioSettings.get",

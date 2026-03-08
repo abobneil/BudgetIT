@@ -9,6 +9,18 @@
   gap: 0.35rem;
 }
 
+.scenarios-page__create {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.scenarios-page__create-controls {
+  display: grid;
+  gap: 0.5rem;
+  grid-template-columns: minmax(14rem, 2fr) minmax(12rem, 1fr) auto;
+  align-items: end;
+}
+
 .scenarios-page__row--selected {
   outline: 2px solid var(--status-info);
   outline-offset: -2px;
@@ -18,4 +30,10 @@
   display: flex;
   flex-wrap: wrap;
   gap: 0.3rem;
+}
+
+@media (max-width: 820px) {
+  .scenarios-page__create-controls {
+    grid-template-columns: 1fr;
+  }
 }

@@ -1098,6 +1098,12 @@ export async function cloneScenario(payload: {
   return invokeIpc<ScenarioRecord | null>("scenarios.clone", payload);
 }
 
+export async function deleteScenario(payload: {
+  scenarioId: string;
+}): Promise<{ ok: boolean; id: string }> {
+  return invokeIpc<{ ok: boolean; id: string }>("scenarios.delete", payload);
+}
+
 export async function approveScenario(payload: {
   scenarioId: string;
   nextStatus?: ScenarioApprovalStatus;

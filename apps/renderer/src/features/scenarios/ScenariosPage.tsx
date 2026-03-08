@@ -1,12 +1,14 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Button,
   Card,
+  Input,
   Menu,
   MenuItem,
   MenuList,
   MenuPopover,
   MenuTrigger,
+  Select,
   Table,
   TableBody,
   TableCell,
@@ -17,7 +19,7 @@ import {
   Title3
 } from "@fluentui/react-components";
 
-import { PageHeader, StatusChip } from "../../ui/primitives";
+import { ConfirmDialog, InlineError, PageHeader, StatusChip } from "../../ui/primitives";
 import { formatCurrencyMinor, useScenarioCurrency } from "../../lib/currency";
 import { isIpcAvailable, queryReport } from "../../lib/ipcClient";
 import { toTitleCaseLabel } from "../../ui/text/labelCase";
@@ -50,11 +52,19 @@ export function ScenariosPage() {
     selectedScenario,
     selectedScenarioId,
     selectScenario,
+    createScenario,
     cloneScenario,
+    deleteScenario,
     promoteScenario,
     lockScenario
   } = useScenarioContext();
   const displayCurrency = useScenarioCurrency(selectedScenarioId);
+  const [newScenarioName, setNewScenarioName] = useState("");
+  const [newScenarioParentId, setNewScenarioParentId] = useState("");
+  const [hasInitializedParent, setHasInitializedParent] = useState(false);
+  const [pageMessage, setPageMessage] = useState<string | null>(null);
+  const [pageError, setPageError] = useState<string | null>(null);
+  const [deleteScenarioId, setDeleteScenarioId] = useState<string | null>(null);
   const [comparisonScenarioId, setComparisonScenarioId] = useState<string | null>(null);
   const [comparisonError, setComparisonError] = useState<string | null>(null);
   const [comparisonResult, setComparisonResult] = useState<null | {
@@ -87,12 +97,90 @@ export function ScenariosPage() {
     () => scenarios.find((scenario) => scenario.parentScenarioId === null)?.id ?? "baseline",
     [scenarios]
   );
+  const childScenarioIds = useMemo(
+    () =>
+      new Set(
+        scenarios.flatMap((scenario) =>
+          scenario.parentScenarioId ? [scenario.parentScenarioId] : []
+        )
+      ),
+    [scenarios]
+  );
   const comparisonText = comparisonScenarioId
     ? compareScenarioToBaseline(
         { scenarios, selectedScenarioId },
         comparisonScenarioId
       )
     : null;
+
+  useEffect(() => {
+    if (!hasInitializedParent && baselineScenarioId) {
+      setNewScenarioParentId(baselineScenarioId);
+      setHasInitializedParent(true);
+      return;
+    }
+    if (newScenarioParentId && !scenarios.some((scenario) => scenario.id === newScenarioParentId)) {
+      setNewScenarioParentId(baselineScenarioId);
+    }
+  }, [baselineScenarioId, hasInitializedParent, newScenarioParentId, scenarios]);
+
+  async function handleCreateScenario(): Promise<void> {
+    const trimmedName = newScenarioName.trim();
+    if (!trimmedName) {
+      setPageError("Scenario name is required.");
+      return;
+    }
+    if (scenarios.some((scenario) => scenario.name.toLowerCase() === trimmedName.toLowerCase())) {
+      setPageError("Scenario name already exists.");
+      return;
+    }
+
+    try {
+      setPageError(null);
+      await createScenario(trimmedName, newScenarioParentId || null);
+      setNewScenarioName("");
+      setPageMessage(`Scenario ${trimmedName} created.`);
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      setPageError(`Create failed: ${detail}`);
+    }
+  }
+
+  async function handleCloneScenario(scenarioId: string): Promise<void> {
+    const scenarioName = scenarioNameById[scenarioId] ?? "Scenario";
+    try {
+      setPageError(null);
+      await cloneScenario(scenarioId);
+      setPageMessage(`${scenarioName} cloned.`);
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      setPageError(`Clone failed: ${detail}`);
+    }
+  }
+
+  async function handlePromoteScenario(scenarioId: string): Promise<void> {
+    const scenarioName = scenarioNameById[scenarioId] ?? "Scenario";
+    try {
+      setPageError(null);
+      await promoteScenario(scenarioId);
+      setPageMessage(`${scenarioName} promoted.`);
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      setPageError(`Promote failed: ${detail}`);
+    }
+  }
+
+  async function handleLockScenario(scenarioId: string): Promise<void> {
+    const scenarioName = scenarioNameById[scenarioId] ?? "Scenario";
+    try {
+      setPageError(null);
+      await lockScenario(scenarioId);
+      setPageMessage(`${scenarioName} locked.`);
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      setPageError(`Lock failed: ${detail}`);
+    }
+  }
 
   function handleCompareScenario(scenarioId: string): void {
     setComparisonScenarioId(scenarioId);
@@ -137,11 +225,29 @@ export function ScenariosPage() {
     })();
   }
 
+  async function handleConfirmDeleteScenario(): Promise<void> {
+    if (!deleteScenarioId) {
+      return;
+    }
+
+    const scenarioName = scenarioNameById[deleteScenarioId] ?? deleteScenarioId;
+    try {
+      setPageError(null);
+      await deleteScenario(deleteScenarioId);
+      setDeleteScenarioId(null);
+      setPageMessage(`Scenario ${scenarioName} deleted.`);
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      setPageError(`Delete failed: ${detail}`);
+      setDeleteScenarioId(null);
+    }
+  }
+
   return (
     <section className="scenarios-page">
       <PageHeader
         title="Scenarios Workspace"
-        subtitle="Clone, promote, lock, and compare scenarios with global context selection."
+        subtitle="Create, clone, promote, lock, delete, and compare scenarios with global context selection."
       />
 
       <Card className="scenarios-page__summary">
@@ -150,6 +256,43 @@ export function ScenariosPage() {
           {selectedScenario ? selectedScenario.name : "No active scenario"}
         </Text>
       </Card>
+
+      <Card className="scenarios-page__create">
+        <Title3>Create scenario</Title3>
+        <div className="scenarios-page__create-controls">
+          <Input
+            aria-label="New scenario name"
+            placeholder="Scenario name"
+            value={newScenarioName}
+            onChange={(_event, data) => setNewScenarioName(data.value)}
+          />
+          <Select
+            aria-label="Parent scenario"
+            value={newScenarioParentId}
+            onChange={(event) => setNewScenarioParentId(event.target.value)}
+          >
+            <option value="">No parent</option>
+            {scenarios.map((scenario) => (
+              <option key={scenario.id} value={scenario.id}>
+                {scenario.name}
+              </option>
+            ))}
+          </Select>
+          <Button
+            appearance="primary"
+            onClick={() => void handleCreateScenario()}
+            disabled={!newScenarioName.trim()}
+          >
+            Create Scenario
+          </Button>
+        </div>
+        <Text size={200}>
+          Creates a blank scenario. Use Clone when you want to copy expenses and recurrences.
+        </Text>
+      </Card>
+
+      {pageError ? <InlineError message={pageError} /> : null}
+      {pageMessage ? <Text>{pageMessage}</Text> : null}
 
       {comparisonText ? (
         <Card data-testid="scenario-comparison">
@@ -165,7 +308,7 @@ export function ScenariosPage() {
           <Text>{`Delta: ${comparisonResult.delta.expenseCount} expenses, ${formatCurrencyMinor(comparisonResult.delta.totalMinor, displayCurrency)}, ${comparisonResult.delta.classifiedExpenseCount} classified`}</Text>
         </Card>
       ) : null}
-      {comparisonError ? <Text>{comparisonError}</Text> : null}
+      {comparisonError ? <InlineError message={comparisonError} /> : null}
 
       <Table aria-label="Scenarios table">
         <TableHeader>
@@ -181,6 +324,11 @@ export function ScenariosPage() {
         <TableBody>
           {scenarios.map((scenario) => {
             const isSelected = scenario.id === selectedScenarioId;
+            const canDelete =
+              scenario.id !== baselineScenarioId &&
+              !scenario.locked &&
+              !childScenarioIds.has(scenario.id);
+
             return (
               <TableRow
                 key={scenario.id}
@@ -220,23 +368,29 @@ export function ScenariosPage() {
                       </MenuTrigger>
                       <MenuPopover>
                         <MenuList>
-                          <MenuItem onClick={() => cloneScenario(scenario.id)}>
+                          <MenuItem onClick={() => void handleCloneScenario(scenario.id)}>
                             Clone
                           </MenuItem>
                           <MenuItem
                             disabled={scenario.locked || scenario.status === "approved"}
-                            onClick={() => promoteScenario(scenario.id)}
+                            onClick={() => void handlePromoteScenario(scenario.id)}
                           >
                             Promote
                           </MenuItem>
                           <MenuItem
                             disabled={scenario.locked}
-                            onClick={() => lockScenario(scenario.id)}
+                            onClick={() => void handleLockScenario(scenario.id)}
                           >
                             Lock
                           </MenuItem>
                           <MenuItem onClick={() => handleCompareScenario(scenario.id)}>
                             Compare
+                          </MenuItem>
+                          <MenuItem
+                            disabled={!canDelete}
+                            onClick={() => setDeleteScenarioId(scenario.id)}
+                          >
+                            Delete
                           </MenuItem>
                         </MenuList>
                       </MenuPopover>
@@ -248,7 +402,21 @@ export function ScenariosPage() {
           })}
         </TableBody>
       </Table>
+
+      <ConfirmDialog
+        open={deleteScenarioId !== null}
+        title="Delete scenario?"
+        message="Delete removes this scenario and its scenario-specific records. Baseline, locked scenarios, and scenarios with children cannot be deleted."
+        onOpenChange={(open) => {
+          if (!open) {
+            setDeleteScenarioId(null);
+          }
+        }}
+        onConfirm={() => {
+          void handleConfirmDeleteScenario();
+        }}
+        confirmLabel="Delete"
+      />
     </section>
   );
 }
-

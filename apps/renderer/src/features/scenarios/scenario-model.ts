@@ -22,7 +22,9 @@ export type ScenarioState = {
 
 export type ScenarioAction =
   | { type: "select"; scenarioId: string }
+  | { type: "create"; name: string; parentScenarioId?: string | null; createdAt?: string }
   | { type: "clone"; sourceScenarioId: string; createdAt?: string }
+  | { type: "delete"; scenarioId: string }
   | { type: "promote"; scenarioId: string }
   | { type: "lock"; scenarioId: string }
   | { type: "replace"; state: ScenarioState };
@@ -106,6 +108,46 @@ export function scenarioReducer(
       scenarios: [...state.scenarios, clone],
       selectedScenarioId: clone.id
     };
+  }
+
+  if (action.type === "create") {
+    const createdAt = action.createdAt ?? new Date().toISOString();
+    const trimmedName = action.name.trim();
+    if (!trimmedName) {
+      return state;
+    }
+
+    const created: ScenarioRecord = {
+      id: nextScenarioId(trimmedName, state.scenarios),
+      name: trimmedName,
+      status: "draft",
+      locked: false,
+      parentScenarioId: action.parentScenarioId ?? null,
+      createdAt
+    };
+
+    return {
+      scenarios: [...state.scenarios, created],
+      selectedScenarioId: created.id
+    };
+  }
+
+  if (action.type === "delete") {
+    const target = state.scenarios.find((scenario) => scenario.id === action.scenarioId);
+    if (!target || target.id === "baseline") {
+      return state;
+    }
+    if (state.scenarios.some((scenario) => scenario.parentScenarioId === target.id)) {
+      return state;
+    }
+
+    return normalizeScenarioState({
+      scenarios: state.scenarios.filter((scenario) => scenario.id !== target.id),
+      selectedScenarioId: getScenarioFallbackSelectionAfterDelete(
+        state.scenarios,
+        action.scenarioId
+      )
+    });
   }
 
   if (action.type === "promote") {
@@ -205,6 +247,37 @@ export function compareScenarioToBaseline(
         : "target is open while baseline is locked";
 
   return `${target.name}: ${statusText}; ${lockText}.`;
+}
+
+export function getScenarioFallbackSelectionAfterDelete(
+  scenarios: ScenarioRecord[],
+  deletedScenarioId: string
+): string {
+  const deletedScenario = scenarios.find((scenario) => scenario.id === deletedScenarioId);
+  if (!deletedScenario) {
+    return scenarios[0]?.id ?? DEFAULT_SCENARIO_STATE.selectedScenarioId;
+  }
+
+  const parentFallback =
+    deletedScenario.parentScenarioId &&
+    scenarios.some((scenario) => scenario.id === deletedScenario.parentScenarioId)
+      ? deletedScenario.parentScenarioId
+      : null;
+  if (parentFallback) {
+    return parentFallback;
+  }
+
+  const siblingFallback = scenarios.find(
+    (scenario) =>
+      scenario.id !== deletedScenarioId &&
+      scenario.parentScenarioId === deletedScenario.parentScenarioId
+  );
+  if (siblingFallback) {
+    return siblingFallback.id;
+  }
+
+  const firstRemaining = scenarios.find((scenario) => scenario.id !== deletedScenarioId);
+  return firstRemaining?.id ?? DEFAULT_SCENARIO_STATE.selectedScenarioId;
 }
 
 function getStorage(): Storage | null {

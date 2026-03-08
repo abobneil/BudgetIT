@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   DEFAULT_SCENARIO_STATE,
+  getScenarioFallbackSelectionAfterDelete,
   getScenarioStorageKey,
   loadScenarioState,
   persistScenarioState,
@@ -23,6 +24,17 @@ class MemoryStorage {
 
 describe("scenario model", () => {
   it("supports clone/promote/lock transitions and selection updates", () => {
+    const created = scenarioReducer(DEFAULT_SCENARIO_STATE, {
+      type: "create",
+      name: "New Scenario",
+      parentScenarioId: "baseline",
+      createdAt: "2026-01-25T00:00:00.000Z"
+    });
+    const newScenario = created.scenarios.find((scenario) => scenario.id === "scenario-new-scenario");
+    expect(newScenario).toBeDefined();
+    expect(newScenario?.parentScenarioId).toBe("baseline");
+    expect(created.selectedScenarioId).toBe("scenario-new-scenario");
+
     const cloned = scenarioReducer(DEFAULT_SCENARIO_STATE, {
       type: "clone",
       sourceScenarioId: "baseline",
@@ -59,6 +71,15 @@ describe("scenario model", () => {
       promotedLocked.scenarios.find((scenario) => scenario.id === "scenario-baseline-copy")
         ?.status
     ).toBe("reviewed");
+
+    const deleted = scenarioReducer(cloned, {
+      type: "delete",
+      scenarioId: "scenario-baseline-copy"
+    });
+    expect(
+      deleted.scenarios.some((scenario) => scenario.id === "scenario-baseline-copy")
+    ).toBe(false);
+    expect(deleted.selectedScenarioId).toBe("baseline");
   });
 
   it("persists and reloads selected scenario, with fallback on invalid persisted state", () => {
@@ -84,5 +105,25 @@ describe("scenario model", () => {
     );
     const fallbackLoaded = loadScenarioState(storage);
     expect(fallbackLoaded.selectedScenarioId).toBe("baseline");
+  });
+
+  it("prefers parent or a remaining scenario when choosing fallback selection after delete", () => {
+    expect(
+      getScenarioFallbackSelectionAfterDelete(DEFAULT_SCENARIO_STATE.scenarios, "growth")
+    ).toBe("baseline");
+
+    const scenarios: ScenarioState["scenarios"] = [
+      ...DEFAULT_SCENARIO_STATE.scenarios,
+      {
+        id: "scenario-a",
+        name: "Scenario A",
+        status: "draft",
+        locked: false,
+        parentScenarioId: "baseline",
+        createdAt: "2026-02-01T00:00:00.000Z"
+      }
+    ];
+
+    expect(getScenarioFallbackSelectionAfterDelete(scenarios, "cost-cut")).toBe("baseline");
   });
 });

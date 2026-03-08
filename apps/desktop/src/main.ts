@@ -3024,6 +3024,24 @@ function setupIpcHandlers(requestExit: () => void): void {
     });
     return created;
   });
+  ipcMain.handle("scenarios.delete", async (_event, payload: unknown) => {
+    const value = requireObjectPayload(payload, "scenarios.delete requires payload.");
+    const scenarioId = getRequiredString(value, "scenarioId", "scenarios.delete requires scenarioId.");
+    const repo = getCrudRepository();
+    const before = repo.listScenarios().find((entry) => entry.id === scenarioId) ?? null;
+    if (!before) {
+      throw new Error(`Scenario not found: ${scenarioId}`);
+    }
+    repo.deleteScenario(scenarioId);
+    writeAuditLog({
+      action: "scenarios.delete",
+      entityType: "scenario",
+      entityId: scenarioId,
+      before,
+      after: null
+    });
+    return { ok: true, id: scenarioId };
+  });
   ipcMain.handle("scenarios.approve", async (_event, payload: unknown) => {
     const value = requireObjectPayload(payload, "scenarios.approve requires payload.");
     const scenarioId = getRequiredString(value, "scenarioId", "scenarios.approve requires scenarioId.");

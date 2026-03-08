@@ -23,7 +23,9 @@ import { ScenarioProvider } from "./ScenarioContext";
 vi.mock("../../lib/ipcClient", () => ({
   isIpcAvailable: vi.fn(() => false),
   listScenarios: vi.fn(),
+  createScenario: vi.fn(),
   cloneScenario: vi.fn(),
+  deleteScenario: vi.fn(),
   approveScenario: vi.fn(),
   lockScenario: vi.fn(),
   queryReport: vi.fn(),
@@ -162,5 +164,30 @@ describe("Scenarios and global scenario context", () => {
     expect(screen.getByTestId("dashboard-scenario-context")).toHaveTextContent(
       "Scenario: Baseline Copy"
     );
+  });
+
+  it("supports creating and deleting scenarios from the workspace", async () => {
+    renderWorkspace("/scenarios");
+
+    await screen.findByText("Scenarios Workspace");
+
+    fireEvent.change(screen.getByLabelText("New scenario name"), {
+      target: { value: "FY27 Replan" }
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Create Scenario" }));
+
+    const createdRow = await screen.findByTestId("scenario-row-scenario-fy27-replan");
+    expect(createdRow).toBeInTheDocument();
+    expect(screen.getByTestId("selected-scenario-summary")).toHaveTextContent("FY27 Replan");
+
+    fireEvent.click(within(createdRow).getByRole("button", { name: "More" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Delete" }));
+    const deleteButtons = screen.getAllByRole("button", { name: "Delete" });
+    fireEvent.click(deleteButtons[deleteButtons.length - 1]);
+
+    await waitFor(() => {
+      expect(screen.queryByTestId("scenario-row-scenario-fy27-replan")).not.toBeInTheDocument();
+    });
+    expect(screen.getByTestId("selected-scenario-summary")).toHaveTextContent("Baseline");
   });
 });

@@ -785,6 +785,14 @@ export class BudgetCrudRepository {
 
   createScenario(input: z.input<typeof scenarioInputSchema>): string {
     const parsed = scenarioInputSchema.parse(input);
+    if (parsed.parentScenarioId) {
+      const parent = this.db
+        .prepare("SELECT id FROM scenario WHERE id = ?")
+        .get(parsed.parentScenarioId) as { id: string } | undefined;
+      if (!parent) {
+        throw new Error(`Scenario not found: ${parsed.parentScenarioId}`);
+      }
+    }
     const id = crypto.randomUUID();
     const create = this.db.transaction(() => {
       this.db
@@ -846,6 +854,83 @@ export class BudgetCrudRepository {
     });
     create();
     return id;
+  }
+
+  deleteScenario(scenarioId: string): void {
+    const scenario = this.db
+      .prepare("SELECT id FROM scenario WHERE id = ?")
+      .get(scenarioId) as
+      | {
+          id: string;
+        }
+      | undefined;
+
+    if (!scenario) {
+      throw new Error(`Scenario not found: ${scenarioId}`);
+    }
+    if (scenario.id === "baseline") {
+      throw new Error("Baseline scenario cannot be deleted.");
+    }
+
+    const childScenario = this.db
+      .prepare("SELECT id FROM scenario WHERE parent_scenario_id = ? LIMIT 1")
+      .get(scenarioId) as { id: string } | undefined;
+    if (childScenario) {
+      throw new Error("Scenario cannot be deleted while child scenarios exist.");
+    }
+
+    const remove = this.db.transaction(() => {
+      this.db
+        .prepare(
+          `
+            DELETE FROM replacement_candidate
+            WHERE service_plan_id IN (
+              SELECT id
+              FROM service_plan
+              WHERE scenario_id = ?
+            )
+          `
+        )
+        .run(scenarioId);
+      this.db.prepare("DELETE FROM service_plan WHERE scenario_id = ?").run(scenarioId);
+      this.db.prepare("DELETE FROM alert_event WHERE scenario_id = ?").run(scenarioId);
+      this.db.prepare("DELETE FROM alert_rule WHERE scenario_id = ?").run(scenarioId);
+      this.db.prepare("DELETE FROM occurrence WHERE scenario_id = ?").run(scenarioId);
+      this.db.prepare("DELETE FROM spend_transaction WHERE scenario_id = ?").run(scenarioId);
+      this.db.prepare("DELETE FROM unmatched_actual_review WHERE scenario_id = ?").run(scenarioId);
+      this.db
+        .prepare(
+          `
+            DELETE FROM showback_line
+            WHERE statement_id IN (
+              SELECT id
+              FROM showback_statement
+              WHERE scenario_id = ?
+            )
+          `
+        )
+        .run(scenarioId);
+      this.db.prepare("DELETE FROM showback_statement WHERE scenario_id = ?").run(scenarioId);
+      this.db.prepare("DELETE FROM approval_record WHERE scenario_id = ?").run(scenarioId);
+      this.db.prepare("DELETE FROM scenario_settings WHERE scenario_id = ?").run(scenarioId);
+      this.db
+        .prepare(
+          `
+            DELETE FROM recurrence_rule
+            WHERE expense_line_id IN (
+              SELECT id
+              FROM expense_line
+              WHERE scenario_id = ?
+            )
+          `
+        )
+        .run(scenarioId);
+      this.db.prepare("DELETE FROM expense_line WHERE scenario_id = ?").run(scenarioId);
+      this.db.prepare("DELETE FROM scenario WHERE id = ?").run(scenarioId);
+      this.touchForecastStale();
+    });
+
+    remove();
   }
 
   setScenarioApprovalStatus(
