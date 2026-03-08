@@ -69,7 +69,9 @@ describe("scenario model", () => {
     };
 
     persistScenarioState(state, storage);
-    expect(storage.getItem(getScenarioStorageKey())).toContain("\"selectedScenarioId\":\"growth\"");
+    expect(storage.getItem(getScenarioStorageKey())).toBe(
+      JSON.stringify({ selectedScenarioId: "growth" })
+    );
 
     const loaded = loadScenarioState(storage);
     expect(loaded.selectedScenarioId).toBe("growth");
@@ -77,7 +79,6 @@ describe("scenario model", () => {
     storage.setItem(
       getScenarioStorageKey(),
       JSON.stringify({
-        scenarios: DEFAULT_SCENARIO_STATE.scenarios,
         selectedScenarioId: "missing"
       })
     );

@@ -39,13 +39,13 @@ import {
   SERVICE_BY_ID,
   type ContractLifecycleStatus
 } from "../services/service-contract-data";
+import { currentYearDateRange, toUtcIsoDate } from "../../lib/dateDefaults";
 import {
   contractLifecycleTone,
   renewalWindowLabel
 } from "../services/service-lifecycle-model";
+import { useScenarioContext } from "../scenarios/ScenarioContext";
 import "./ContractsPage.css";
-
-const REFERENCE_DATE = "2026-03-01";
 
 type ServiceContext = {
   id: string;
@@ -114,14 +114,15 @@ function buildNoticeDeadline(renewalDate: string, noticePeriodDays: number): str
 }
 
 function createDefaultFormState(serviceId: string): ContractFormState {
+  const currentYearRange = currentYearDateRange();
   return {
     serviceId,
     contractNumber: "",
     owner: "",
-    startDate: "2026-01-01",
-    endDate: "2026-12-31",
+    startDate: currentYearRange.dateFrom,
+    endDate: currentYearRange.dateTo,
     renewalType: "manual",
-    renewalDate: "2026-12-31",
+    renewalDate: currentYearRange.dateTo,
     noticePeriodDays: "30",
     lifecycleStatus: "active",
     renewalAction: "manual-review"
@@ -151,6 +152,7 @@ function fromContract(contract: (typeof CONTRACT_RECORDS)[number]): ContractForm
 export function ContractsPage() {
   const navigate = useNavigate();
   const hasIpc = isIpcAvailable();
+  const { selectedScenarioId } = useScenarioContext();
   const [searchParams, setSearchParams] = useSearchParams();
   const [contractRecords, setContractRecords] = useState(CONTRACT_RECORDS);
   const [serviceById, setServiceById] = useState<Record<string, ServiceContext>>(
@@ -181,6 +183,8 @@ export function ContractsPage() {
   const [formState, setFormState] = useState<ContractFormState>(() => createDefaultFormState(""));
   const [formError, setFormError] = useState<string | null>(null);
   const [deleteContractId, setDeleteContractId] = useState<string | null>(null);
+  const referenceDate = toUtcIsoDate();
+  const currentYearRange = useMemo(() => currentYearDateRange(), []);
 
   const serviceChoices = useMemo(
     () =>
@@ -200,7 +204,7 @@ export function ContractsPage() {
         listVendorsIpc(),
         listServicesIpc(),
         listContractsIpc(),
-        listExpensesIpc({ scenarioId: "baseline" })
+        listExpensesIpc({ scenarioId: selectedScenarioId })
       ]);
       const vendorNameById = new Map(vendors.map((vendor) => [vendor.id, vendor.name]));
       const serviceMap = Object.fromEntries(
@@ -232,7 +236,7 @@ export function ContractsPage() {
         const service = services.find((entry) => entry.id === contract.serviceId);
         const vendorName =
           vendorNameById.get(service?.vendorId ?? "") ?? service?.vendorId ?? "";
-        const renewalDate = contract.renewalDate ?? contract.endDate ?? "2026-12-31";
+        const renewalDate = contract.renewalDate ?? contract.endDate ?? currentYearRange.dateTo;
         const noticeDays = contract.noticePeriodDays ?? 30;
         return {
           id: contract.id,
@@ -260,7 +264,7 @@ export function ContractsPage() {
     } finally {
       setLoading(false);
     }
-  }, [hasIpc, selectedContractId]);
+  }, [currentYearRange.dateTo, hasIpc, selectedContractId, selectedScenarioId]);
 
   useEffect(() => {
     void loadWorkspaceData();
@@ -568,7 +572,7 @@ export function ContractsPage() {
                       <TableCell>
                         <Text>{formatDate(contract.renewalDate)}</Text>
                         <Text size={200}>
-                          {renewalWindowLabel(contract.renewalDate, REFERENCE_DATE)}
+                          {renewalWindowLabel(contract.renewalDate, referenceDate)}
                         </Text>
                       </TableCell>
                       <TableCell>{formatDate(contract.noticeDeadline)}</TableCell>

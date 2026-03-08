@@ -14,7 +14,7 @@ import {
   Title3
 } from "@fluentui/react-components";
 
-import { exportReport, parseNlq } from "../../lib/ipcClient";
+import { exportReport, pickDirectoryPath, parseNlq } from "../../lib/ipcClient";
 import { InlineError, PageHeader } from "../../ui/primitives";
 import { saveReportPreset } from "../reports/reports-config-model";
 import { useScenarioContext } from "../scenarios/ScenarioContext";
@@ -100,6 +100,16 @@ export function NlqPage() {
       setError(`NLQ parse failed: ${detail}`);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function browseExportDirectory(): Promise<void> {
+    const picked = await pickDirectoryPath({
+      title: "Choose NLQ export directory",
+      defaultPath: exportPath.trim() || undefined
+    });
+    if (picked) {
+      setExportPath(picked);
     }
   }
 
@@ -287,6 +297,9 @@ export function NlqPage() {
                   onChange={(_event, data) => setExportPath(data.value)}
                   placeholder="Leave blank to use system default"
                 />
+                <Button appearance="secondary" onClick={() => void browseExportDirectory()}>
+                  Browse…
+                </Button>
               </section>
               <section className="nlq-page__action-panel">
                 <Text className="nlq-page__action-label" weight="semibold">

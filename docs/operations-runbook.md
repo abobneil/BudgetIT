@@ -21,10 +21,11 @@ This runbook is for single-device operation of BudgetIT on Windows and Linux.
 
 ## Backup
 
-1. Open BudgetIT and run backup from the runtime panel.
-2. Store backup and manifest files together.
-3. Verify backup freshness alert state is healthy.
-4. Optional: run test-restore verification before release cut.
+1. Open **Settings > Backup & Restore**.
+2. Use the browse button to choose the destination directory, then create the backup.
+3. Store the backup database file and manifest file together.
+4. Run backup verification and confirm backup freshness alert state is healthy.
+5. Optional: run test-restore verification before release cut.
 
 ## Recovery Key
 
@@ -35,12 +36,17 @@ This runbook is for single-device operation of BudgetIT on Windows and Linux.
 
 ## Restore
 
-1. Select backup file and matching manifest.
+1. Open **Settings > Backup & Restore** and use the browse buttons to select the backup file and matching manifest.
 2. Run restore and wait for integrity/schema checks.
 3. Confirm the post-restore banner:
    - restored timestamp
    - source mutation timestamp ("data current as of")
-4. Validate key record counts (vendors, services, contracts, expenses).
+4. Expect machine-local renderer preferences to reset after restore (this is expected; they remain intentionally machine-local):
+   - dashboard layout
+   - saved report presets
+   - NLQ history
+   - quick-start checklist progress
+5. Validate key record counts (vendors, services, contracts, expenses).
 
 ## Rollback Dry-Run
 

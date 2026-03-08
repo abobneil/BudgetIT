@@ -26,6 +26,7 @@ import {
 import {
   app,
   BrowserWindow,
+  dialog,
   ipcMain,
   Menu,
   Notification,
@@ -792,6 +793,75 @@ function parseHelpOpenPayload(payload: unknown): {
   return { topic, anchor };
 }
 
+export function parsePickFileDialogPayload(payload: unknown): {
+  title?: string;
+  defaultPath?: string;
+  filters?: Array<{ name: string; extensions: string[] }>;
+} {
+  if (!payload || typeof payload !== "object") {
+    return {};
+  }
+
+  const value = payload as {
+    title?: unknown;
+    defaultPath?: unknown;
+    filters?: unknown;
+  };
+
+  const filters = Array.isArray(value.filters)
+    ? value.filters
+        .filter((entry): entry is { name?: unknown; extensions?: unknown } =>
+          Boolean(entry && typeof entry === "object")
+        )
+        .map((entry) => ({
+          name:
+            typeof entry.name === "string" && entry.name.trim().length > 0
+              ? entry.name.trim()
+              : "Files",
+          extensions: Array.isArray(entry.extensions)
+            ? entry.extensions.filter(
+                (extension): extension is string =>
+                  typeof extension === "string" && extension.trim().length > 0
+              )
+            : []
+        }))
+        .filter((entry) => entry.extensions.length > 0)
+    : undefined;
+
+  return {
+    title:
+      typeof value.title === "string" && value.title.trim().length > 0
+        ? value.title.trim()
+        : undefined,
+    defaultPath:
+      typeof value.defaultPath === "string" && value.defaultPath.trim().length > 0
+        ? value.defaultPath.trim()
+        : undefined,
+    filters
+  };
+}
+
+export function parsePickDirectoryDialogPayload(payload: unknown): {
+  title?: string;
+  defaultPath?: string;
+} {
+  if (!payload || typeof payload !== "object") {
+    return {};
+  }
+
+  const value = payload as { title?: unknown; defaultPath?: unknown };
+  return {
+    title:
+      typeof value.title === "string" && value.title.trim().length > 0
+        ? value.title.trim()
+        : undefined,
+    defaultPath:
+      typeof value.defaultPath === "string" && value.defaultPath.trim().length > 0
+        ? value.defaultPath.trim()
+        : undefined
+  };
+}
+
 function parseImportPayload(payload: unknown): {
   mode: "expenses" | "actuals";
   filePath: string;
@@ -901,7 +971,7 @@ export function parseReportsQueryPayload(payload: unknown): {
   filters?: ReportDatasetFilters;
 } {
   if (!payload || typeof payload !== "object") {
-    throw new Error("reports.query requires payload with query.");
+    throw new Error("reports.query requires payload with query and scenarioId.");
   }
   const value = payload as {
     query?: unknown;
@@ -919,15 +989,27 @@ export function parseReportsQueryPayload(payload: unknown): {
   if (!REPORT_QUERY_SET.has(query)) {
     throw new Error(`Unsupported reports.query value: ${value.query}`);
   }
+  const scenarioId = getRequiredString(
+    value,
+    "scenarioId",
+    "reports.query requires a non-empty scenarioId."
+  );
   const parsedHorizon =
     typeof value.horizonMonths === "number" && Number.isFinite(value.horizonMonths)
       ? Math.floor(value.horizonMonths)
       : undefined;
   const horizonMonths =
     parsedHorizon && parsedHorizon > 0 && parsedHorizon <= 60 ? parsedHorizon : undefined;
+  const baselineScenarioId =
+    typeof value.baselineScenarioId === "string" && value.baselineScenarioId.trim().length > 0
+      ? value.baselineScenarioId.trim()
+      : undefined;
+  if (query === "scenario.comparison" && !baselineScenarioId) {
+    throw new Error("reports.query scenario.comparison requires baselineScenarioId.");
+  }
   return {
     query,
-    scenarioId: typeof value.scenarioId === "string" && value.scenarioId.trim().length > 0 ? value.scenarioId : "baseline",
+    scenarioId,
     servicePlanId:
       typeof value.servicePlanId === "string" && value.servicePlanId.trim().length > 0
         ? value.servicePlanId
@@ -937,10 +1019,7 @@ export function parseReportsQueryPayload(payload: unknown): {
       typeof value.comparisonScenarioId === "string" && value.comparisonScenarioId.trim().length > 0
         ? value.comparisonScenarioId.trim()
         : undefined,
-    baselineScenarioId:
-      typeof value.baselineScenarioId === "string" && value.baselineScenarioId.trim().length > 0
-        ? value.baselineScenarioId.trim()
-        : undefined,
+    baselineScenarioId,
     filters: parseReportFilters(value.filters)
   };
 }
@@ -957,11 +1036,7 @@ export function parseExportReportPayload(payload: unknown, defaultOutputDir: str
   filterSpec?: FilterSpec;
 } {
   if (!payload || typeof payload !== "object") {
-    return {
-      scenarioId: "baseline",
-      reportType: "dashboard.summary",
-      outputDir: defaultOutputDir
-    };
+    throw new Error("export.report requires payload with scenarioId.");
   }
 
   const value = payload as {
@@ -975,10 +1050,11 @@ export function parseExportReportPayload(payload: unknown, defaultOutputDir: str
     filterSpec?: unknown;
   };
 
-  const scenarioId =
-    typeof value.scenarioId === "string" && value.scenarioId.trim().length > 0
-      ? value.scenarioId
-      : "baseline";
+  const scenarioId = getRequiredString(
+    value,
+    "scenarioId",
+    "export.report requires a non-empty scenarioId."
+  );
   const reportTypeCandidate =
     typeof value.reportType === "string" && value.reportType.trim().length > 0
       ? value.reportType.trim()
@@ -1039,10 +1115,7 @@ export function parseReportPreviewPayload(payload: unknown): {
   filters?: ReportDatasetFilters;
 } {
   if (!payload || typeof payload !== "object") {
-    return {
-      scenarioId: "baseline",
-      reportType: "dashboard.summary"
-    };
+    throw new Error("report.preview requires payload with scenarioId.");
   }
 
   const value = payload as {
@@ -1051,10 +1124,11 @@ export function parseReportPreviewPayload(payload: unknown): {
     filters?: unknown;
   };
 
-  const scenarioId =
-    typeof value.scenarioId === "string" && value.scenarioId.trim().length > 0
-      ? value.scenarioId
-      : "baseline";
+  const scenarioId = getRequiredString(
+    value,
+    "scenarioId",
+    "report.preview requires a non-empty scenarioId."
+  );
   const reportTypeCandidate =
     typeof value.reportType === "string" && value.reportType.trim().length > 0
       ? value.reportType.trim()
@@ -1096,22 +1170,23 @@ function isIsoDateString(value: string): boolean {
   return /^\d{4}-\d{2}-\d{2}$/.test(value);
 }
 
-function parseUnmatchedListPayload(payload: unknown): { scenarioId: string } {
-  if (!payload || typeof payload !== "object") {
-    return { scenarioId: "baseline" };
-  }
-  const value = payload as { scenarioId?: unknown };
+export function parseUnmatchedListPayload(payload: unknown): { scenarioId: string } {
+  const value = requireObjectPayload(
+    payload,
+    "actuals.unmatched.list requires payload with scenarioId."
+  );
   return {
-    scenarioId:
-      typeof value.scenarioId === "string" && value.scenarioId.trim().length > 0
-        ? value.scenarioId.trim()
-        : "baseline"
+    scenarioId: getRequiredString(
+      value,
+      "scenarioId",
+      "actuals.unmatched.list requires scenarioId."
+    )
   };
 }
 
 type UnmatchedReviewDisposition = "matched" | "rejected" | "ignored" | "create_expense";
 
-function parseUnmatchedReviewPayload(payload: unknown): {
+export function parseUnmatchedReviewPayload(payload: unknown): {
   transactionId: string;
   scenarioId: string;
   disposition: UnmatchedReviewDisposition;
@@ -1151,7 +1226,11 @@ function parseUnmatchedReviewPayload(payload: unknown): {
       "transactionId",
       "actuals.unmatched.review requires transactionId."
     ),
-    scenarioId: getOptionalString(value, "scenarioId") ?? "baseline",
+    scenarioId: getRequiredString(
+      value,
+      "scenarioId",
+      "actuals.unmatched.review requires scenarioId."
+    ),
     disposition: dispositionRaw,
     matchedOccurrenceId,
     reviewer: getOptionalString(value, "reviewer") ?? DEFAULT_SINGLE_USER_ACTOR,
@@ -1160,8 +1239,9 @@ function parseUnmatchedReviewPayload(payload: unknown): {
   };
 }
 
-function parseUnmatchedCreateExpensePayload(payload: unknown): {
+export function parseUnmatchedCreateExpensePayload(payload: unknown): {
   transactionId: string;
+  scenarioId: string;
   reviewer: string;
   name?: string;
   expenseType?: "recurring" | "one_time";
@@ -1206,6 +1286,11 @@ function parseUnmatchedCreateExpensePayload(payload: unknown): {
       "transactionId",
       "actuals.unmatched.createExpense requires transactionId."
     ),
+    scenarioId: getRequiredString(
+      value,
+      "scenarioId",
+      "actuals.unmatched.createExpense requires scenarioId."
+    ),
     reviewer: getOptionalString(value, "reviewer") ?? DEFAULT_SINGLE_USER_ACTOR,
     name: getOptionalString(value, "name"),
     expenseType: expenseType as "recurring" | "one_time" | undefined,
@@ -1216,6 +1301,27 @@ function parseUnmatchedCreateExpensePayload(payload: unknown): {
     fundingSource: getOptionalNullableString(value, "fundingSource"),
     comment: getOptionalString(value, "comment"),
     driverTag: driverTag as "timing" | "price" | "scope" | undefined
+  };
+}
+
+export function parseScenarioSettingsPayload(
+  payload: unknown,
+  actionName: "scenarioSettings.get" | "scenarioSettings.update"
+): { scenarioId: string } {
+  const value = requireObjectPayload(payload, `${actionName} requires payload with scenarioId.`);
+  return {
+    scenarioId: getRequiredString(value, "scenarioId", `${actionName} requires scenarioId.`)
+  };
+}
+
+export function parseExpenseListPayload(payload: unknown): {
+  scenarioId: string;
+  includeDeleted: boolean;
+} {
+  const value = requireObjectPayload(payload, "expenses.list requires payload with scenarioId.");
+  return {
+    scenarioId: getRequiredString(value, "scenarioId", "expenses.list requires scenarioId."),
+    includeDeleted: value.includeDeleted === true
   };
 }
 
@@ -1238,7 +1344,11 @@ function parseShowbackGeneratePayload(payload: unknown): {
     throw new Error("showback.generate groupBy must be cost_center or team.");
   }
   return {
-    scenarioId: getOptionalString(value, "scenarioId") ?? "baseline",
+    scenarioId: getRequiredString(
+      value,
+      "scenarioId",
+      "showback.generate requires scenarioId."
+    ),
     periodStart,
     periodEnd,
     groupBy: (groupBy as "cost_center" | "team" | undefined) ?? "cost_center",
@@ -1247,7 +1357,7 @@ function parseShowbackGeneratePayload(payload: unknown): {
   };
 }
 
-function parseShowbackListPayload(payload: unknown): {
+export function parseShowbackListPayload(payload: unknown): {
   scenarioId?: string;
   includeLines: boolean;
 } {
@@ -1285,8 +1395,8 @@ function parseShowbackExportPayload(payload: unknown): {
   };
 }
 
-function parseApprovalCreatePayload(payload: unknown): {
-  scenarioId?: string;
+export function parseApprovalCreatePayload(payload: unknown): {
+  scenarioId: string;
   servicePlanId?: string;
   entityType: string;
   entityId: string;
@@ -1294,9 +1404,9 @@ function parseApprovalCreatePayload(payload: unknown): {
   actor: string;
   comment?: string;
 } {
-  const value = requireObjectPayload(payload, "approvals.create requires payload.");
+  const value = requireObjectPayload(payload, "approvals.create requires payload with scenarioId.");
   return {
-    scenarioId: getOptionalString(value, "scenarioId"),
+    scenarioId: getRequiredString(value, "scenarioId", "approvals.create requires scenarioId."),
     servicePlanId: getOptionalString(value, "servicePlanId"),
     entityType: getRequiredString(value, "entityType", "approvals.create requires entityType."),
     entityId: getRequiredString(value, "entityId", "approvals.create requires entityId."),
@@ -1306,19 +1416,19 @@ function parseApprovalCreatePayload(payload: unknown): {
   };
 }
 
-function parseApprovalListPayload(payload: unknown): {
-  scenarioId?: string;
+export function parseApprovalListPayload(payload: unknown): {
+  scenarioId: string;
   entityType?: string;
   limit: number;
 } {
-  if (!payload || typeof payload !== "object") {
-    return { limit: 100 };
-  }
-  const value = payload as { scenarioId?: unknown; entityType?: unknown; limit?: unknown };
-  const limitRaw = typeof value.limit === "number" && Number.isFinite(value.limit) ? Math.floor(value.limit) : 100;
+  const value = requireObjectPayload(payload, "approvals.list requires payload with scenarioId.");
+  const limitRaw =
+    typeof value.limit === "number" && Number.isFinite(value.limit)
+      ? Math.floor(value.limit)
+      : 100;
   return {
-    scenarioId: typeof value.scenarioId === "string" && value.scenarioId.trim().length > 0 ? value.scenarioId.trim() : undefined,
-    entityType: typeof value.entityType === "string" && value.entityType.trim().length > 0 ? value.entityType.trim() : undefined,
+    scenarioId: getRequiredString(value, "scenarioId", "approvals.list requires scenarioId."),
+    entityType: getOptionalString(value, "entityType"),
     limit: Math.min(Math.max(limitRaw, 1), 500)
   };
 }
@@ -1480,6 +1590,27 @@ function setupIpcHandlers(requestExit: () => void): void {
   });
 
   ipcMain.handle("help.document.get", async () => getHelpDocument());
+
+  ipcMain.handle("dialog.pickFile", async (_event, payload: unknown) => {
+    const parsed = parsePickFileDialogPayload(payload);
+    const result = await dialog.showOpenDialog({
+      title: parsed.title,
+      defaultPath: parsed.defaultPath,
+      filters: parsed.filters,
+      properties: ["openFile"]
+    });
+    return result.canceled ? null : result.filePaths[0] ?? null;
+  });
+
+  ipcMain.handle("dialog.pickDirectory", async (_event, payload: unknown) => {
+    const parsed = parsePickDirectoryDialogPayload(payload);
+    const result = await dialog.showOpenDialog({
+      title: parsed.title,
+      defaultPath: parsed.defaultPath,
+      properties: ["openDirectory", "createDirectory"]
+    });
+    return result.canceled ? null : result.filePaths[0] ?? null;
+  });
 
   ipcMain.handle("settings.get", async () => ({
     ...runtimeSettings,
@@ -1826,10 +1957,17 @@ function setupIpcHandlers(requestExit: () => void): void {
       if (!parsed.servicePlanId) {
         throw new Error("reports.query replacement.detail requires servicePlanId.");
       }
-      return getReplacementPlanDetail(handle.db, parsed.servicePlanId);
+      const detail = getReplacementPlanDetail(handle.db, parsed.servicePlanId);
+      if (detail.servicePlan.scenarioId !== parsed.scenarioId) {
+        throw new Error("reports.query replacement.detail scenarioId does not match service plan scenario.");
+      }
+      return detail;
     }
     if (parsed.query === "scenario.comparison") {
-      const baselineScenarioId = parsed.baselineScenarioId ?? "baseline";
+      if (!parsed.baselineScenarioId) {
+        throw new Error("reports.query scenario.comparison requires baselineScenarioId.");
+      }
+      const baselineScenarioId = parsed.baselineScenarioId;
       const comparisonScenarioId = parsed.comparisonScenarioId ?? parsed.scenarioId;
       const totals = handle.db
         .prepare(
@@ -2375,16 +2513,8 @@ function setupIpcHandlers(requestExit: () => void): void {
   });
 
   ipcMain.handle("expenses.list", async (_event, payload: unknown) => {
-    if (!payload || typeof payload !== "object") {
-      return getCrudRepository().listExpenseLines();
-    }
-    const value = payload as { scenarioId?: unknown; includeDeleted?: unknown };
-    return getCrudRepository().listExpenseLines(
-      typeof value.scenarioId === "string" && value.scenarioId.trim().length > 0
-        ? value.scenarioId.trim()
-        : undefined,
-      value.includeDeleted === true
-    );
+    const parsed = parseExpenseListPayload(payload);
+    return getCrudRepository().listExpenseLines(parsed.scenarioId, parsed.includeDeleted);
   });
   ipcMain.handle("expenses.create", async (_event, payload: unknown) => {
     const value = requireObjectPayload(payload, "expenses.create requires payload.");
@@ -2429,7 +2559,7 @@ function setupIpcHandlers(requestExit: () => void): void {
     }
     const id = repo.createExpenseLineWithOptionalRecurrence(
       {
-        scenarioId: getOptionalString(value, "scenarioId") ?? "baseline",
+        scenarioId: getRequiredString(value, "scenarioId", "expenses.create requires scenarioId."),
         serviceId: getRequiredString(value, "serviceId", "expenses.create requires serviceId."),
         contractId: getOptionalNullableString(value, "contractId"),
         name: getRequiredString(value, "name", "expenses.create requires name."),
@@ -2475,7 +2605,7 @@ function setupIpcHandlers(requestExit: () => void): void {
       throw new Error("expenses.update requires numeric amountMinor.");
     }
     repo.updateExpenseLine(id, {
-      scenarioId: getOptionalString(value, "scenarioId") ?? "baseline",
+      scenarioId: getRequiredString(value, "scenarioId", "expenses.update requires scenarioId."),
       serviceId: getRequiredString(value, "serviceId", "expenses.update requires serviceId."),
       contractId: getOptionalNullableString(value, "contractId"),
       name: getRequiredString(value, "name", "expenses.update requires name."),
@@ -2940,20 +3070,13 @@ function setupIpcHandlers(requestExit: () => void): void {
   });
 
   ipcMain.handle("scenarioSettings.get", async (_event, payload: unknown) => {
-    if (!payload || typeof payload !== "object") {
-      return getCrudRepository().getScenarioSettings("baseline");
-    }
-    const value = payload as { scenarioId?: unknown };
-    const scenarioId =
-      typeof value.scenarioId === "string" && value.scenarioId.trim().length > 0
-        ? value.scenarioId.trim()
-        : "baseline";
-    return getCrudRepository().getScenarioSettings(scenarioId);
+    const parsed = parseScenarioSettingsPayload(payload, "scenarioSettings.get");
+    return getCrudRepository().getScenarioSettings(parsed.scenarioId);
   });
   ipcMain.handle("scenarioSettings.update", async (_event, payload: unknown) => {
     const value = requireObjectPayload(payload, "scenarioSettings.update requires payload.");
     const repo = getCrudRepository();
-    const scenarioId = getOptionalString(value, "scenarioId") ?? "baseline";
+    const scenarioId = parseScenarioSettingsPayload(payload, "scenarioSettings.update").scenarioId;
     const before = repo.getScenarioSettings(scenarioId);
     const after = repo.upsertScenarioSettings({
       scenarioId,
@@ -3170,6 +3293,9 @@ function setupIpcHandlers(requestExit: () => void): void {
     if (!transaction) {
       throw new Error(`Unmatched transaction not found: ${parsed.transactionId}`);
     }
+    if (parsed.scenarioId !== transaction.scenarioId) {
+      throw new Error("actuals.unmatched.review scenarioId does not match transaction scenario.");
+    }
 
     const run = handle.db.transaction(() => {
       if (parsed.disposition === "matched" && parsed.matchedOccurrenceId) {
@@ -3279,6 +3405,11 @@ function setupIpcHandlers(requestExit: () => void): void {
       | undefined;
     if (!transaction) {
       throw new Error(`Unmatched transaction not found: ${parsed.transactionId}`);
+    }
+    if (parsed.scenarioId !== transaction.scenarioId) {
+      throw new Error(
+        "actuals.unmatched.createExpense scenarioId does not match transaction scenario."
+      );
     }
 
     const repo = getCrudRepository();

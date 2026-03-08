@@ -1,10 +1,15 @@
+import {
+  readStoredJson,
+  resolveBrowserStorage,
+  writeStoredJson
+} from "../../lib/browserStorage";
+import { getNlqHistoryStorageKey } from "../../lib/machineLocalState";
+
 export type NlqHistoryEntry = {
   query: string;
   lastRunAt: string;
   runCount: number;
 };
-
-const HISTORY_KEY_PREFIX = "budgetit.nlq-history.v1";
 
 export function addNlqHistoryEntry(
   history: NlqHistoryEntry[],
@@ -41,19 +46,11 @@ export function loadNlqHistory(
   if (!storage) {
     return [];
   }
-  const raw = storage.getItem(historyKey(profileId));
-  if (!raw) {
+  const parsed = readStoredJson<unknown[]>(storage, getNlqHistoryStorageKey(profileId));
+  if (!Array.isArray(parsed)) {
     return [];
   }
-  try {
-    const parsed = JSON.parse(raw) as unknown[];
-    if (!Array.isArray(parsed)) {
-      return [];
-    }
-    return parsed.filter(isHistoryEntry);
-  } catch {
-    return [];
-  }
+  return parsed.filter(isHistoryEntry);
 }
 
 export function persistNlqHistory(
@@ -64,11 +61,7 @@ export function persistNlqHistory(
   if (!storage) {
     return;
   }
-  storage.setItem(historyKey(profileId), JSON.stringify(history));
-}
-
-function historyKey(profileId: string): string {
-  return `${HISTORY_KEY_PREFIX}:${profileId}`;
+  writeStoredJson(storage, getNlqHistoryStorageKey(profileId), history);
 }
 
 function normalizeQuery(query: string): string {
@@ -76,10 +69,7 @@ function normalizeQuery(query: string): string {
 }
 
 function getStorage(): Storage | null {
-  if (typeof window === "undefined" || !window.localStorage) {
-    return null;
-  }
-  return window.localStorage;
+  return resolveBrowserStorage();
 }
 
 function isHistoryEntry(value: unknown): value is NlqHistoryEntry {

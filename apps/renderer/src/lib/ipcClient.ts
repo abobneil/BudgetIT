@@ -11,6 +11,22 @@ export type RuntimeSettingsResponse = RuntimeSettings & {
   lastRestoreSummary?: RestoreSummary | null;
 };
 
+export type FileDialogFilter = {
+  name: string;
+  extensions: string[];
+};
+
+export type PickFilePathPayload = {
+  title?: string;
+  defaultPath?: string;
+  filters?: FileDialogFilter[];
+};
+
+export type PickDirectoryPathPayload = {
+  title?: string;
+  defaultPath?: string;
+};
+
 export type BackupCreateResult = {
   backupPath: string;
   manifestPath: string;
@@ -94,7 +110,7 @@ export type ReportFilters = {
 
 export type QueryReportPayload = {
   query: ReportsQueryValue;
-  scenarioId?: string;
+  scenarioId: string;
   servicePlanId?: string;
   horizonMonths?: number;
   comparisonScenarioId?: string;
@@ -105,7 +121,7 @@ export type QueryReportPayload = {
 export type ExportReportType = ReportPresetQuery | "nlq.results";
 
 export type PreviewReportPayload = {
-  scenarioId?: string;
+  scenarioId: string;
   reportType: ReportPresetQuery;
   filters?: ReportFilters;
 };
@@ -117,7 +133,7 @@ export type PreviewReportResult = {
 };
 
 export type ExportReportPayload = {
-  scenarioId?: string;
+  scenarioId: string;
   reportType: ExportReportType;
   outputDir?: string;
   // Backward compatibility for one release window.
@@ -576,6 +592,26 @@ export async function getHelpDocument(): Promise<HelpDocumentResult> {
   return (await bridge.invoke("help.document.get")) as HelpDocumentResult;
 }
 
+export async function pickFilePath(
+  payload?: PickFilePathPayload
+): Promise<string | null> {
+  const bridge = getBridge();
+  if (!bridge) {
+    return null;
+  }
+  return (await bridge.invoke("dialog.pickFile", payload)) as string | null;
+}
+
+export async function pickDirectoryPath(
+  payload?: PickDirectoryPathPayload
+): Promise<string | null> {
+  const bridge = getBridge();
+  if (!bridge) {
+    return null;
+  }
+  return (await bridge.invoke("dialog.pickDirectory", payload)) as string | null;
+}
+
 export async function listAlerts(): Promise<AlertRecord[]> {
   const bridge = getBridge();
   if (!bridge) {
@@ -856,15 +892,15 @@ export async function deleteContract(id: string): Promise<{ ok: boolean; id: str
   return invokeIpc<{ ok: boolean; id: string }>("contracts.delete", { id });
 }
 
-export async function listExpenses(payload?: {
-  scenarioId?: string;
+export async function listExpenses(payload: {
+  scenarioId: string;
   includeDeleted?: boolean;
 }): Promise<ExpenseLineRecord[]> {
   return invokeIpc<ExpenseLineRecord[]>("expenses.list", payload);
 }
 
 export async function createExpense(payload: {
-  scenarioId?: string;
+  scenarioId: string;
   serviceId: string;
   contractId?: string | null;
   name: string;
@@ -891,7 +927,7 @@ export async function createExpense(payload: {
 
 export async function updateExpense(payload: {
   id: string;
-  scenarioId?: string;
+  scenarioId: string;
   serviceId: string;
   contractId?: string | null;
   name: string;
@@ -1067,14 +1103,14 @@ export async function lockScenario(payload: {
   return invokeIpc<ScenarioRecord | null>("scenarios.lock", payload);
 }
 
-export async function getScenarioSettings(payload?: {
-  scenarioId?: string;
+export async function getScenarioSettings(payload: {
+  scenarioId: string;
 }): Promise<ScenarioSettingsRecord> {
   return invokeIpc<ScenarioSettingsRecord>("scenarioSettings.get", payload);
 }
 
 export async function updateScenarioSettings(payload: {
-  scenarioId?: string;
+  scenarioId: string;
   fiscalYearStartMonth?: number;
   horizonMonths?: number;
   defaultCurrency?: string;
@@ -1130,15 +1166,15 @@ export async function deleteGlAccount(code: string): Promise<{ ok: boolean; code
   return invokeIpc<{ ok: boolean; code: string }>("glAccounts.delete", { code });
 }
 
-export async function listUnmatchedActuals(payload?: {
-  scenarioId?: string;
+export async function listUnmatchedActuals(payload: {
+  scenarioId: string;
 }): Promise<UnmatchedActualListResult> {
   return invokeIpc<UnmatchedActualListResult>("actuals.unmatched.list", payload);
 }
 
 export async function reviewUnmatchedActual(payload: {
   transactionId: string;
-  scenarioId?: string;
+  scenarioId: string;
   disposition: UnmatchedActualReviewDisposition;
   matchedOccurrenceId?: string;
   reviewer?: string;
@@ -1153,6 +1189,7 @@ export async function reviewUnmatchedActual(payload: {
 
 export async function createExpenseFromUnmatchedActual(payload: {
   transactionId: string;
+  scenarioId: string;
   reviewer?: string;
   name?: string;
   expenseType?: ExpenseType;
@@ -1171,7 +1208,7 @@ export async function createExpenseFromUnmatchedActual(payload: {
 }
 
 export async function generateShowbackStatement(payload: {
-  scenarioId?: string;
+  scenarioId: string;
   periodStart: string;
   periodEnd: string;
   groupBy?: "cost_center" | "team";
@@ -1203,8 +1240,8 @@ export async function exportShowbackStatement(payload: {
   }>("showback.export", payload);
 }
 
-export async function listApprovalRecords(payload?: {
-  scenarioId?: string;
+export async function listApprovalRecords(payload: {
+  scenarioId: string;
   entityType?: string;
   limit?: number;
 }): Promise<ApprovalRecord[]> {
@@ -1212,7 +1249,7 @@ export async function listApprovalRecords(payload?: {
 }
 
 export async function createApprovalRecord(payload: {
-  scenarioId?: string;
+  scenarioId: string;
   servicePlanId?: string;
   entityType: string;
   entityId: string;

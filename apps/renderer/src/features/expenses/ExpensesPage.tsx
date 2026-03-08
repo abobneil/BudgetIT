@@ -330,7 +330,7 @@ function mapIpcDimensions(
 export function ExpensesPage() {
   const hasIpc = isIpcAvailable();
   const useAgGrid = isAgGridAvailable();
-  const { selectedScenarioId } = useScenarioContext();
+  const { selectedScenarioId, selectScenario } = useScenarioContext();
   const [searchParams, setSearchParams] = useSearchParams();
   const [expenses, setExpenses] = useState<ExpenseRecord[]>(INITIAL_EXPENSES);
   const [dimensions, setDimensions] = useState<DimensionDefinition[]>(() =>
@@ -500,13 +500,25 @@ export function ExpensesPage() {
         } else {
           next.set("vendor", vendorFilter);
         }
+        if (selectedExpenseId) {
+          next.set("expense", selectedExpenseId);
+        } else {
+          next.delete("expense");
+        }
+        next.set("scenario", selectedScenarioId);
         return next;
       },
       { replace: true }
     );
-  }, [setSearchParams, vendorFilter]);
+  }, [selectedExpenseId, selectedScenarioId, setSearchParams, vendorFilter]);
 
   useEffect(() => {
+    const scenarioFromUrl = searchParams.get("scenario");
+    if (scenarioFromUrl && scenarioFromUrl !== selectedScenarioId) {
+      selectScenario(scenarioFromUrl);
+      return;
+    }
+
     const focusedExpenseId = searchParams.get("expense");
     if (focusedExpenseId && expenses.some((expense) => expense.id === focusedExpenseId)) {
       setSelectedExpenseId(focusedExpenseId);
@@ -528,7 +540,15 @@ export function ExpensesPage() {
         { replace: true }
       );
     }
-  }, [drawerOpen, expenses, searchParams, setSearchParams, vendorOptions]);
+  }, [
+    drawerOpen,
+    expenses,
+    searchParams,
+    selectScenario,
+    selectedScenarioId,
+    setSearchParams,
+    vendorOptions
+  ]);
 
   const filteredExpenses = useMemo(() => {
     const query = searchText.trim().toLowerCase();

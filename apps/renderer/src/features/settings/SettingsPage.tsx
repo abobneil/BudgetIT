@@ -11,6 +11,10 @@ import {
 
 import { formatRestoreBanner, type RestoreSummary } from "../../restore-banner";
 import {
+  MACHINE_LOCAL_STATE_DECISION_SUMMARY,
+  reconcileMachineLocalStateAfterRestore
+} from "../../lib/machineLocalState";
+import {
   createCostCenter,
   createGlAccount,
   createBackup,
@@ -25,6 +29,8 @@ import {
   listGlAccounts,
   listNotificationEndpoints,
   materializeForecast,
+  pickDirectoryPath,
+  pickFilePath,
   rekeyDatabase,
   restoreBackup,
   runDiagnostics,
@@ -134,6 +140,36 @@ export function SettingsPage() {
   function pushStatus(message: string, tone: FeedbackTone = "success"): void {
     setStatus(message);
     notify({ tone, message });
+  }
+
+  async function browseDirectory(
+    title: string,
+    currentValue: string,
+    onPick: (value: string) => void
+  ): Promise<void> {
+    const picked = await pickDirectoryPath({
+      title,
+      defaultPath: currentValue || undefined
+    });
+    if (picked) {
+      onPick(picked);
+    }
+  }
+
+  async function browseFile(
+    title: string,
+    currentValue: string,
+    onPick: (value: string) => void,
+    extensions: string[]
+  ): Promise<void> {
+    const picked = await pickFilePath({
+      title,
+      defaultPath: currentValue || undefined,
+      filters: [{ name: "Files", extensions }]
+    });
+    if (picked) {
+      onPick(picked);
+    }
   }
 
   async function loadScenarioPlanningSettings(): Promise<void> {
@@ -384,8 +420,13 @@ export function SettingsPage() {
     setRestoringBackup(true);
     try {
       const restored = await restoreBackup(backupPath, manifestPath);
+      const clearedKeys = reconcileMachineLocalStateAfterRestore(restored);
       setRestoreSummary(restored);
-      pushStatus("Backup restore completed.");
+      pushStatus(
+        clearedKeys.length > 0
+          ? "Backup restore completed. Machine-local UI state was reset for compatibility."
+          : "Backup restore completed."
+      );
     } catch (restoreError) {
       const detail = restoreError instanceof Error ? restoreError.message : String(restoreError);
       pushError(`Backup restore failed: ${detail}`);
@@ -692,6 +733,19 @@ export function SettingsPage() {
                     placeholder="Leave blank to use system default"
                   />
                 </div>
+                <Button
+                  appearance="secondary"
+                  disabled={!isIpcAvailable() || backupBusy}
+                  onClick={() =>
+                    void browseDirectory(
+                      "Choose backup destination",
+                      backupDestination,
+                      setBackupDestination
+                    )
+                  }
+                >
+                  Browse…
+                </Button>
                 <Button disabled={backupBusy} onClick={() => void handleCreateBackup()}>
                   {backupBusy ? "Working..." : "Create Backup"}
                 </Button>
@@ -715,6 +769,20 @@ export function SettingsPage() {
                     placeholder="Backup .db path"
                   />
                 </div>
+                <Button
+                  appearance="secondary"
+                  disabled={!isIpcAvailable() || restoringBackup}
+                  onClick={() =>
+                    void browseFile(
+                      "Choose backup database",
+                      backupPathInput,
+                      setBackupPathInput,
+                      ["db", "sqlite", "sqlite3"]
+                    )
+                  }
+                >
+                  Backup…
+                </Button>
                 <div className="settings-backup__field">
                   <Text className="settings-backup__label" size={200} weight="medium">
                     Manifest path
@@ -726,6 +794,20 @@ export function SettingsPage() {
                     placeholder="Manifest .json path"
                   />
                 </div>
+                <Button
+                  appearance="secondary"
+                  disabled={!isIpcAvailable() || restoringBackup}
+                  onClick={() =>
+                    void browseFile(
+                      "Choose backup manifest",
+                      manifestPathInput,
+                      setManifestPathInput,
+                      ["json"]
+                    )
+                  }
+                >
+                  Manifest…
+                </Button>
                 <Button disabled={restoringBackup} onClick={() => void handleRestoreBackup()}>
                   {restoringBackup ? "Restoring..." : "Restore Backup"}
                 </Button>
@@ -749,6 +831,20 @@ export function SettingsPage() {
                     placeholder="Backup .db path (optional)"
                   />
                 </div>
+                <Button
+                  appearance="secondary"
+                  disabled={!isIpcAvailable() || backupBusy}
+                  onClick={() =>
+                    void browseFile(
+                      "Choose backup database to verify",
+                      verifyBackupPathInput,
+                      setVerifyBackupPathInput,
+                      ["db", "sqlite", "sqlite3"]
+                    )
+                  }
+                >
+                  Backup…
+                </Button>
                 <div className="settings-backup__field">
                   <Text className="settings-backup__label" size={200} weight="medium">
                     Manifest path (optional)
@@ -760,6 +856,20 @@ export function SettingsPage() {
                     placeholder="Manifest .json path (optional)"
                   />
                 </div>
+                <Button
+                  appearance="secondary"
+                  disabled={!isIpcAvailable() || backupBusy}
+                  onClick={() =>
+                    void browseFile(
+                      "Choose backup manifest to verify",
+                      verifyManifestPathInput,
+                      setVerifyManifestPathInput,
+                      ["json"]
+                    )
+                  }
+                >
+                  Manifest…
+                </Button>
                 <Button disabled={backupBusy} onClick={() => void handleVerifyBackup()}>
                   {backupBusy ? "Working..." : "Verify Backup"}
                 </Button>
@@ -777,6 +887,9 @@ export function SettingsPage() {
                 : `Integrity verification failed: ${backupVerifyResult.error ?? "unknown error"}`}
             </Text>
           ) : null}
+          <Text size={200}>
+            Encrypted backups cover database-backed records. {MACHINE_LOCAL_STATE_DECISION_SUMMARY}
+          </Text>
         </Card>
 
         <Card className="settings-card">

@@ -21,6 +21,7 @@ import {
   deleteImportTemplate,
   isIpcAvailable,
   listImportTemplates,
+  pickFilePath,
   previewImport,
   type ImportTemplateSummary
 } from "../../lib/ipcClient";
@@ -136,6 +137,21 @@ export function ImportPage() {
   useEffect(() => {
     void loadTemplateLibrary();
   }, []);
+
+  async function browseImportFile(): Promise<void> {
+    const picked = await pickFilePath({
+      title: "Select import file",
+      defaultPath: draft.filePath || undefined,
+      filters: [
+        { name: "Import files", extensions: ["csv", "xlsx", "xls"] },
+        { name: "All files", extensions: ["*"] }
+      ]
+    });
+    if (!picked) {
+      return;
+    }
+    setDraft((current) => ({ ...current, filePath: picked }));
+  }
 
   function onNext(): void {
     if (!canAdvanceStep(currentStep, draft)) {
@@ -399,14 +415,23 @@ export function ImportPage() {
               <Text className="import-step-form__label" size={200} weight="medium">
                 Source file path
               </Text>
-              <Input
-                aria-label="Import file path"
-                value={draft.filePath}
-                onChange={(_event, data) =>
-                  setDraft((current) => ({ ...current, filePath: data.value }))
-                }
-                placeholder="C:\\imports\\budget.xlsx"
-              />
+              <div className="import-nav">
+                <Input
+                  aria-label="Import file path"
+                  value={draft.filePath}
+                  onChange={(_event, data) =>
+                    setDraft((current) => ({ ...current, filePath: data.value }))
+                  }
+                  placeholder="C:\\imports\\budget.xlsx"
+                />
+                <Button
+                  appearance="secondary"
+                  disabled={!hasIpc}
+                  onClick={() => void browseImportFile()}
+                >
+                  Browse…
+                </Button>
+              </div>
               <Text className="import-step-form__hint" size={100}>
                 Supports CSV and spreadsheet sources accepted by the backend importer.
               </Text>

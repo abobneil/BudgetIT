@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { DASHBOARD_LAYOUT_STORAGE_KEY } from "../../lib/machineLocalState";
 import type { DashboardDataset } from "../../reporting";
 import {
   addDashboardLayoutSection,
@@ -156,12 +157,12 @@ describe("dashboard model", () => {
     const defaults = createDefaultDashboardLayout();
     expect(defaults.cards.length).toBeGreaterThan(8);
 
-    storage.setItem("budgetit.dashboard-layout.v1", JSON.stringify(defaults));
+    storage.setItem(DASHBOARD_LAYOUT_STORAGE_KEY, JSON.stringify(defaults));
     const loaded = loadDashboardLayout(storage);
     expect(loaded.cards).toHaveLength(defaults.cards.length);
     expect(loaded.sections.length).toBeGreaterThanOrEqual(3);
 
-    storage.setItem("budgetit.dashboard-layout.v1", "{broken-json");
+    storage.setItem(DASHBOARD_LAYOUT_STORAGE_KEY, "{broken-json");
     const fallback = loadDashboardLayout(storage);
     expect(fallback.cards).toHaveLength(defaults.cards.length);
   });

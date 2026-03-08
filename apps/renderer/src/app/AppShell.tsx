@@ -15,7 +15,23 @@ import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { CONTRACT_RECORDS, SERVICE_RECORDS } from "../features/services/service-contract-data";
 import { INITIAL_VENDOR_RECORDS } from "../features/vendors/vendor-data";
 import { useScenarioContext } from "../features/scenarios/ScenarioContext";
-import { createBackup, openHelpWindow } from "../lib/ipcClient";
+import {
+  createBackup,
+  getSettings,
+  isIpcAvailable,
+  listContracts,
+  listExpenses,
+  listServices,
+  listVendors,
+  openHelpWindow
+} from "../lib/ipcClient";
+import {
+  buildContractRoute,
+  buildExpenseRoute,
+  buildServiceRoute,
+  buildVendorRoute
+} from "./entity-routes";
+import { reconcileMachineLocalStateAfterRestore } from "../lib/machineLocalState";
 import { useFeedback } from "../ui/feedback";
 import {
   KEYBOARD_SHORTCUT_MAP,
@@ -37,51 +53,54 @@ type ContextHelpPayload = {
   anchor?: string;
 };
 
-const GLOBAL_SEARCH_ENTRIES: GlobalSearchEntry[] = [
+const FALLBACK_GLOBAL_SEARCH_ENTRIES: GlobalSearchEntry[] = [
   ...INITIAL_VENDOR_RECORDS.map((vendor) => ({
     id: `vendor-${vendor.id}`,
     label: `Vendor: ${vendor.name}`,
-    route: `/vendors?vendor=${encodeURIComponent(vendor.id)}`,
+    route: buildVendorRoute(vendor.id),
     keywords: [vendor.name, "vendor"]
   })),
   ...SERVICE_RECORDS.map((service) => ({
     id: `service-${service.id}`,
     label: `Service: ${service.name}`,
-    route: `/services?service=${encodeURIComponent(service.id)}`,
+    route: buildServiceRoute(service.id),
     keywords: [service.name, service.vendorName, "service"]
   })),
   ...CONTRACT_RECORDS.map((contract) => ({
     id: `contract-${contract.id}`,
     label: `Contract: ${contract.contractNumber}`,
-    route: `/contracts?contract=${encodeURIComponent(contract.id)}`,
+    route: buildContractRoute(contract.id),
     keywords: [contract.contractNumber, contract.providerName, "contract"]
   })),
   {
     id: "expense-exp-1",
     label: "Expense: Cloud Compute",
-    route: "/expenses?expense=exp-1",
+    route: buildExpenseRoute("exp-1", "baseline"),
     keywords: ["cloud", "expense"]
   },
   {
     id: "expense-exp-2",
     label: "Expense: Endpoint Security",
-    route: "/expenses?expense=exp-2",
+    route: buildExpenseRoute("exp-2", "baseline"),
     keywords: ["security", "expense"]
   },
   {
     id: "expense-exp-3",
     label: "Expense: Analytics Suite",
-    route: "/expenses?expense=exp-3",
+    route: buildExpenseRoute("exp-3", "baseline"),
     keywords: ["analytics", "expense"]
   }
 ];
 
-function resolveGlobalSearchEntries(query: string): GlobalSearchEntry[] {
+function filterGlobalSearchEntries(
+  entries: GlobalSearchEntry[],
+  query: string
+): GlobalSearchEntry[] {
   const normalized = query.trim().toLowerCase();
   if (!normalized) {
-    return GLOBAL_SEARCH_ENTRIES.slice(0, 10);
+    return entries.slice(0, 10);
   }
-  return GLOBAL_SEARCH_ENTRIES
+  return entries
     .filter(
       (entry) =>
         entry.label.toLowerCase().includes(normalized) ||
@@ -137,11 +156,15 @@ export function AppShell({ children }: PropsWithChildren) {
   const pageTitle = resolveRouteLabel(location.pathname);
   const isHelpRoute = location.pathname === "/help";
   const { scenarios, selectedScenarioId, selectScenario } = useScenarioContext();
+  const hasIpc = isIpcAvailable();
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [keyboardHelpOpen, setKeyboardHelpOpen] = useState(false);
   const [commandQuery, setCommandQuery] = useState("");
   const [commandCursor, setCommandCursor] = useState(0);
   const [globalSearchValue, setGlobalSearchValue] = useState("");
+  const [globalSearchSource, setGlobalSearchSource] = useState<GlobalSearchEntry[]>(
+    FALLBACK_GLOBAL_SEARCH_ENTRIES
+  );
   const paletteInputRef = useRef<HTMLInputElement | null>(null);
   const globalSearchRef = useRef<HTMLInputElement | null>(null);
 
@@ -150,8 +173,8 @@ export function AppShell({ children }: PropsWithChildren) {
     [commandQuery]
   );
   const globalSearchEntries = useMemo(
-    () => resolveGlobalSearchEntries(globalSearchValue),
-    [globalSearchValue]
+    () => filterGlobalSearchEntries(globalSearchSource, globalSearchValue),
+    [globalSearchSource, globalSearchValue]
   );
 
   useEffect(() => {
@@ -170,6 +193,113 @@ export function AppShell({ children }: PropsWithChildren) {
   useEffect(() => {
     setCommandCursor(0);
   }, [commandQuery]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!hasIpc) {
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    void (async () => {
+      try {
+        const settings = await getSettings();
+        if (!cancelled) {
+          reconcileMachineLocalStateAfterRestore(settings.lastRestoreSummary ?? null);
+        }
+      } catch {
+        // Ignore reconciliation failures so shell startup is not blocked by settings IPC.
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [hasIpc]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!hasIpc) {
+      setGlobalSearchSource(FALLBACK_GLOBAL_SEARCH_ENTRIES);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    void (async () => {
+      try {
+        const [vendors, services, contracts, expenses] = await Promise.all([
+          listVendors(),
+          listServices(),
+          listContracts(),
+          listExpenses({ scenarioId: selectedScenarioId })
+        ]);
+
+        if (cancelled) {
+          return;
+        }
+
+        const vendorById = new Map(vendors.map((vendor) => [vendor.id, vendor]));
+        const serviceById = new Map(services.map((service) => [service.id, service]));
+        const entries: GlobalSearchEntry[] = [
+          ...vendors.map((vendor) => ({
+            id: `vendor-${vendor.id}`,
+            label: `Vendor: ${vendor.name}`,
+            route: buildVendorRoute(vendor.id),
+            keywords: [vendor.name, vendor.owner ?? "", vendor.status, "vendor"]
+          })),
+          ...services.map((service) => ({
+            id: `service-${service.id}`,
+            label: `Service: ${service.name}`,
+            route: buildServiceRoute(service.id),
+            keywords: [
+              service.name,
+              vendorById.get(service.vendorId)?.name ?? service.vendorId,
+              service.ownerTeam ?? "",
+              "service"
+            ]
+          })),
+          ...contracts.map((contract) => {
+            const service = serviceById.get(contract.serviceId);
+            const vendorName = service
+              ? vendorById.get(service.vendorId)?.name ?? service.vendorId
+              : contract.serviceId;
+            return {
+              id: `contract-${contract.id}`,
+              label: `Contract: ${contract.contractNumber ?? contract.id}`,
+              route: buildContractRoute(contract.id),
+              keywords: [contract.contractNumber ?? contract.id, vendorName, "contract"]
+            };
+          }),
+          ...expenses.map((expense) => {
+            const service = serviceById.get(expense.serviceId);
+            const vendorName = service
+              ? vendorById.get(service.vendorId)?.name ?? service.vendorId
+              : expense.serviceId;
+            return {
+              id: `expense-${expense.id}`,
+              label: `Expense: ${expense.name}`,
+              route: buildExpenseRoute(expense.id, selectedScenarioId),
+              keywords: [expense.name, vendorName, service?.name ?? expense.serviceId, "expense"]
+            };
+          })
+        ];
+
+        setGlobalSearchSource(entries.length > 0 ? entries : FALLBACK_GLOBAL_SEARCH_ENTRIES);
+      } catch {
+        if (!cancelled) {
+          setGlobalSearchSource(FALLBACK_GLOBAL_SEARCH_ENTRIES);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [hasIpc, selectedScenarioId]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {

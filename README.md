@@ -210,6 +210,38 @@ The desktop app stores:
 * Import mapping templates and auto-tag rules JSON files
 * Diagnostics logs under a `logs` directory
 
+### Backup coverage and machine-local state
+
+Encrypted backup artifacts cover the **database-backed records** stored in the encrypted SQLite database.
+
+Examples covered by backup:
+
+* vendors, services, contracts, expenses, recurrences
+* scenarios and scenario settings
+* dimensions/tags and tag assignments
+* alerts, approvals, audits, actuals review data
+* reporting/reference records persisted in the database
+
+Examples intentionally **not** covered by backup:
+
+* runtime settings stored in `runtime-settings.json`
+* backup health / verification history JSON
+* import mapping templates and auto-tag rules JSON
+* renderer machine-local UI state such as dashboard layout, saved report presets, NLQ history, and quick-start checklist progress
+
+The renderer UI state above is intentionally kept machine-local because it is device/profile convenience state rather than source-of-truth business data.
+
+After a backup restore, BudgetIT clears the renderer machine-local UI state above so restored database contents are not paired with stale local-only preferences.
+
+### Native browse dialogs
+
+Desktop browse dialogs are available in these workflows:
+
+* **Settings**: choose backup destination, restore backup file, restore manifest, verify backup file, verify manifest
+* **Import**: choose import source file
+* **Reports**: choose export destination folders
+* **NLQ**: choose export destination folder
+
 > TODO: Add a dedicated "Data locations" section with exact resolved paths per OS, plus an explanation of how to relocate/override them if desired.
 
 ## Contribution Guidelines

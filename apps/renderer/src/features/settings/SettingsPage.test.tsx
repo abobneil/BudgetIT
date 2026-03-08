@@ -7,7 +7,8 @@ import {
   fireEvent,
   render,
   screen,
-  waitFor
+  waitFor,
+  within
 } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -19,12 +20,16 @@ import {
   getDatabaseSecurityStatus,
   getScenarioSettings,
   getSettings,
+  isIpcAvailable,
   listApprovalRecords,
   listAuditRecords,
+  listScenarios,
   listCostCenters,
   listGlAccounts,
   listNotificationEndpoints,
   materializeForecast,
+  pickDirectoryPath,
+  pickFilePath,
   rekeyDatabase,
   restoreBackup,
   runDiagnostics,
@@ -32,6 +37,7 @@ import {
   sendTeamsTestAlert,
   verifyBackup
 } from "../../lib/ipcClient";
+import { DASHBOARD_LAYOUT_STORAGE_KEY } from "../../lib/machineLocalState";
 import { budgetItLightTheme } from "../../ui/theme";
 import { ScenarioProvider } from "../scenarios/ScenarioContext";
 import { SettingsPage } from "./SettingsPage";
@@ -41,11 +47,13 @@ vi.mock("../../lib/ipcClient", async (importOriginal) => {
   return {
     ...actual,
     getSettings: vi.fn(),
+    isIpcAvailable: vi.fn(),
     saveSettings: vi.fn(),
     getDatabaseSecurityStatus: vi.fn(),
     getScenarioSettings: vi.fn(),
     listCostCenters: vi.fn(),
     listGlAccounts: vi.fn(),
+    listScenarios: vi.fn(),
     listApprovalRecords: vi.fn(),
     listAuditRecords: vi.fn(),
     listNotificationEndpoints: vi.fn(),
@@ -53,6 +61,8 @@ vi.mock("../../lib/ipcClient", async (importOriginal) => {
     createBackup: vi.fn(),
     verifyBackup: vi.fn(),
     restoreBackup: vi.fn(),
+    pickDirectoryPath: vi.fn(),
+    pickFilePath: vi.fn(),
     rekeyDatabase: vi.fn(),
     materializeForecast: vi.fn(),
     runDiagnostics: vi.fn()
@@ -60,18 +70,22 @@ vi.mock("../../lib/ipcClient", async (importOriginal) => {
 });
 
 const getSettingsMock = vi.mocked(getSettings);
+const isIpcAvailableMock = vi.mocked(isIpcAvailable);
 const saveSettingsMock = vi.mocked(saveSettings);
 const getDatabaseSecurityStatusMock = vi.mocked(getDatabaseSecurityStatus);
 const getScenarioSettingsMock = vi.mocked(getScenarioSettings);
 const sendTeamsTestAlertMock = vi.mocked(sendTeamsTestAlert);
 const listCostCentersMock = vi.mocked(listCostCenters);
 const listGlAccountsMock = vi.mocked(listGlAccounts);
+const listScenariosMock = vi.mocked(listScenarios);
 const listApprovalRecordsMock = vi.mocked(listApprovalRecords);
 const listAuditRecordsMock = vi.mocked(listAuditRecords);
 const listNotificationEndpointsMock = vi.mocked(listNotificationEndpoints);
 const createBackupMock = vi.mocked(createBackup);
 const verifyBackupMock = vi.mocked(verifyBackup);
 const restoreBackupMock = vi.mocked(restoreBackup);
+const pickDirectoryPathMock = vi.mocked(pickDirectoryPath);
+const pickFilePathMock = vi.mocked(pickFilePath);
 const rekeyDatabaseMock = vi.mocked(rekeyDatabase);
 const materializeForecastMock = vi.mocked(materializeForecast);
 const runDiagnosticsMock = vi.mocked(runDiagnostics);
@@ -104,19 +118,24 @@ function renderSettingsRoute() {
 
 describe("SettingsPage", () => {
   beforeEach(() => {
+    window.localStorage.clear();
     getSettingsMock.mockReset();
+    isIpcAvailableMock.mockReset();
     saveSettingsMock.mockReset();
     getDatabaseSecurityStatusMock.mockReset();
     getScenarioSettingsMock.mockReset();
     sendTeamsTestAlertMock.mockReset();
     listCostCentersMock.mockReset();
     listGlAccountsMock.mockReset();
+    listScenariosMock.mockReset();
     listApprovalRecordsMock.mockReset();
     listAuditRecordsMock.mockReset();
     listNotificationEndpointsMock.mockReset();
     createBackupMock.mockReset();
     verifyBackupMock.mockReset();
     restoreBackupMock.mockReset();
+    pickDirectoryPathMock.mockReset();
+    pickFilePathMock.mockReset();
     rekeyDatabaseMock.mockReset();
     materializeForecastMock.mockReset();
     runDiagnosticsMock.mockReset();
@@ -128,6 +147,7 @@ describe("SettingsPage", () => {
       teamsWebhookUrl: "",
       lastRestoreSummary: null
     });
+    isIpcAvailableMock.mockReturnValue(false);
     saveSettingsMock.mockImplementation(async (settings) => settings);
     getDatabaseSecurityStatusMock.mockResolvedValue({
       databasePath: "C:\\Users\\tester\\AppData\\Roaming\\BudgetIT\\data\\budgetit.db",
@@ -144,6 +164,17 @@ describe("SettingsPage", () => {
     });
     listCostCentersMock.mockResolvedValue([]);
     listGlAccountsMock.mockResolvedValue([]);
+    listScenariosMock.mockResolvedValue([
+      {
+        id: "baseline",
+        name: "Baseline",
+        approvalStatus: "draft",
+        isLocked: false,
+        parentScenarioId: null,
+        createdAt: "2026-02-27T10:00:00.000Z",
+        updatedAt: "2026-02-27T10:00:00.000Z"
+      }
+    ]);
     listApprovalRecordsMock.mockResolvedValue([]);
     listAuditRecordsMock.mockResolvedValue([]);
     listNotificationEndpointsMock.mockResolvedValue([]);
@@ -173,6 +204,8 @@ describe("SettingsPage", () => {
       sourceLastMutationAt: "2026-02-27T15:50:00.000Z",
       schemaVersion: 1
     });
+    pickDirectoryPathMock.mockResolvedValue(null);
+    pickFilePathMock.mockResolvedValue(null);
     rekeyDatabaseMock.mockResolvedValue({
       ok: true,
       rotatedAt: "2026-02-27T16:30:00.000Z"
@@ -251,6 +284,99 @@ describe("SettingsPage", () => {
     expect(screen.getByRole("switch", { name: "Minimize to tray on close" })).not.toBeChecked();
   });
 
+  it("browses backup destination directory and populates the create-backup input", async () => {
+    isIpcAvailableMock.mockReturnValue(true);
+    pickDirectoryPathMock.mockResolvedValueOnce("C:\\Backups\\BudgetIT");
+
+    renderSettingsPage();
+    await screen.findByText("Settings Center");
+
+    const createBackupRow = screen
+      .getByLabelText("Backup destination directory")
+      .closest(".settings-backup__row") as HTMLElement | null;
+    if (!createBackupRow) {
+      throw new Error("Expected create-backup row to be rendered.");
+    }
+
+    fireEvent.click(within(createBackupRow).getByRole("button", { name: "Browse…" }));
+
+    await waitFor(() => {
+      expect(pickDirectoryPathMock).toHaveBeenCalledWith({
+        title: "Choose backup destination",
+        defaultPath: undefined
+      });
+    });
+    expect(screen.getByLabelText("Backup destination directory")).toHaveValue(
+      "C:\\Backups\\BudgetIT"
+    );
+  });
+
+  it("browses restore and verify files and populates the matching inputs", async () => {
+    isIpcAvailableMock.mockReturnValue(true);
+    pickFilePathMock
+      .mockResolvedValueOnce("C:\\Backups\\BudgetIT\\restore.db")
+      .mockResolvedValueOnce("C:\\Backups\\BudgetIT\\restore.manifest.json")
+      .mockResolvedValueOnce("C:\\Backups\\BudgetIT\\verify.db")
+      .mockResolvedValueOnce("C:\\Backups\\BudgetIT\\verify.manifest.json");
+
+    renderSettingsPage();
+    await screen.findByText("Settings Center");
+
+    const restoreRow = screen
+      .getByLabelText("Restore backup path")
+      .closest(".settings-backup__row") as HTMLElement | null;
+    if (!restoreRow) {
+      throw new Error("Expected restore row to be rendered.");
+    }
+    fireEvent.click(within(restoreRow).getByRole("button", { name: "Backup…" }));
+    fireEvent.click(within(restoreRow).getByRole("button", { name: "Manifest…" }));
+
+    const verifyRow = screen
+      .getByLabelText("Verify backup path")
+      .closest(".settings-backup__row") as HTMLElement | null;
+    if (!verifyRow) {
+      throw new Error("Expected verify row to be rendered.");
+    }
+    fireEvent.click(within(verifyRow).getByRole("button", { name: "Backup…" }));
+    fireEvent.click(within(verifyRow).getByRole("button", { name: "Manifest…" }));
+
+    await waitFor(() => {
+      expect(pickFilePathMock).toHaveBeenCalledTimes(4);
+    });
+    expect(pickFilePathMock).toHaveBeenNthCalledWith(1, {
+      title: "Choose backup database",
+      defaultPath: undefined,
+      filters: [{ name: "Files", extensions: ["db", "sqlite", "sqlite3"] }]
+    });
+    expect(pickFilePathMock).toHaveBeenNthCalledWith(2, {
+      title: "Choose backup manifest",
+      defaultPath: undefined,
+      filters: [{ name: "Files", extensions: ["json"] }]
+    });
+    expect(pickFilePathMock).toHaveBeenNthCalledWith(3, {
+      title: "Choose backup database to verify",
+      defaultPath: undefined,
+      filters: [{ name: "Files", extensions: ["db", "sqlite", "sqlite3"] }]
+    });
+    expect(pickFilePathMock).toHaveBeenNthCalledWith(4, {
+      title: "Choose backup manifest to verify",
+      defaultPath: undefined,
+      filters: [{ name: "Files", extensions: ["json"] }]
+    });
+    expect(screen.getByLabelText("Restore backup path")).toHaveValue(
+      "C:\\Backups\\BudgetIT\\restore.db"
+    );
+    expect(screen.getByLabelText("Restore manifest path")).toHaveValue(
+      "C:\\Backups\\BudgetIT\\restore.manifest.json"
+    );
+    expect(screen.getByLabelText("Verify backup path")).toHaveValue(
+      "C:\\Backups\\BudgetIT\\verify.db"
+    );
+    expect(screen.getByLabelText("Verify manifest path")).toHaveValue(
+      "C:\\Backups\\BudgetIT\\verify.manifest.json"
+    );
+  });
+
   it("persists startup/tray changes and shows restore as-of banner in routed workspace flow", async () => {
     getSettingsMock
       .mockResolvedValueOnce({
@@ -284,6 +410,8 @@ describe("SettingsPage", () => {
       expect(saveSettingsMock).toHaveBeenCalled();
     });
 
+    window.localStorage.setItem(DASHBOARD_LAYOUT_STORAGE_KEY, JSON.stringify({ cards: [] }));
+
     fireEvent.change(screen.getByLabelText("Restore backup path"), {
       target: { value: "C:\\Backups\\BudgetIT\\backup.db" }
     });
@@ -295,6 +423,7 @@ describe("SettingsPage", () => {
     expect(await screen.findByTestId("restore-asof-banner")).toHaveTextContent(
       "Data current as of 2026-02-27T15:50:00.000Z (restored 2026-02-27T16:20:00.000Z)"
     );
+    expect(window.localStorage.getItem(DASHBOARD_LAYOUT_STORAGE_KEY)).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: "Reload Settings" }));
     await waitFor(() => {

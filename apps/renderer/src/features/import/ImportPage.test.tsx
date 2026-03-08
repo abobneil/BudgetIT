@@ -11,6 +11,7 @@ import {
   deleteImportTemplate,
   isIpcAvailable,
   listImportTemplates,
+  pickFilePath,
   previewImport
 } from "../../lib/ipcClient";
 import { budgetItLightTheme } from "../../ui/theme";
@@ -20,6 +21,7 @@ vi.mock("../../lib/ipcClient", () => ({
   isIpcAvailable: vi.fn(),
   listImportTemplates: vi.fn(),
   deleteImportTemplate: vi.fn(),
+  pickFilePath: vi.fn(),
   previewImport: vi.fn(),
   commitImport: vi.fn()
 }));
@@ -27,6 +29,7 @@ vi.mock("../../lib/ipcClient", () => ({
 const isIpcAvailableMock = vi.mocked(isIpcAvailable);
 const listImportTemplatesMock = vi.mocked(listImportTemplates);
 const deleteImportTemplateMock = vi.mocked(deleteImportTemplate);
+const pickFilePathMock = vi.mocked(pickFilePath);
 const previewImportMock = vi.mocked(previewImport);
 const commitImportMock = vi.mocked(commitImport);
 
@@ -45,6 +48,7 @@ describe("ImportPage", () => {
     isIpcAvailableMock.mockReset();
     listImportTemplatesMock.mockReset();
     deleteImportTemplateMock.mockReset();
+    pickFilePathMock.mockReset();
     previewImportMock.mockReset();
     commitImportMock.mockReset();
     isIpcAvailableMock.mockReturnValue(true);
@@ -57,6 +61,7 @@ describe("ImportPage", () => {
       deleted: true,
       remaining: 0
     });
+    pickFilePathMock.mockResolvedValue(null);
     previewImportMock.mockResolvedValue({
       totalRows: 6,
       acceptedCount: 4,
@@ -154,6 +159,33 @@ describe("ImportPage", () => {
         requireFinanceMetadata: false
       });
     });
+  });
+
+  it("browses for an import file and populates the selected path", async () => {
+    pickFilePathMock.mockResolvedValue("C:\\imports\\selected.xlsx");
+
+    renderImportPage();
+    await waitFor(() => {
+      expect(listImportTemplatesMock).toHaveBeenCalledTimes(1);
+    });
+
+    fireEvent.change(screen.getByLabelText("Import mode"), {
+      target: { value: "actuals" }
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    fireEvent.click(screen.getByRole("button", { name: "Browse…" }));
+
+    await waitFor(() => {
+      expect(pickFilePathMock).toHaveBeenCalledWith({
+        title: "Select import file",
+        defaultPath: undefined,
+        filters: [
+          { name: "Import files", extensions: ["csv", "xlsx", "xls"] },
+          { name: "All files", extensions: ["*"] }
+        ]
+      });
+    });
+    expect(screen.getByLabelText("Import file path")).toHaveValue("C:\\imports\\selected.xlsx");
   });
 
   it("runs full wizard and displays accepted/rejected/duplicate and unmatched queue counts", async () => {

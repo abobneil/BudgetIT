@@ -1,4 +1,10 @@
+import {
+  readStoredJson,
+  resolveBrowserStorage,
+  writeStoredJson
+} from "../../lib/browserStorage";
 import type { ReportPresetQuery } from "../../lib/ipcClient";
+import { SAVED_REPORT_PRESETS_STORAGE_KEY } from "../../lib/machineLocalState";
 
 export type ReportPreset = {
   id: string;
@@ -12,8 +18,6 @@ export type ReportPreset = {
     narrative: boolean;
   };
 };
-
-const SAVED_REPORTS_KEY = "budgetit.saved-report-presets.v1";
 
 export const DEFAULT_REPORT_PRESETS: ReportPreset[] = [
   {
@@ -79,19 +83,11 @@ export function loadSavedReportPresets(
   if (!storage) {
     return [];
   }
-  const raw = storage.getItem(SAVED_REPORTS_KEY);
-  if (!raw) {
+  const parsed = readStoredJson<unknown[]>(storage, SAVED_REPORT_PRESETS_STORAGE_KEY);
+  if (!Array.isArray(parsed)) {
     return [];
   }
-  try {
-    const parsed = JSON.parse(raw) as unknown[];
-    if (!Array.isArray(parsed)) {
-      return [];
-    }
-    return parsed.filter(isReportPreset);
-  } catch {
-    return [];
-  }
+  return parsed.filter(isReportPreset);
 }
 
 export function saveReportPreset(
@@ -103,7 +99,7 @@ export function saveReportPreset(
   }
   const existing = loadSavedReportPresets(storage);
   const next = mergeReportPreset(existing, preset);
-  storage.setItem(SAVED_REPORTS_KEY, JSON.stringify(next));
+  writeStoredJson(storage, SAVED_REPORT_PRESETS_STORAGE_KEY, next);
   return next;
 }
 
@@ -113,10 +109,7 @@ function mergeReportPreset(existing: ReportPreset[], preset: ReportPreset): Repo
 }
 
 function getStorage(): Storage | null {
-  if (typeof window === "undefined" || !window.localStorage) {
-    return null;
-  }
-  return window.localStorage;
+  return resolveBrowserStorage();
 }
 
 function isReportPreset(value: unknown): value is ReportPreset {

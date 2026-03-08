@@ -7,10 +7,9 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { getHelpDocument } from "../../lib/ipcClient";
+import { QUICK_START_CHECKLIST_STORAGE_KEY } from "../../lib/machineLocalState";
 import { budgetItLightTheme } from "../../ui/theme";
 import { HelpPage } from "./HelpPage";
-
-const QUICK_START_CHECKLIST_STORAGE_KEY = "budgetit.help.quick-start-checklist.v1";
 
 vi.mock("../../lib/ipcClient", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../../lib/ipcClient")>();
