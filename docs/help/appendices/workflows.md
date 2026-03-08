@@ -14,6 +14,15 @@ Goal: Add a new vendor, service, contract, and recurring expense.
 9. In expense detail, assign required tags.
 10. Confirm the record appears in **Dashboard** and **Reports**.
 
+Example:
+- Vendor: `CrowdStrike`
+- Service: `Endpoint Protection`
+- Contract: `CTR-CS-2026-01`
+- Expense: `Endpoint Protection Annual Renewal`
+- Suggested tags:
+  - Cost Center = `Security`
+  - Environment = `Production`
+
 ## Workflow 2: Import Actuals and Resolve Unmatched Transactions
 Goal: Bring in actuals, then clear unresolved items.
 
@@ -27,6 +36,14 @@ Goal: Bring in actuals, then clear unresolved items.
 8. For each unmatched row, choose suggested match and optional driver/comment.
 9. Click **Match**, **Reject**, **Ignore**, or **Create expense**.
 10. Re-check unmatched count and driver mix summary.
+
+Example:
+- Imported transaction: `AWS March invoice`
+- Planned expense exists but actual landed one month late
+- Suggested decision:
+  - Match to the expected cloud expense occurrence
+  - Driver = `timing`
+  - Comment = `Invoice posted one cycle later than forecast`
 
 ## Workflow 3: Prepare a Monthly Executive Export
 Goal: Produce and queue report exports with quality checks.
@@ -42,6 +59,14 @@ Goal: Produce and queue report exports with quality checks.
 9. Check **Export metadata** table for status/output path.
 10. Review **Data Quality Guardrails** and fix warnings before final sharing.
 
+Example:
+- Report preset: `Dashboard Overview`
+- Date range: first day to last day of the month
+- Required visualizations: Table + Chart + Narrative
+- Final check before sharing:
+  - Unmatched actuals are reviewed
+  - Missing required tags are understood or remediated
+
 ## Workflow 4: Scenario Comparison for Planning Review
 Goal: Compare a draft scenario with baseline and promote if ready.
 
@@ -53,6 +78,15 @@ Goal: Compare a draft scenario with baseline and promote if ready.
 6. Review local and database comparison deltas.
 7. If approved by your process, click **Promote**.
 8. Lock scenario when changes should stop.
+
+Example:
+- Baseline includes one security tool
+- Draft scenario replaces it with a lower-cost alternative
+- Compare should explain:
+  - reduced annual spend
+  - contract timing changes
+  - replacement status movement
+  - any new risk introduced by the switch
 
 ## Reporting Cadence Checklist
 

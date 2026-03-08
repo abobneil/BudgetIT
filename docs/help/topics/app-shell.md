@@ -12,6 +12,17 @@ Use App Shell controls from any page to switch context, jump quickly, and open h
   - Global Search focus (`Ctrl+Shift+F`)
   - Help Center (`F1`)
 
+### Control guidance
+- Scenario selector:
+  - Changes the active planning context used by dashboards, reports, and many workspace views.
+  - If totals look wrong, check this first.
+- Global Search:
+  - Best for jumping to a known entity when you already know the name.
+- Help button:
+  - Opens contextual help for the current route.
+- Command Palette:
+  - Best for keyboard-first users who know the action or workspace they want.
+
 ### Start Here Paths
 - New-user path:
   - Confirm the active scenario (usually `Baseline`).

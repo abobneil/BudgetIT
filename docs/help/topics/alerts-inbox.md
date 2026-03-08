@@ -6,6 +6,7 @@ Central triage queue for reminders, renewal deadlines, and operational follow-up
 - Snoozed: temporarily deferred alerts with a resume date.
 - Acked: acknowledged items retained for audit trace.
 - All: combined view for broad review and handoffs.
+- Start with `Due soon` unless you are doing historical review or handoff cleanup.
 
 ### Triage playbook
 1. Start with `Due soon` and sort by nearest due date.
@@ -22,6 +23,14 @@ Central triage queue for reminders, renewal deadlines, and operational follow-up
 - Ack
 - Snooze until +7d
 - Open entity
+- `Review`:
+  - Use when you need to inspect the issue before deciding.
+- `Ack`:
+  - Use only after a real action has been taken.
+- `Snooze until +7d`:
+  - Use when the issue is valid but intentionally deferred.
+- `Open entity`:
+  - Use when the fix lives in the source record rather than in the alert itself.
 
 ### Detail panel fields
 - Message
@@ -34,6 +43,14 @@ Central triage queue for reminders, renewal deadlines, and operational follow-up
 - Prefer `Ack` only after a concrete action is performed.
 - Use snooze sparingly and with owner accountability.
 - If alert repeats across cycles, treat as process-quality signal and escalate.
+
+### Example triage
+- Alert: contract renews in 20 days
+- You still need business input
+- Best next step:
+  - open entity
+  - confirm owner and renewal action
+  - snooze only if a follow-up date is real and agreed
 
 ### Weekly operations checkpoint
 - Clear overdue and due-soon items.

@@ -22,6 +22,11 @@
    - `Escape` closes the active dialog.
    - `F1` opens Help Center.
 
+Why this order:
+- Vendors, Services, Contracts, and Expenses build the planning backbone.
+- Tags make the data usable in reporting.
+- Dashboard is the first place to confirm that setup decisions are producing understandable outputs.
+
 ### Navigation at a glance
 - Dashboard
 - Expenses
@@ -35,3 +40,11 @@
 - Reports
 - NLQ
 - Settings
+
+### First-week goals
+- By the end of week 1, a new user should be able to:
+  - explain the vendor -> service -> contract -> expense chain,
+  - identify which scenario is active,
+  - classify records with at least one required dimension,
+  - read forecast vs actual variance without guessing what the terms mean,
+  - produce at least one review-ready report export.

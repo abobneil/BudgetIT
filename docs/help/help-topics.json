@@ -6,6 +6,9 @@
     "featureHeading": "Feature Deep-Dives",
     "appendixFiles": [
       "appendices/help-center-behavior.md",
+      "appendices/concepts-and-terms.md",
+      "appendices/end-to-end-example.md",
+      "appendices/common-mistakes-and-good-practices.md",
       "appendices/workflows.md",
       "appendices/maintenance.md"
     ]

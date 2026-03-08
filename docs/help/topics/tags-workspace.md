@@ -11,6 +11,38 @@ Define taxonomy and enforce classification quality across expenses, reports, and
 - Merge source tag into target tag
 - Fix tagging queue for required dimensions
 
+### Dimension field guidance
+- Name:
+  - Use a stable reporting concept such as `Cost Center`, `Environment`, `Department`, or `Region`.
+  - Avoid names that describe temporary projects or overlapping concepts.
+- Mode:
+  - `single_select`: use when a record should have only one valid answer in that dimension.
+  - `multi_select`: use when multiple tags may legitimately apply.
+  - Good default:
+    - `single_select` for Cost Center or Owner Team.
+    - `multi_select` for capabilities, technologies, or cross-cutting labels.
+- Required:
+  - Turn on only when missing values should block trust in reporting or governance decisions.
+  - New-user default: leave optional until the team has agreed on taxonomy and added usable tags.
+
+### Worked examples
+- Example 1: Cost Center
+  - Name = `Cost Center`
+  - Mode = `single_select`
+  - Required = `yes`
+  - Why:
+    - most expense lines should belong to one accountable budget owner.
+- Example 2: Environment
+  - Name = `Environment`
+  - Mode = `single_select`
+  - Required = `yes` if reporting depends on Prod vs Non-Prod separation.
+- Example 3: Capabilities
+  - Name = `Capabilities`
+  - Mode = `multi_select`
+  - Required = `no`
+  - Why:
+    - one service or expense can legitimately support multiple business capabilities.
+
 ### Dimension design rules
 - Keep dimensions stable and decision-oriented (example: Cost Center, Environment).
 - Avoid duplicate semantics across dimensions.
@@ -26,6 +58,8 @@ Define taxonomy and enforce classification quality across expenses, reports, and
 - Merge when consolidating synonyms or deprecated values.
 - Retire when tag should stop being assigned to new records.
 - Validate report/filter behavior after merge to ensure historical continuity.
+- Merge for duplicate meaning.
+- Retire for valid historical values that should no longer be assigned going forward.
 
 ### Queue triage playbook
 1. Filter queue by highest-impact missing dimension first.

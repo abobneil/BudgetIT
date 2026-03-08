@@ -12,15 +12,26 @@ Decision summary view for financial and operational signals.
 ### Forecast KPI
 - Definition: sum of forecast spend in the active scenario + selected window.
 - Use: baseline expected spend for comparison against actuals.
+- Example:
+  - Forecast = `$120,000`
+  - Meaning: BudgetIT expects that amount for the current scenario and time window.
 
 ### Actual KPI
 - Definition: sum of observed/actual spend in the active scenario + selected window.
 - Use: realized spend used for variance and trend analysis.
+- Example:
+  - Actual = `$127,500`
+  - Meaning: real spend is higher than planned and should be compared to Forecast immediately.
 
 ### Variance KPI
 - Definition: `actual - forecast` for the active window aggregate.
 - Positive variance (`> 0`): spend above forecast.
 - Negative variance (`< 0`): spend under/within forecast.
+- Example:
+  - Forecast = `$120,000`
+  - Actual = `$127,500`
+  - Variance = `$7,500`
+  - Interpretation: spend is over plan for the selected scope.
 
 ### Renewals (Upcoming) KPI
 - Definition: count of renewals in the selected window from renewals timeline data.
@@ -29,6 +40,8 @@ Decision summary view for financial and operational signals.
 ### Tagging Completeness KPI
 - Definition: `(tagged expense lines / total expense lines) * 100`.
 - Use: data quality confidence indicator for reporting and allocations.
+- Decision rule:
+  - If completeness is weak, treat filtered reports cautiously because the data may not be fully classified yet.
 
 ### Replacement Required KPI
 - Definition: number of open replacement-required plans in current scenario.
@@ -57,6 +70,7 @@ Decision summary view for financial and operational signals.
 ### Narrative Insights
 - Shows generated analyst summaries from report narrative blocks.
 - Use for executive readouts after KPI/chart review.
+- Treat narrative as a summary aid, not a substitute for checking the underlying signals.
 
 ### Variance triage workflow
 1. Confirm scope: check selected Scenario and date window first.
@@ -68,6 +82,17 @@ Decision summary view for financial and operational signals.
    - Above forecast + valid data -> cost containment or reforecast update.
    - Above forecast + poor tagging -> fix metadata before executive reporting.
    - Under forecast + delayed renewals -> verify execution risk vs savings.
+
+Example:
+1. Variance is high.
+2. Tagging Completeness is low.
+3. Action: fix missing tags before telling leadership the overspend belongs to a specific area.
+
+### Dashboard reading pattern
+1. Confirm scenario and time window.
+2. Read Forecast, Actual, and Variance together.
+3. Use trend cards to determine whether the issue is one-time or persistent.
+4. Check data quality and renewal pressure before deciding the story behind the numbers.
 
 ### Forecast freshness warning
 - A stale forecast banner indicates data recency risk.

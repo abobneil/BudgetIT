@@ -7,6 +7,15 @@ Guided import for expenses and actuals.
 4. Preview
 5. Commit
 
+### Mode guidance
+- `expenses`:
+  - Use for planned or recurring budget lines you want BudgetIT to manage directly.
+- `actuals`:
+  - Use for observed transactions that should be matched back to planned spend.
+- New-user default:
+  - Start with `expenses` when building the planning baseline.
+  - Use `actuals` after the baseline exists and reconciliation matters.
+
 ### Mapping step controls
 - Template name
 - Cloud template pack (`AWS CUR`, `Azure cost export`, `GCP billing export`)
@@ -14,6 +23,26 @@ Guided import for expenses and actuals.
 - Save template
 - Enforce finance metadata
 - Template library (refresh, use template, delete template)
+- Template name:
+  - Use when you want the mapping reused for future files with the same layout.
+- Cloud template pack:
+  - Use only when the source file is a known cloud billing export with predictable columns.
+- Use saved template:
+  - Turn on when the file layout already matches a stored mapping.
+- Save template:
+  - Turn on when the current mapping should become the standard for similar files later.
+- Enforce finance metadata:
+  - Use when imports must include finance reference fields such as GL or Cost Center before they are considered acceptable.
+
+### Worked examples
+- Example 1: importing planned expenses
+  - Mode = `expenses`
+  - Use saved template = on if finance already standardized the file layout
+  - Save template = on if this will recur monthly or quarterly
+- Example 2: importing cloud actuals
+  - Mode = `actuals`
+  - Cloud template pack = provider-specific pack if the export format is standard
+  - Enforce finance metadata = on if reporting depends on GL or Cost Center quality before commit
 
 ### Preview step
 - Accepted / Rejected / Duplicate counts
@@ -21,6 +50,10 @@ Guided import for expenses and actuals.
 - Row preview table
 - Error review filter (`all`, `validation`, `duplicate`)
 - Optional tagging suggestions
+- `Accepted` means the row can proceed.
+- `Rejected` means the row must be corrected or excluded.
+- `Duplicate` means the file repeated data BudgetIT already considers the same within the run.
+- Do not treat a clean preview as optional; it is the safest place to catch shape and mapping errors before commit.
 
 ### Commit step
 - Commit import

@@ -10,6 +10,11 @@ Natural-language query interface for report-ready data retrieval with filter exp
 - Export results (`CSV` or `Excel`)
 - Save as report preset
 
+### When to use NLQ
+- Use NLQ when you know the question you want answered but do not want to manually configure a report first.
+- Prefer standard Reports when you need repeatable stakeholder outputs with a fixed layout.
+- Prefer Dashboard when you want a fast health check rather than an ad hoc query.
+
 ### Prompt construction pattern
 - Preferred template:
   - Metric or question
@@ -17,6 +22,11 @@ Natural-language query interface for report-ready data retrieval with filter exp
   - Scope filters (scenario, vendor, tag, owner)
 - Example:
   - "Show monthly variance for baseline in Q1 for cost center Security."
+
+More examples:
+- "Which vendors have the highest approved spend this quarter in baseline?"
+- "Show replacement-required services for Infrastructure."
+- "Compare monthly actual vs forecast for Security in the last 90 days."
 
 ### Parsed filter review checklist
 - Confirm date range interpretation.
@@ -33,6 +43,11 @@ Natural-language query interface for report-ready data retrieval with filter exp
 - Prompt input
 - Export format + output directory
 - Save report name
+- Prompt input:
+  - Write the metric, time window, and scope in plain language.
+  - If possible, include scenario and tag/vendor qualifiers explicitly.
+- Save report name:
+  - Use when the question is likely to become a repeated view for others.
 
 ### Failure handling
 - No results:
@@ -41,3 +56,10 @@ Natural-language query interface for report-ready data retrieval with filter exp
 - Unexpected parse:
   - Use shorter, explicit prompt terms.
   - Re-run and inspect parsed filter explanation before export.
+
+Practical advice:
+- If the query feels conversational but the output is wrong, rewrite it as if you were giving instructions to an analyst:
+  - metric
+  - period
+  - scope
+  - scenario

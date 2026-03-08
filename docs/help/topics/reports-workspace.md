@@ -12,11 +12,40 @@ Flexible reporting, export orchestration, and operational finance tools.
   - Chart
   - Gauge
   - Narrative
+- Start date / End date:
+  - Use to match the reporting period your audience expects.
+- Tag filter:
+  - Use when the report should focus on a single cost center, department, or other tagged slice.
+- Visualization toggles:
+  - `Table`: use for auditability and row-level review.
+  - `Chart`: use for trend communication.
+  - `Gauge`: use for quick directional KPI framing.
+  - `Narrative`: use for executive summary language.
 
 ### Export orchestration
 1. Choose format
 2. Confirm destination path
 3. Preview report and queue export
+
+### Format guidance
+- `CSV`:
+  - best for downstream analysis and spreadsheet work.
+- `PDF`:
+  - best for fixed-layout sharing.
+- `Excel`:
+  - best when the audience will keep working with the data.
+- `HTML` or image-style outputs:
+  - best for fast distribution or lightweight inspection.
+
+### Worked examples
+- Executive monthly review:
+  - Preset = `Dashboard Overview`
+  - Visualizations = Table + Chart + Narrative
+  - Format = `PDF`
+- Analyst follow-up:
+  - Preset = `Spend by Vendor`
+  - Visualizations = Table
+  - Format = `CSV` or `Excel`
 
 ### Executive export playbook
 1. Select a report preset aligned to the audience (`Dashboard Overview` for exec cadence).
@@ -49,6 +78,12 @@ Flexible reporting, export orchestration, and operational finance tools.
    - `Reject`: mark invalid source record.
    - `Ignore`: defer resolution for this cycle.
    - `Create expense`: open planned-line workflow from actuals evidence.
+
+Example:
+- Actual transaction arrives for a new recurring SaaS charge that was never planned.
+- Correct disposition:
+  - `Create expense`
+  - because the issue is not bad source data; the plan is missing a real spend line.
 
 ### Glossary: reconciliation statuses
 - `No match selected`: queue item has not been routed to an occurrence yet.
