@@ -35,6 +35,13 @@ import {
 import { toTitleCaseLabel } from "../../ui/text/labelCase";
 import { isAgGridAvailable } from "../../lib/agGrid";
 import {
+  buildCurrencyInputExample,
+  formatCurrencyInputMinor,
+  formatCurrencyMinor,
+  parseCurrencyInputToMinor,
+  useScenarioCurrency
+} from "../../lib/currency";
+import {
   assignTag as assignTagIpc,
   createExpense as createExpenseIpc,
   createRecurrence as createRecurrenceIpc,
@@ -187,10 +194,10 @@ type ExpenseFormState = {
   recurrenceAnchorDate: string;
 };
 
-function createDefaultFormState(vendorId = "vend-aws"): ExpenseFormState {
+function createDefaultFormState(vendorId = "vend-aws", currency: string = "USD"): ExpenseFormState {
   return {
     name: "",
-    amountMinor: "0",
+    amountMinor: formatCurrencyInputMinor(0, currency),
     status: "planned",
     vendorId,
     serviceName: "",
@@ -201,13 +208,6 @@ function createDefaultFormState(vendorId = "vend-aws"): ExpenseFormState {
     recurrenceDayOfMonth: "1",
     recurrenceAnchorDate: new Date().toISOString().slice(0, 10)
   };
-}
-
-function formatUsd(amountMinor: number): string {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD"
-  }).format(amountMinor / 100);
 }
 
 function compareExpense(
@@ -239,10 +239,10 @@ function statusToTone(status: ExpenseStatus): "info" | "success" | "warning" | "
   return "info";
 }
 
-function fromExpense(expense: ExpenseRecord): ExpenseFormState {
+function fromExpense(expense: ExpenseRecord, currency: string = "USD"): ExpenseFormState {
   return {
     name: expense.name,
-    amountMinor: String(expense.amountMinor),
+    amountMinor: formatCurrencyInputMinor(expense.amountMinor, currency),
     status: expense.status,
     vendorId: expense.vendorId,
     serviceName: expense.serviceName,
@@ -332,6 +332,7 @@ export function ExpensesPage() {
   const hasIpc = isIpcAvailable();
   const useAgGrid = isAgGridAvailable();
   const { selectedScenarioId, selectScenario } = useScenarioContext();
+  const displayCurrency = useScenarioCurrency(selectedScenarioId);
   const [searchParams, setSearchParams] = useSearchParams();
   const [expenses, setExpenses] = useState<ExpenseRecord[]>(INITIAL_EXPENSES);
   const [dimensions, setDimensions] = useState<DimensionDefinition[]>(() =>
@@ -357,7 +358,7 @@ export function ExpensesPage() {
   const [drawerMode, setDrawerMode] = useState<"create" | "edit">("create");
   const [editingExpenseId, setEditingExpenseId] = useState<string | null>(null);
   const [formState, setFormState] = useState<ExpenseFormState>(() =>
-    createDefaultFormState(INITIAL_EXPENSES[0]?.vendorId ?? "vend-aws")
+    createDefaultFormState(INITIAL_EXPENSES[0]?.vendorId ?? "vend-aws", displayCurrency)
   );
   const [formError, setFormError] = useState<string | null>(null);
   const [deleteExpenseId, setDeleteExpenseId] = useState<string | null>(null);
@@ -371,6 +372,10 @@ export function ExpensesPage() {
   const [detailTagQuery, setDetailTagQuery] = useState("");
   const [pageMessage, setPageMessage] = useState<string | null>(null);
   const [expensesGridApi, setExpensesGridApi] = useState<GridApi<ExpenseRecord> | null>(null);
+  const amountExample = useMemo(
+    () => buildCurrencyInputExample(displayCurrency),
+    [displayCurrency]
+  );
 
   const vendorOptions = useMemo(
     () =>
@@ -529,7 +534,9 @@ export function ExpensesPage() {
     if (action === "create" && !drawerOpen) {
       setDrawerMode("create");
       setEditingExpenseId(null);
-      setFormState(createDefaultFormState(vendorOptions[0]?.value ?? "vend-aws"));
+      setFormState(
+        createDefaultFormState(vendorOptions[0]?.value ?? "vend-aws", displayCurrency)
+      );
       setFormError(null);
       setDrawerOpen(true);
       setSearchParams(
@@ -543,6 +550,7 @@ export function ExpensesPage() {
     }
   }, [
     drawerOpen,
+    displayCurrency,
     expenses,
     searchParams,
     selectScenario,
@@ -636,7 +644,8 @@ export function ExpensesPage() {
         sortable: true,
         filter: "agNumberColumnFilter",
         minWidth: 140,
-        valueFormatter: (params) => formatUsd(Number(params.value ?? 0))
+        valueFormatter: (params) =>
+          formatCurrencyMinor(Number(params.value ?? 0), displayCurrency)
       },
       {
         headerName: "Status",
@@ -771,7 +780,7 @@ export function ExpensesPage() {
   function openCreateDrawer(): void {
     setDrawerMode("create");
     setEditingExpenseId(null);
-    setFormState(createDefaultFormState(vendorOptions[0]?.value ?? "vend-aws"));
+    setFormState(createDefaultFormState(vendorOptions[0]?.value ?? "vend-aws", displayCurrency));
     setFormError(null);
     setDrawerOpen(true);
   }
@@ -779,14 +788,14 @@ export function ExpensesPage() {
   function openEditDrawer(expense: ExpenseRecord): void {
     setDrawerMode("edit");
     setEditingExpenseId(expense.id);
-    setFormState(fromExpense(expense));
+    setFormState(fromExpense(expense, displayCurrency));
     setFormError(null);
     setDrawerOpen(true);
   }
 
   function handleSubmitDrawer(): void {
     const trimmedName = formState.name.trim();
-    const amountMinor = Number.parseInt(formState.amountMinor, 10);
+    const amountMinor = parseCurrencyInputToMinor(formState.amountMinor, displayCurrency);
     const interval = Number.parseInt(formState.recurrenceInterval, 10);
     const dayOfMonth = Number.parseInt(formState.recurrenceDayOfMonth, 10);
     const vendorName = vendorNamesById[formState.vendorId];
@@ -795,8 +804,8 @@ export function ExpensesPage() {
       setFormError("Name is required.");
       return;
     }
-    if (Number.isNaN(amountMinor) || amountMinor <= 0) {
-      setFormError("Amount (minor units) must be a positive integer.");
+    if (amountMinor === null || amountMinor <= 0) {
+      setFormError("Amount must be a positive amount.");
       return;
     }
     if (Number.isNaN(interval) || interval <= 0) {
@@ -1444,7 +1453,7 @@ export function ExpensesPage() {
                           />
                         </TableCell>
                         <TableCell>{expense.name}</TableCell>
-                        <TableCell>{formatUsd(expense.amountMinor)}</TableCell>
+                        <TableCell>{formatCurrencyMinor(expense.amountMinor, displayCurrency)}</TableCell>
                         <TableCell>
                           <StatusChip
                             label={toTitleCaseLabel(expense.status)}
@@ -1493,7 +1502,7 @@ export function ExpensesPage() {
             <Card className="expenses-detail">
               <Title3>Expense Detail</Title3>
               <Text>{selectedExpense.name}</Text>
-              <Text>{`Amount: ${formatUsd(selectedExpense.amountMinor)}`}</Text>
+              <Text>{`Amount: ${formatCurrencyMinor(selectedExpense.amountMinor, displayCurrency)}`}</Text>
               <Text>{`Vendor: ${selectedExpense.vendorName}`}</Text>
               <Text>{`Service: ${selectedExpense.serviceName || "Unassigned"}`}</Text>
               <Text>{`Contract: ${selectedExpense.contractNumber || "Unassigned"}`}</Text>
@@ -1632,20 +1641,19 @@ export function ExpensesPage() {
               </div>
               <div className="expenses-form__field">
                 <Text className="expenses-form__label" size={200} weight="medium">
-                  Amount (minor units)
+                  Amount
                 </Text>
                 <Input
-                  aria-label="Expense amount minor units"
-                  type="number"
-                  min="0"
+                  aria-label="Expense amount"
+                  inputMode="decimal"
                   value={formState.amountMinor}
                   onChange={(_event, data) =>
                     setFormState((current) => ({ ...current, amountMinor: data.value }))
                   }
-                  placeholder="5000"
+                  placeholder={amountExample.input}
                 />
                 <Text className="expenses-form__hint" size={100}>
-                  Example: 5000 = $50.00.
+                  {`Example: ${amountExample.input} = ${amountExample.formatted}.`}
                 </Text>
               </div>
               <div className="expenses-form__field">
@@ -1673,7 +1681,7 @@ export function ExpensesPage() {
                   className="expenses-form__hint expenses-form__hint--placeholder"
                   size={100}
                 >
-                  Example: 5000 = $50.00.
+                  {`Example: ${amountExample.input} = ${amountExample.formatted}.`}
                 </Text>
               </div>
               <div className="expenses-form__field expenses-form__field--full">

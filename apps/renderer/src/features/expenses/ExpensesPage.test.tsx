@@ -101,8 +101,8 @@ describe("ExpensesPage", () => {
     fireEvent.change(screen.getByLabelText("Expense name"), {
       target: { value: "Support Plan" }
     });
-    fireEvent.change(screen.getByLabelText("Expense amount minor units"), {
-      target: { value: "5000" }
+    fireEvent.change(screen.getByLabelText("Expense amount"), {
+      target: { value: "50.00" }
     });
     fireEvent.change(screen.getByLabelText("Expense service"), {
       target: { value: "VendorX" }

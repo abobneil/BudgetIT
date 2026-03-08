@@ -33,6 +33,13 @@ import {
   openHelpWindow,
   updateVendor as updateVendorIpc
 } from "../../lib/ipcClient";
+import {
+  buildCurrencyInputExample,
+  formatCurrencyInputMinor,
+  formatCurrencyMinor,
+  parseCurrencyInputToMinor,
+  useScenarioCurrency
+} from "../../lib/currency";
 import { toTitleCaseLabel } from "../../ui/text/labelCase";
 import { CONTRACT_BY_ID, SERVICE_BY_ID } from "../services/service-contract-data";
 import {
@@ -42,6 +49,7 @@ import {
   type VendorStatus
 } from "./vendor-data";
 import { evaluateVendorGuards, isDuplicateVendorName } from "./vendors-model";
+import { useScenarioContext } from "../scenarios/ScenarioContext";
 import "./VendorsPage.css";
 
 type VendorSortKey = "name" | "spend" | "status";
@@ -57,11 +65,11 @@ type VendorFormState = {
   linkedContractIdsCsv: string;
 };
 
-function createDefaultFormState(): VendorFormState {
+function createDefaultFormState(currency: string = "USD"): VendorFormState {
   return {
     name: "",
     owner: "",
-    annualSpendMinor: "0",
+    annualSpendMinor: formatCurrencyInputMinor(0, currency),
     status: "active",
     risk: "low",
     linkedServiceIdsCsv: "",
@@ -69,23 +77,16 @@ function createDefaultFormState(): VendorFormState {
   };
 }
 
-function fromVendor(vendor: VendorRecord): VendorFormState {
+function fromVendor(vendor: VendorRecord, currency: string = "USD"): VendorFormState {
   return {
     name: vendor.name,
     owner: vendor.owner,
-    annualSpendMinor: String(vendor.annualSpendMinor),
+    annualSpendMinor: formatCurrencyInputMinor(vendor.annualSpendMinor, currency),
     status: vendor.status,
     risk: vendor.risk,
     linkedServiceIdsCsv: vendor.linkedServiceIds.join(","),
     linkedContractIdsCsv: vendor.linkedContractIds.join(",")
   };
-}
-
-function formatUsd(amountMinor: number): string {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD"
-  }).format(amountMinor / 100);
 }
 
 function parseCsvIds(value: string): string[] {
@@ -143,6 +144,8 @@ export function VendorsPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const hasIpc = isIpcAvailable();
+  const { selectedScenarioId } = useScenarioContext();
+  const displayCurrency = useScenarioCurrency(selectedScenarioId);
   const [vendors, setVendors] = useState<VendorRecord[]>(INITIAL_VENDOR_RECORDS);
   const [searchText, setSearchText] = useState("");
   const [sortKey, setSortKey] = useState<VendorSortKey>("name");
@@ -153,13 +156,19 @@ export function VendorsPage() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerMode, setDrawerMode] = useState<"create" | "edit">("create");
   const [editingVendorId, setEditingVendorId] = useState<string | null>(null);
-  const [formState, setFormState] = useState<VendorFormState>(createDefaultFormState());
+  const [formState, setFormState] = useState<VendorFormState>(() =>
+    createDefaultFormState(displayCurrency)
+  );
   const [formError, setFormError] = useState<string | null>(null);
   const [archiveVendorId, setArchiveVendorId] = useState<string | null>(null);
   const [deleteVendorId, setDeleteVendorId] = useState<string | null>(null);
   const [pageMessage, setPageMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const lastSyncedVendorIdRef = useRef<string | null>(null);
+  const annualSpendExample = useMemo(
+    () => buildCurrencyInputExample(displayCurrency),
+    [displayCurrency]
+  );
 
   const loadWorkspaceData = useCallback(async () => {
     if (!hasIpc) {
@@ -274,7 +283,7 @@ export function VendorsPage() {
   function openCreateDrawer(): void {
     setDrawerMode("create");
     setEditingVendorId(null);
-    setFormState(createDefaultFormState());
+    setFormState(createDefaultFormState(displayCurrency));
     setFormError(null);
     setDrawerOpen(true);
   }
@@ -282,7 +291,7 @@ export function VendorsPage() {
   function openEditDrawer(vendor: VendorRecord): void {
     setDrawerMode("edit");
     setEditingVendorId(vendor.id);
-    setFormState(fromVendor(vendor));
+    setFormState(fromVendor(vendor, displayCurrency));
     setFormError(null);
     setDrawerOpen(true);
   }
@@ -298,7 +307,10 @@ export function VendorsPage() {
   function handleSubmitDrawer(): void {
     const trimmedName = formState.name.trim();
     const trimmedOwner = formState.owner.trim();
-    const annualSpendMinor = Number.parseInt(formState.annualSpendMinor, 10);
+    const annualSpendMinor = parseCurrencyInputToMinor(
+      formState.annualSpendMinor,
+      displayCurrency
+    );
     const linkedServiceIds = parseCsvIds(formState.linkedServiceIdsCsv);
     const linkedContractIds = parseCsvIds(formState.linkedContractIdsCsv);
 
@@ -310,8 +322,8 @@ export function VendorsPage() {
       setFormError("Vendor owner is required.");
       return;
     }
-    if (Number.isNaN(annualSpendMinor) || annualSpendMinor < 0) {
-      setFormError("Annual spend (minor units) must be zero or a positive integer.");
+    if (annualSpendMinor === null || annualSpendMinor < 0) {
+      setFormError("Annual spend must be zero or a positive amount.");
       return;
     }
     if (isDuplicateVendorName(trimmedName, vendors, editingVendorId ?? undefined)) {
@@ -553,7 +565,7 @@ export function VendorsPage() {
                     >
                       <TableCell>{vendor.name}</TableCell>
                       <TableCell>{vendor.owner}</TableCell>
-                      <TableCell>{formatUsd(vendor.annualSpendMinor)}</TableCell>
+                      <TableCell>{formatCurrencyMinor(vendor.annualSpendMinor, displayCurrency)}</TableCell>
                       <TableCell>
                         <StatusChip label={toTitleCaseLabel(vendor.status)} tone={statusTone(vendor.status)} />
                       </TableCell>
@@ -643,7 +655,7 @@ export function VendorsPage() {
             <Card className="vendors-detail">
               <Title3>{selectedVendor.name}</Title3>
               <Text>{`Owner: ${selectedVendor.owner}`}</Text>
-              <Text>{`Annual spend: ${formatUsd(selectedVendor.annualSpendMinor)}`}</Text>
+              <Text>{`Annual spend: ${formatCurrencyMinor(selectedVendor.annualSpendMinor, displayCurrency)}`}</Text>
               <Text>{`Status: ${selectedVendor.status}`}</Text>
               <Text>{`Risk: ${selectedVendor.risk}`}</Text>
 
@@ -794,25 +806,24 @@ export function VendorsPage() {
                   className="vendors-form__hint vendors-form__hint--placeholder"
                   size={100}
                 >
-                  Example: 50000 = $500.00.
+                  {`Example: ${annualSpendExample.input} = ${annualSpendExample.formatted}.`}
                 </Text>
               </div>
               <div className="vendors-form__field">
                 <Text className="vendors-form__label" size={200} weight="medium">
-                  Annual spend (minor units)
+                  Annual spend
                 </Text>
                 <Input
-                  aria-label="Vendor annual spend minor units"
-                  type="number"
-                  min="0"
+                  aria-label="Vendor annual spend"
+                  inputMode="decimal"
                   value={formState.annualSpendMinor}
                   onChange={(_event, data) =>
                     setFormState((current) => ({ ...current, annualSpendMinor: data.value }))
                   }
-                  placeholder="50000"
+                  placeholder={annualSpendExample.input}
                 />
                 <Text className="vendors-form__hint" size={100}>
-                  Example: 50000 = $500.00.
+                  {`Example: ${annualSpendExample.input} = ${annualSpendExample.formatted}.`}
                 </Text>
               </div>
               <div className="vendors-form__field">

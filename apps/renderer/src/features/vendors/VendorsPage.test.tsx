@@ -100,8 +100,8 @@ describe("VendorsPage", () => {
       fireEvent.change(screen.getByLabelText("Vendor owner"), {
         target: { value: "Security Operations" }
       });
-      fireEvent.change(screen.getByLabelText("Vendor annual spend minor units"), {
-        target: { value: "50000" }
+      fireEvent.change(screen.getByLabelText("Vendor annual spend"), {
+        target: { value: "500.00" }
       });
       fireEvent.change(screen.getByLabelText("Vendor linked service IDs"), {
         target: { value: "svc-cloud-platform" }

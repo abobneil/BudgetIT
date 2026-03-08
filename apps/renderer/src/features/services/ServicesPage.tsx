@@ -38,6 +38,13 @@ import {
   updateService as updateServiceIpc
 } from "../../lib/ipcClient";
 import {
+  buildCurrencyInputExample,
+  formatCurrencyInputMinor,
+  formatCurrencyMinor,
+  parseCurrencyInputToMinor,
+  useScenarioCurrency
+} from "../../lib/currency";
+import {
   buildVendorFilterOptions,
   matchesVendorFilter
 } from "../vendors/vendor-filter-model";
@@ -109,13 +116,6 @@ function mergeQuery(
   return next;
 }
 
-function formatUsd(amountMinor: number): string {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD"
-  }).format(amountMinor / 100);
-}
-
 function formatDate(isoDate: string): string {
   return new Date(`${isoDate}T00:00:00.000Z`).toLocaleDateString("en-US", {
     month: "short",
@@ -137,24 +137,24 @@ function normalizeServiceId(name: string): string {
     .replace(/^-+|-+$/g, "")}`;
 }
 
-function createDefaultFormState(vendorId: string): ServiceFormState {
+function createDefaultFormState(vendorId: string, currency: string = "USD"): ServiceFormState {
   return {
     vendorId,
     name: "",
     owner: "",
-    annualSpendMinor: "0",
+    annualSpendMinor: formatCurrencyInputMinor(0, currency),
     status: "active",
     risk: "low",
     replacementStatus: "not-started"
   };
 }
 
-function fromService(service: WorkspaceServiceRecord): ServiceFormState {
+function fromService(service: WorkspaceServiceRecord, currency: string = "USD"): ServiceFormState {
   return {
     vendorId: service.vendorId,
     name: service.name,
     owner: service.owner,
-    annualSpendMinor: String(service.annualSpendMinor),
+    annualSpendMinor: formatCurrencyInputMinor(service.annualSpendMinor, currency),
     status: service.status,
     risk: service.risk,
     replacementStatus: service.replacementStatus
@@ -165,6 +165,7 @@ export function ServicesPage() {
   const navigate = useNavigate();
   const hasIpc = isIpcAvailable();
   const { selectedScenarioId } = useScenarioContext();
+  const displayCurrency = useScenarioCurrency(selectedScenarioId);
   const [searchParams, setSearchParams] = useSearchParams();
   const [serviceRecords, setServiceRecords] = useState<WorkspaceServiceRecord[]>(
     SERVICE_RECORDS.map((entry) => ({
@@ -202,11 +203,17 @@ export function ServicesPage() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerMode, setDrawerMode] = useState<"create" | "edit">("create");
   const [editingServiceId, setEditingServiceId] = useState<string | null>(null);
-  const [formState, setFormState] = useState<ServiceFormState>(() => createDefaultFormState(""));
+  const [formState, setFormState] = useState<ServiceFormState>(() =>
+    createDefaultFormState("", displayCurrency)
+  );
   const [formError, setFormError] = useState<string | null>(null);
   const [deleteServiceId, setDeleteServiceId] = useState<string | null>(null);
   const referenceDate = toUtcIsoDate();
   const currentYearRange = useMemo(() => currentYearDateRange(), []);
+  const annualSpendExample = useMemo(
+    () => buildCurrencyInputExample(displayCurrency),
+    [displayCurrency]
+  );
 
   const vendorChoices = useMemo(
     () =>
@@ -387,7 +394,7 @@ export function ServicesPage() {
     const defaultVendorId = vendorChoices[0]?.id ?? serviceRecords[0]?.vendorId ?? "";
     setDrawerMode("create");
     setEditingServiceId(null);
-    setFormState(createDefaultFormState(defaultVendorId));
+    setFormState(createDefaultFormState(defaultVendorId, displayCurrency));
     setFormError(null);
     setDrawerOpen(true);
   }
@@ -395,7 +402,7 @@ export function ServicesPage() {
   function openEditDrawer(service: WorkspaceServiceRecord): void {
     setDrawerMode("edit");
     setEditingServiceId(service.id);
-    setFormState(fromService(service));
+    setFormState(fromService(service, displayCurrency));
     setFormError(null);
     setDrawerOpen(true);
   }
@@ -403,7 +410,10 @@ export function ServicesPage() {
   function handleSubmitDrawer(): void {
     const trimmedName = formState.name.trim();
     const trimmedOwner = formState.owner.trim();
-    const annualSpendMinor = Number.parseInt(formState.annualSpendMinor, 10);
+    const annualSpendMinor = parseCurrencyInputToMinor(
+      formState.annualSpendMinor,
+      displayCurrency
+    );
 
     if (!formState.vendorId) {
       setFormError("Vendor is required.");
@@ -417,8 +427,8 @@ export function ServicesPage() {
       setFormError("Service owner is required.");
       return;
     }
-    if (Number.isNaN(annualSpendMinor) || annualSpendMinor < 0) {
-      setFormError("Annual spend (minor units) must be zero or a positive integer.");
+    if (annualSpendMinor === null || annualSpendMinor < 0) {
+      setFormError("Annual spend must be zero or a positive amount.");
       return;
     }
 
@@ -648,7 +658,7 @@ export function ServicesPage() {
                           tone={serviceLifecycleTone(lifecycleState)}
                         />
                       </TableCell>
-                      <TableCell>{formatUsd(service.annualSpendMinor)}</TableCell>
+                      <TableCell>{formatCurrencyMinor(service.annualSpendMinor, displayCurrency)}</TableCell>
                       <TableCell>
                         <StatusChip
                           label={toTitleCaseLabel(service.risk)}
@@ -762,7 +772,7 @@ export function ServicesPage() {
 
               {detailTab === "overview" ? (
                 <div className="services-detail__section">
-                  <Text>{`Annual spend: ${formatUsd(selectedService.annualSpendMinor)}`}</Text>
+                  <Text>{`Annual spend: ${formatCurrencyMinor(selectedService.annualSpendMinor, displayCurrency)}`}</Text>
                   <Text>{`Risk level: ${selectedService.risk}`}</Text>
                   <Text>{`Replacement status: ${selectedService.replacementStatus}`}</Text>
                 </div>
@@ -774,7 +784,7 @@ export function ServicesPage() {
                   <ul className="services-detail__list">
                     {selectedService.expenseLines.map((line) => (
                       <li key={line.id}>
-                        <Text>{`${line.name} - ${formatUsd(line.amountMinor)} (${line.status})`}</Text>
+                        <Text>{`${line.name} - ${formatCurrencyMinor(line.amountMinor, displayCurrency)} (${line.status})`}</Text>
                       </li>
                     ))}
                   </ul>
@@ -935,18 +945,20 @@ export function ServicesPage() {
               </div>
               <div className="services-form__field">
                 <Text className="services-form__label" size={200} weight="medium">
-                  Annual spend (minor units)
+                  Annual spend
                 </Text>
                 <Input
-                  aria-label="Service annual spend minor units"
-                  type="number"
-                  min="0"
+                  aria-label="Service annual spend"
+                  inputMode="decimal"
                   value={formState.annualSpendMinor}
                   onChange={(_event, data) =>
                     setFormState((current) => ({ ...current, annualSpendMinor: data.value }))
                   }
-                  placeholder="50000"
+                  placeholder={annualSpendExample.input}
                 />
+                <Text className="services-form__hint" size={100}>
+                  {`Example: ${annualSpendExample.input} = ${annualSpendExample.formatted}.`}
+                </Text>
               </div>
               <div className="services-form__field">
                 <Text className="services-form__label" size={200} weight="medium">

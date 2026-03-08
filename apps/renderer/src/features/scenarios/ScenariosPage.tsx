@@ -18,6 +18,7 @@ import {
 } from "@fluentui/react-components";
 
 import { PageHeader, StatusChip } from "../../ui/primitives";
+import { formatCurrencyMinor, useScenarioCurrency } from "../../lib/currency";
 import { isIpcAvailable, queryReport } from "../../lib/ipcClient";
 import { toTitleCaseLabel } from "../../ui/text/labelCase";
 import { useScenarioContext } from "./ScenarioContext";
@@ -53,6 +54,7 @@ export function ScenariosPage() {
     promoteScenario,
     lockScenario
   } = useScenarioContext();
+  const displayCurrency = useScenarioCurrency(selectedScenarioId);
   const [comparisonScenarioId, setComparisonScenarioId] = useState<string | null>(null);
   const [comparisonError, setComparisonError] = useState<string | null>(null);
   const [comparisonResult, setComparisonResult] = useState<null | {
@@ -91,13 +93,6 @@ export function ScenariosPage() {
         comparisonScenarioId
       )
     : null;
-
-  function formatMoney(minor: number): string {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD"
-    }).format(minor / 100);
-  }
 
   function handleCompareScenario(scenarioId: string): void {
     setComparisonScenarioId(scenarioId);
@@ -165,9 +160,9 @@ export function ScenariosPage() {
       {comparisonResult ? (
         <Card data-testid="scenario-comparison-db">
           <Text weight="semibold">Comparison delta (database)</Text>
-          <Text>{`Baseline ${comparisonResult.baselineScenarioId}: ${comparisonResult.baseline.expenseCount} expenses, ${formatMoney(comparisonResult.baseline.totalMinor)}, ${comparisonResult.baseline.classifiedExpenseCount} classified`}</Text>
-          <Text>{`Selected ${comparisonResult.comparisonScenarioId}: ${comparisonResult.comparison.expenseCount} expenses, ${formatMoney(comparisonResult.comparison.totalMinor)}, ${comparisonResult.comparison.classifiedExpenseCount} classified`}</Text>
-          <Text>{`Delta: ${comparisonResult.delta.expenseCount} expenses, ${formatMoney(comparisonResult.delta.totalMinor)}, ${comparisonResult.delta.classifiedExpenseCount} classified`}</Text>
+          <Text>{`Baseline ${comparisonResult.baselineScenarioId}: ${comparisonResult.baseline.expenseCount} expenses, ${formatCurrencyMinor(comparisonResult.baseline.totalMinor, displayCurrency)}, ${comparisonResult.baseline.classifiedExpenseCount} classified`}</Text>
+          <Text>{`Selected ${comparisonResult.comparisonScenarioId}: ${comparisonResult.comparison.expenseCount} expenses, ${formatCurrencyMinor(comparisonResult.comparison.totalMinor, displayCurrency)}, ${comparisonResult.comparison.classifiedExpenseCount} classified`}</Text>
+          <Text>{`Delta: ${comparisonResult.delta.expenseCount} expenses, ${formatCurrencyMinor(comparisonResult.delta.totalMinor, displayCurrency)}, ${comparisonResult.delta.classifiedExpenseCount} classified`}</Text>
         </Card>
       ) : null}
       {comparisonError ? <Text>{comparisonError}</Text> : null}

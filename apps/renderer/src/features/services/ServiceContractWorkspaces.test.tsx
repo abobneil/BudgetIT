@@ -131,6 +131,30 @@ describe("service and contract workspaces", () => {
     expect(screen.getByTestId("current-location")).not.toHaveTextContent("/help");
   });
 
+  it("accepts decimal annual spend values in the service form", async () => {
+    renderWorkspace("/services");
+
+    await screen.findByText("Services Workspace");
+    fireEvent.click(screen.getByRole("button", { name: "Create Service" }));
+
+    fireEvent.change(screen.getByLabelText("Service name"), {
+      target: { value: "Acme Monitoring" }
+    });
+    fireEvent.change(screen.getByLabelText("Service owner"), {
+      target: { value: "Platform Ops" }
+    });
+    fireEvent.change(screen.getByLabelText("Service annual spend"), {
+      target: { value: "500.00" }
+    });
+
+    const createButtons = screen.getAllByRole("button", { name: "Create" });
+    fireEvent.click(createButtons[createButtons.length - 1]);
+
+    expect(await screen.findByText("Service Acme Monitoring created.")).toBeInTheDocument();
+    expect(screen.getAllByText("Acme Monitoring").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("$500.00").length).toBeGreaterThan(0);
+  });
+
   it("opens the contract form guide from the drawer", async () => {
     renderWorkspace("/contracts");
 

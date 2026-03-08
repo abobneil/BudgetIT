@@ -35,6 +35,7 @@ import {
   openHelpWindow,
   updateContract as updateContractIpc
 } from "../../lib/ipcClient";
+import { formatCurrencyMinor, useScenarioCurrency } from "../../lib/currency";
 import {
   CONTRACT_RECORDS,
   SERVICE_BY_ID,
@@ -76,13 +77,6 @@ function formatDate(isoDate: string): string {
     year: "numeric",
     timeZone: "UTC"
   });
-}
-
-function formatUsd(amountMinor: number): string {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD"
-  }).format(amountMinor / 100);
 }
 
 function mergeQuery(
@@ -154,6 +148,7 @@ export function ContractsPage() {
   const navigate = useNavigate();
   const hasIpc = isIpcAvailable();
   const { selectedScenarioId } = useScenarioContext();
+  const displayCurrency = useScenarioCurrency(selectedScenarioId);
   const [searchParams, setSearchParams] = useSearchParams();
   const [contractRecords, setContractRecords] = useState(CONTRACT_RECORDS);
   const [serviceById, setServiceById] = useState<Record<string, ServiceContext>>(
@@ -586,7 +581,9 @@ export function ContractsPage() {
                         </Text>
                       </TableCell>
                       <TableCell>{formatDate(contract.noticeDeadline)}</TableCell>
-                      <TableCell>{formatUsd(contract.totalCommitmentMinor)}</TableCell>
+                      <TableCell>
+                        {formatCurrencyMinor(contract.totalCommitmentMinor, displayCurrency)}
+                      </TableCell>
                       <TableCell data-testid={`contract-linked-count-${contract.id}`}>
                         {contract.linkedServiceIds.length}
                       </TableCell>
