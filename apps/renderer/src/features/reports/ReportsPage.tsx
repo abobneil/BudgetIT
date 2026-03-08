@@ -16,8 +16,6 @@ import {
 } from "@fluentui/react-components";
 import { AgGridReact } from "ag-grid-react";
 import type { ColDef, GridApi, GridReadyEvent } from "ag-grid-community";
-import { useNavigate } from "react-router-dom";
-
 import type { DashboardDataset } from "../../reporting";
 import {
   createExpenseFromUnmatchedActual,
@@ -26,6 +24,7 @@ import {
   generateShowbackStatement,
   isIpcAvailable,
   listUnmatchedActuals,
+  openHelpWindow,
   pickDirectoryPath,
   previewReport,
   queryReport,
@@ -52,7 +51,6 @@ import {
   saveReportPreset,
   type ReportPreset
 } from "./reports-config-model";
-import { buildHelpHashPath } from "../help/help-topics";
 import "./ReportsPage.css";
 
 type ReportFormat = "html" | "pdf" | "excel" | "csv" | "png";
@@ -86,7 +84,6 @@ type DataQualitySummary = {
 export function ReportsPage() {
   const hasIpc = isIpcAvailable();
   const useAgGrid = isAgGridAvailable();
-  const navigate = useNavigate();
   const { selectedScenarioId, selectedScenario } = useScenarioContext();
   const { notify } = useFeedback();
   const defaultYearRange = useMemo(() => currentYearDateRange(), []);
@@ -753,20 +750,8 @@ export function ReportsPage() {
     }
   }
 
-  function openHelpTopic(
-    topic: string,
-    anchor?: string,
-    q?: string,
-    context?: string
-  ): void {
-    navigate(
-      buildHelpHashPath({
-        topic,
-        anchor,
-        q,
-        context
-      })
-    );
+  function openHelpTopic(topic: string, anchor?: string, q?: string, context?: string): void {
+    void openHelpWindow({ topic, anchor, q, context });
   }
 
   function jumpToSection(section: "export" | "narrative"): void {
@@ -1203,7 +1188,7 @@ export function ReportsPage() {
                   }}
                   onGridReady={onUnmatchedGridReady}
                   getRowId={(params) => params.data.id}
-                  rowHeight={56}
+                  rowHeight={112}
                 />
               </div>
             </div>
@@ -1415,7 +1400,7 @@ export function ReportsPage() {
                   }}
                   getRowId={(params) => params.data.id}
                   onGridReady={onShowbackGridReady}
-                  rowHeight={56}
+                  rowHeight={88}
                 />
               </div>
             </div>

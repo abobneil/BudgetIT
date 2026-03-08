@@ -30,6 +30,7 @@ import {
   listContracts as listContractsIpc,
   listServices as listServicesIpc,
   listVendors as listVendorsIpc,
+  openHelpWindow,
   updateVendor as updateVendorIpc
 } from "../../lib/ipcClient";
 import { toTitleCaseLabel } from "../../ui/text/labelCase";
@@ -41,7 +42,6 @@ import {
   type VendorStatus
 } from "./vendor-data";
 import { evaluateVendorGuards, isDuplicateVendorName } from "./vendors-model";
-import { buildHelpHashPath } from "../help/help-topics";
 import "./VendorsPage.css";
 
 type VendorSortKey = "name" | "spend" | "status";
@@ -482,14 +482,7 @@ export function VendorsPage() {
     q?: string,
     context?: string
   ): void {
-    navigate(
-      buildHelpHashPath({
-        topic,
-        anchor,
-        q,
-        context
-      })
-    );
+    void openHelpWindow({ topic, anchor, q, context });
   }
 
   return (
@@ -796,6 +789,13 @@ export function VendorsPage() {
                   }
                   placeholder="Vendor owner"
                 />
+                <Text
+                  aria-hidden="true"
+                  className="vendors-form__hint vendors-form__hint--placeholder"
+                  size={100}
+                >
+                  Example: 50000 = $500.00.
+                </Text>
               </div>
               <div className="vendors-form__field">
                 <Text className="vendors-form__label" size={200} weight="medium">

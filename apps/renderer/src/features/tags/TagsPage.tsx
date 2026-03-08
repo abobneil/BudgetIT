@@ -409,7 +409,7 @@ export function TagsPage() {
 
       <Card>
         <Title3>Create Dimension</Title3>
-        <div className="tags-detail__merge">
+        <div className="tags-detail__create-dimension">
           <div className="tags-detail__field">
             <Text className="tags-detail__label" size={200} weight="medium">
               Dimension name

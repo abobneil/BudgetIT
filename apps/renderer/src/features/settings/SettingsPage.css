@@ -63,11 +63,11 @@
 }
 
 .settings-backup__row--create {
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto auto;
 }
 
 .settings-backup__row--restore {
-  grid-template-columns: repeat(2, minmax(0, 1fr)) auto;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto auto;
 }
 
 .settings-backup__field {

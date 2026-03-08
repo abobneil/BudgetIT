@@ -48,6 +48,7 @@ import {
   listServices as listServicesIpc,
   listTags as listTagsIpc,
   listVendors as listVendorsIpc,
+  openHelpWindow,
   unassignTag as unassignTagIpc,
   updateExpense as updateExpenseIpc,
   updateRecurrence as updateRecurrenceIpc,
@@ -73,7 +74,6 @@ import {
   generateRecurrencePreview,
   type RecurrencePreviewRule
 } from "./recurrence-preview";
-import { buildHelpHashPath } from "../help/help-topics";
 import "./ExpensesPage.css";
 
 type ExpenseStatus = "planned" | "approved" | "committed" | "actual" | "cancelled";
@@ -1241,14 +1241,7 @@ export function ExpensesPage() {
     q?: string,
     context?: string
   ): void {
-    navigate(
-      buildHelpHashPath({
-        topic,
-        anchor,
-        q,
-        context
-      })
-    );
+    void openHelpWindow({ topic, anchor, q, context });
   }
 
   return (
@@ -1676,6 +1669,13 @@ export function ExpensesPage() {
                     </option>
                   ))}
                 </Select>
+                <Text
+                  aria-hidden="true"
+                  className="expenses-form__hint expenses-form__hint--placeholder"
+                  size={100}
+                >
+                  Example: 5000 = $50.00.
+                </Text>
               </div>
               <div className="expenses-form__field expenses-form__field--full">
                 <Text className="expenses-form__label" size={200} weight="medium">

@@ -102,6 +102,10 @@
   color: var(--colorNeutralForeground3);
 }
 
+.vendors-form__hint--placeholder {
+  visibility: hidden;
+}
+
 @media (max-width: 1080px) {
   .vendors-layout {
     grid-template-columns: 1fr;

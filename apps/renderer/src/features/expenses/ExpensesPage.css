@@ -156,6 +156,10 @@
   color: var(--colorNeutralForeground3);
 }
 
+.expenses-form__hint--placeholder {
+  visibility: hidden;
+}
+
 @media (max-width: 1260px) {
   .expenses-layout {
     grid-template-columns: minmax(0, 1fr);
