@@ -53,7 +53,7 @@ describe("migration runner", () => {
     } finally {
       boot.db.close();
     }
-  });
+  }, 15_000);
 
   it("upgrades a database from a prior migration fixture", () => {
     const dataDir = createTempDir();

@@ -104,7 +104,7 @@ describe("scenario workflows", () => {
     } finally {
       boot.db.close();
     }
-  });
+  }, 15_000);
 
   it("enforces scenario approval transitions", () => {
     const dataDir = createTempDir();

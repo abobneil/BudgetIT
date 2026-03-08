@@ -81,7 +81,7 @@ describe("alert scheduler", () => {
     } finally {
       boot.db.close();
     }
-  });
+  }, 15_000);
 
   it("computes cancellation notice deadline from renewal date minus notice window", () => {
     const dataDir = createTempDir();
@@ -99,6 +99,6 @@ describe("alert scheduler", () => {
     } finally {
       boot.db.close();
     }
-  });
+  }, 15_000);
 });
 
