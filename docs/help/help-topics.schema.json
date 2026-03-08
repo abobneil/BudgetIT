@@ -47,6 +47,7 @@
           "title": { "type": "string", "minLength": 1 },
           "inAppSnippet": { "type": "string", "minLength": 1 },
           "docSection": { "type": "string", "minLength": 1 },
+          "defaultAnchor": { "type": "string", "minLength": 1 },
           "order": { "type": "integer" },
           "topicFile": { "type": "string", "minLength": 1 },
           "keywords": {

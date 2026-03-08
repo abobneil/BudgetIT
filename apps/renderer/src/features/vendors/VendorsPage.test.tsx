@@ -10,19 +10,27 @@ import {
   waitFor,
   within
 } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, useLocation } from "react-router-dom";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { AppShell } from "../../app/AppShell";
 import { AppRoutes } from "../../app/routes";
 import { budgetItLightTheme } from "../../ui/theme";
 
+function LocationProbe() {
+  const location = useLocation();
+  return <div data-testid="current-location">{`${location.pathname}${location.search}`}</div>;
+}
+
 function renderWorkspace(initialPath: string) {
   return render(
     <FluentProvider theme={budgetItLightTheme}>
       <MemoryRouter initialEntries={[initialPath]}>
         <AppShell>
-          <AppRoutes />
+          <>
+            <LocationProbe />
+            <AppRoutes />
+          </>
         </AppShell>
       </MemoryRouter>
     </FluentProvider>
@@ -131,4 +139,18 @@ describe("VendorsPage", () => {
     },
     15000
   );
+
+  it("opens the vendor form guide from the drawer", async () => {
+    renderWorkspace("/vendors");
+
+    await screen.findByText("Vendors Workspace");
+    fireEvent.click(screen.getByRole("button", { name: "Create Vendor" }));
+    fireEvent.click(screen.getByRole("button", { name: "Vendor Form Guide" }));
+
+    expect(await screen.findByRole("heading", { name: "Help Center" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Selected help topic")).toHaveValue("vendors-form");
+    expect(screen.getByTestId("current-location")).toHaveTextContent(
+      "/help?topic=vendors-form&anchor=createedit-vendor-form&q=vendor+form&context=vendors%3Aform"
+    );
+  });
 });

@@ -128,6 +128,9 @@ function validateManifest(manifest) {
     assertString(topic.inAppSnippet, "topic.inAppSnippet");
     assertString(topic.docSection, "topic.docSection");
     assertString(topic.topicFile, "topic.topicFile");
+    if (Object.hasOwn(topic, "defaultAnchor")) {
+      assertString(topic.defaultAnchor, `topic.defaultAnchor for topic "${topic.id}"`);
+    }
 
     if (!/^[a-z0-9-]+$/.test(topic.id)) {
       fail(`Invalid topic.id "${topic.id}". Use lowercase kebab-case.`);
@@ -285,6 +288,9 @@ function renderTopicForTs(topic) {
     `    title: ${escapeTsString(topic.title)},`,
     `    inAppSnippet: ${escapeTsString(topic.inAppSnippet)},`,
     `    docSection: ${escapeTsString(topic.docSection)},`,
+    ...(topic.defaultAnchor
+      ? [`    defaultAnchor: ${escapeTsString(topic.defaultAnchor)},`]
+      : []),
     `    order: ${topic.order},`,
     `    topicFile: ${escapeTsString(topic.topicFile)},`,
     `    keywords: [${renderedKeywords}],`,
@@ -314,6 +320,7 @@ function generateHelpTopicsTs(manifest) {
     "  title: string;",
     "  inAppSnippet: string;",
     "  docSection: string;",
+    "  defaultAnchor?: string;",
     "  order: number;",
     "  topicFile: string;",
     "  keywords: string[];",
@@ -508,6 +515,7 @@ function handleNewTopic(argv) {
   const audience = parseFlagValue(argv, "audience") ?? "both";
   const journeyStep = parseFlagValue(argv, "journey-step") ?? "reference";
   const docSection = parseFlagValue(argv, "doc-section") ?? title;
+  const defaultAnchor = parseFlagValue(argv, "default-anchor");
   const keywordsRaw = parseFlagValue(argv, "keywords");
   const outcomesRaw = parseFlagValue(argv, "outcomes");
 
@@ -534,6 +542,9 @@ function handleNewTopic(argv) {
   }
   if (typeof docSection !== "string" || docSection.trim().length === 0) {
     fail("--doc-section must be a non-empty string.");
+  }
+  if (defaultAnchor !== undefined && defaultAnchor.trim().length === 0) {
+    fail("--default-anchor must be a non-empty string when provided.");
   }
 
   const manifest = parseManifest();
@@ -585,6 +596,7 @@ function handleNewTopic(argv) {
     title,
     inAppSnippet,
     docSection: docSection.trim(),
+    ...(defaultAnchor ? { defaultAnchor: defaultAnchor.trim() } : {}),
     order: nextOrder,
     topicFile: normalizeToPosix(topicFile),
     keywords,
@@ -607,7 +619,7 @@ function printUsage() {
       "Usage:",
       "  node scripts/help-tools.cjs generate",
       "  node scripts/help-tools.cjs check",
-      "  node scripts/help-tools.cjs new-topic --id <id> --title <title> [--doc-section <heading>] [--snippet <text>] [--audience new-user|experienced-user|both] [--journey-step orientation|setup|import|analysis|reporting|operations|reference] [--keywords k1,k2] [--outcomes o1,o2]"
+      "  node scripts/help-tools.cjs new-topic --id <id> --title <title> [--doc-section <heading>] [--default-anchor <anchor>] [--snippet <text>] [--audience new-user|experienced-user|both] [--journey-step orientation|setup|import|analysis|reporting|operations|reference] [--keywords k1,k2] [--outcomes o1,o2]"
     ].join("\n")
   );
 }

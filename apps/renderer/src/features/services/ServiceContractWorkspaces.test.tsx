@@ -10,19 +10,27 @@ import {
   waitFor,
   within
 } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, useLocation } from "react-router-dom";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { AppShell } from "../../app/AppShell";
 import { AppRoutes } from "../../app/routes";
 import { budgetItLightTheme } from "../../ui/theme";
 
+function LocationProbe() {
+  const location = useLocation();
+  return <div data-testid="current-location">{`${location.pathname}${location.search}`}</div>;
+}
+
 function renderWorkspace(initialPath: string) {
   return render(
     <FluentProvider theme={budgetItLightTheme}>
       <MemoryRouter initialEntries={[initialPath]}>
         <AppShell>
-          <AppRoutes />
+          <>
+            <LocationProbe />
+            <AppRoutes />
+          </>
         </AppShell>
       </MemoryRouter>
     </FluentProvider>
@@ -93,5 +101,33 @@ describe("service and contract workspaces", () => {
       expect(screen.getByTestId("page-title")).toHaveTextContent("Reports");
     });
     expect(screen.getByTestId("reports-scenario-context")).toHaveTextContent("Baseline");
+  });
+
+  it("opens the service form guide from the drawer", async () => {
+    renderWorkspace("/services");
+
+    await screen.findByText("Services Workspace");
+    fireEvent.click(screen.getByRole("button", { name: "Create Service" }));
+    fireEvent.click(screen.getByRole("button", { name: "Service Form Guide" }));
+
+    expect(await screen.findByRole("heading", { name: "Help Center" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Selected help topic")).toHaveValue("services-form");
+    expect(screen.getByTestId("current-location")).toHaveTextContent(
+      "/help?topic=services-form&anchor=createedit-service-form&q=service+form&context=services%3Aform"
+    );
+  });
+
+  it("opens the contract form guide from the drawer", async () => {
+    renderWorkspace("/contracts");
+
+    await screen.findByText("Contracts Workspace");
+    fireEvent.click(screen.getByRole("button", { name: "Create Contract" }));
+    fireEvent.click(screen.getByRole("button", { name: "Contract Form Guide" }));
+
+    expect(await screen.findByRole("heading", { name: "Help Center" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Selected help topic")).toHaveValue("contracts-form");
+    expect(screen.getByTestId("current-location")).toHaveTextContent(
+      "/help?topic=contracts-form&anchor=createedit-contract-form&q=contract+form&context=contracts%3Aform"
+    );
   });
 });

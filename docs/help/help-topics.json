@@ -16,6 +16,7 @@
       "title": "Quick Start",
       "inAppSnippet": "Use this first-run guide to learn the dual-window workflow and set up BudgetIT safely.",
       "docSection": "Quick Start (First Launch)",
+      "defaultAnchor": "first-10-minutes",
       "order": 10,
       "topicFile": "topics/quick-start.md",
       "keywords": [
@@ -35,6 +36,7 @@
       "title": "Keyboard Shortcuts",
       "inAppSnippet": "Use Ctrl+K for Command Palette, Ctrl+Shift+F for Global Search, and Escape to close dialogs.",
       "docSection": "1) App Shell (Global Controls)",
+      "defaultAnchor": "overview",
       "order": 20,
       "topicFile": "topics/app-shell.md",
       "keywords": [
@@ -55,6 +57,7 @@
       "title": "Dashboard",
       "inAppSnippet": "Dashboard summarizes forecast, actuals, variance, renewals, and replacement posture by scenario.",
       "docSection": "2) Dashboard",
+      "defaultAnchor": "main-actions",
       "order": 30,
       "topicFile": "topics/dashboard.md",
       "keywords": [
@@ -74,6 +77,7 @@
       "title": "Expenses Workspace",
       "inAppSnippet": "Track expense lines, apply bulk status/tag updates, and maintain recurrence for forecasting.",
       "docSection": "3) Expenses Workspace",
+      "defaultAnchor": "overview",
       "order": 40,
       "topicFile": "topics/expenses-workspace.md",
       "keywords": [
@@ -94,6 +98,7 @@
       "title": "Expense Form",
       "inAppSnippet": "Use this form to create or edit core expense details, links, tags, and recurrence settings.",
       "docSection": "3) Expenses Workspace",
+      "defaultAnchor": "createedit-expense-form",
       "order": 41,
       "topicFile": "topics/expenses-workspace.md",
       "keywords": [
@@ -113,6 +118,7 @@
       "title": "Services Workspace",
       "inAppSnippet": "Manage service lifecycle, risk, renewals, and replacement state in one view.",
       "docSection": "4) Services Workspace",
+      "defaultAnchor": "overview",
       "order": 50,
       "topicFile": "topics/services-workspace.md",
       "keywords": [
@@ -133,6 +139,7 @@
       "title": "Service Form",
       "inAppSnippet": "Define service ownership, spend, status, risk, and replacement status.",
       "docSection": "4) Services Workspace",
+      "defaultAnchor": "createedit-service-form",
       "order": 51,
       "topicFile": "topics/services-workspace.md",
       "keywords": [
@@ -152,6 +159,7 @@
       "title": "Contracts Workspace",
       "inAppSnippet": "Track contract terms, renewal windows, notice periods, and linked services.",
       "docSection": "5) Contracts Workspace",
+      "defaultAnchor": "overview",
       "order": 60,
       "topicFile": "topics/contracts-workspace.md",
       "keywords": [
@@ -171,6 +179,7 @@
       "title": "Contract Form",
       "inAppSnippet": "Capture contract identity, dates, renewal strategy, lifecycle status, and owner.",
       "docSection": "5) Contracts Workspace",
+      "defaultAnchor": "createedit-contract-form",
       "order": 61,
       "topicFile": "topics/contracts-workspace.md",
       "keywords": [
@@ -190,6 +199,7 @@
       "title": "Vendors Workspace",
       "inAppSnippet": "Manage vendor risk and lifecycle with archive/delete guardrails for linked records.",
       "docSection": "6) Vendors Workspace",
+      "defaultAnchor": "overview",
       "order": 70,
       "topicFile": "topics/vendors-workspace.md",
       "keywords": [
@@ -209,6 +219,7 @@
       "title": "Vendor Form",
       "inAppSnippet": "Create or edit vendor ownership, spend, status, risk, and optional linked IDs.",
       "docSection": "6) Vendors Workspace",
+      "defaultAnchor": "createedit-vendor-form",
       "order": 71,
       "topicFile": "topics/vendors-workspace.md",
       "keywords": [
@@ -228,6 +239,7 @@
       "title": "Tags & Dimensions",
       "inAppSnippet": "Define dimensions, create/retire/merge tags, and clear required-tag queue items.",
       "docSection": "7) Tags & Dimensions",
+      "defaultAnchor": "overview",
       "order": 80,
       "topicFile": "topics/tags-workspace.md",
       "keywords": [
@@ -247,6 +259,7 @@
       "title": "Scenarios Workspace",
       "inAppSnippet": "Select, clone, promote, lock, and compare scenarios to baseline before approval.",
       "docSection": "8) Scenarios Workspace",
+      "defaultAnchor": "overview",
       "order": 90,
       "topicFile": "topics/scenarios-workspace.md",
       "keywords": [
@@ -266,6 +279,7 @@
       "title": "Alerts Inbox",
       "inAppSnippet": "Triage due-soon, snoozed, and acknowledged alerts, then jump to related entities.",
       "docSection": "9) Alerts Inbox",
+      "defaultAnchor": "overview",
       "order": 100,
       "topicFile": "topics/alerts-inbox.md",
       "keywords": [
@@ -285,6 +299,7 @@
       "title": "Import Wizard",
       "inAppSnippet": "Follow mode, file, mapping, preview, and commit steps for controlled data imports.",
       "docSection": "10) Import Wizard",
+      "defaultAnchor": "5-steps",
       "order": 110,
       "topicFile": "topics/import-wizard.md",
       "keywords": [
@@ -305,6 +320,7 @@
       "title": "Reports Workspace",
       "inAppSnippet": "Use report presets, filters, preview, export queue, unmatched actuals review, and showback.",
       "docSection": "11) Reports Workspace",
+      "defaultAnchor": "report-gallery",
       "order": 120,
       "topicFile": "topics/reports-workspace.md",
       "keywords": [
@@ -325,6 +341,7 @@
       "title": "NLQ Workspace",
       "inAppSnippet": "Ask plain-language budgeting questions, inspect parsed filters, then export or save presets.",
       "docSection": "12) NLQ Workspace",
+      "defaultAnchor": "overview",
       "order": 130,
       "topicFile": "topics/nlq-workspace.md",
       "keywords": [
@@ -344,6 +361,7 @@
       "title": "Settings Center",
       "inAppSnippet": "Configure runtime behavior, notifications, backup/restore, security, maintenance, and evidence.",
       "docSection": "13) Settings Center",
+      "defaultAnchor": "runtime",
       "order": 140,
       "topicFile": "topics/settings-center.md",
       "keywords": [
@@ -357,6 +375,26 @@
       "outcomes": [
         "Run recurring operations with clear status decisions.",
         "Apply Settings Center guidance without leaving the app."
+      ]
+    },
+    {
+      "id": "developer-tools",
+      "title": "Developer Tools",
+      "inAppSnippet": "Review what remains in the retired developer workspace and where to go for supported diagnostics.",
+      "docSection": "14) Developer Tools",
+      "defaultAnchor": "overview",
+      "order": 150,
+      "topicFile": "topics/developer-tools.md",
+      "keywords": [
+        "developer",
+        "diagnostics",
+        "retired workspace"
+      ],
+      "audience": "experienced-user",
+      "journeyStep": "operations",
+      "outcomes": [
+        "Understand the limited scope of the developer workspace.",
+        "Apply Developer Tools guidance without leaving the app."
       ]
     }
   ]

@@ -41,6 +41,7 @@ import {
   type VendorStatus
 } from "./vendor-data";
 import { evaluateVendorGuards, isDuplicateVendorName } from "./vendors-model";
+import { buildHelpHashPath } from "../help/help-topics";
 import "./VendorsPage.css";
 
 type VendorSortKey = "name" | "spend" | "status";
@@ -475,6 +476,22 @@ export function VendorsPage() {
     setDeleteVendorId(null);
   }
 
+  function openHelpTopic(
+    topic: string,
+    anchor?: string,
+    q?: string,
+    context?: string
+  ): void {
+    navigate(
+      buildHelpHashPath({
+        topic,
+        anchor,
+        q,
+        context
+      })
+    );
+  }
+
   return (
     <section className="vendors-page">
       <PageHeader
@@ -737,6 +754,21 @@ export function VendorsPage() {
             <div className="vendors-form__section-header">
               <Text weight="semibold">Core details</Text>
               <Text size={200}>Primary identity, owner, and spend profile.</Text>
+              <Button
+                appearance="secondary"
+                size="small"
+                type="button"
+                onClick={() =>
+                  openHelpTopic(
+                    "vendors-form",
+                    "createedit-vendor-form",
+                    "vendor form",
+                    "vendors:form"
+                  )
+                }
+              >
+                Vendor Form Guide
+              </Button>
             </div>
             <div className="vendors-form__grid vendors-form__grid--two">
               <div className="vendors-form__field vendors-form__field--full">

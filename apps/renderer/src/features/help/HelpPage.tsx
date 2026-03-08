@@ -485,12 +485,17 @@ export function HelpPage() {
             value={selectedTopic.id}
             onChange={(event) => {
               const nextTopic = event.target.value;
+              const nextTopicDefinition = resolveHelpTopic(nextTopic);
               setTopicSearchQuery("");
               setSearchParams(
                 (current) => {
                   const next = new URLSearchParams(current);
                   next.set("topic", nextTopic);
-                  next.delete("anchor");
+                  if (nextTopicDefinition.defaultAnchor) {
+                    next.set("anchor", nextTopicDefinition.defaultAnchor);
+                  } else {
+                    next.delete("anchor");
+                  }
                   next.delete("q");
                   return next;
                 },
@@ -536,7 +541,11 @@ export function HelpPage() {
                             (current) => {
                               const next = new URLSearchParams(current);
                               next.set("topic", topic.id);
-                              next.delete("anchor");
+                              if (topic.defaultAnchor) {
+                                next.set("anchor", topic.defaultAnchor);
+                              } else {
+                                next.delete("anchor");
+                              }
                               next.delete("q");
                               return next;
                             },

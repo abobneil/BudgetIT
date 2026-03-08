@@ -14,6 +14,7 @@ import {
   listScenarios,
   listServices,
   listVendors,
+  openHelpWindow,
   type ContractRecord as IpcContractRecord,
   type ExpenseLineRecord as IpcExpenseLineRecord,
   type ScenarioRecord as IpcScenarioRecord,
@@ -42,7 +43,8 @@ vi.mock("../lib/ipcClient", async (importOriginal) => {
     listExpenses: vi.fn(),
     listScenarios: vi.fn(),
     listServices: vi.fn(),
-    listVendors: vi.fn()
+    listVendors: vi.fn(),
+    openHelpWindow: vi.fn()
   };
 });
 
@@ -53,6 +55,7 @@ const listServicesMock = vi.mocked(listServices);
 const listContractsMock = vi.mocked(listContracts);
 const listExpensesMock = vi.mocked(listExpenses);
 const listScenariosMock = vi.mocked(listScenarios);
+const openHelpWindowMock = vi.mocked(openHelpWindow);
 
 const IPC_SCENARIOS: IpcScenarioRecord[] = [
   {
@@ -222,6 +225,7 @@ describe("AppShell", () => {
     listContractsMock.mockReset();
     listExpensesMock.mockReset();
     listScenariosMock.mockReset();
+    openHelpWindowMock.mockReset();
 
     isIpcAvailableMock.mockReturnValue(false);
     getSettingsMock.mockResolvedValue({
@@ -238,6 +242,7 @@ describe("AppShell", () => {
     listExpensesMock.mockImplementation(async (payload) =>
       payload?.scenarioId === "growth" ? GROWTH_EXPENSES : BASELINE_EXPENSES
     );
+    openHelpWindowMock.mockResolvedValue({ ok: true });
   });
 
   afterEach(() => {
@@ -289,6 +294,30 @@ describe("AppShell", () => {
     expect(screen.queryByRole("button", { name: /^\(\?\)$/ })).not.toBeInTheDocument();
     expect(screen.queryByLabelText(/help for/i)).not.toBeInTheDocument();
     expect(await screen.findByText("Help Center")).toBeInTheDocument();
+  });
+
+  it.each([
+    ["/dashboard", { topic: "dashboard-overview", anchor: "variance-kpi" }],
+    ["/expenses", { topic: "expenses-workspace", anchor: "overview" }],
+    ["/services", { topic: "services-workspace", anchor: "overview" }],
+    ["/contracts", { topic: "contracts-workspace", anchor: "overview" }],
+    ["/vendors", { topic: "vendors-workspace", anchor: "overview" }],
+    ["/tags", { topic: "tags-workspace", anchor: "overview" }],
+    ["/scenarios", { topic: "scenarios-workspace", anchor: "overview" }],
+    ["/alerts", { topic: "alerts-inbox", anchor: "overview" }],
+    ["/import", { topic: "import-wizard", anchor: "5-steps" }],
+    ["/reports", { topic: "reports-workspace", anchor: "export-orchestration" }],
+    ["/nlq", { topic: "nlq-workspace", anchor: "overview" }],
+    ["/settings", { topic: "settings-center", anchor: "runtime" }],
+    ["/developer", { topic: "developer-tools", anchor: "overview" }]
+  ])("opens the correct contextual help target for %s", async (path, expectedPayload) => {
+    renderAt(path);
+
+    fireEvent.click(screen.getByRole("button", { name: "Help" }));
+
+    await waitFor(() => {
+      expect(openHelpWindowMock).toHaveBeenCalledWith(expectedPayload);
+    });
   });
 
   it("uses fallback search entries when IPC is unavailable", async () => {

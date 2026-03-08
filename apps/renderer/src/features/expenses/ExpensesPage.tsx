@@ -22,7 +22,7 @@ import {
 } from "@fluentui/react-components";
 import { AgGridReact } from "ag-grid-react";
 import type { ColDef, GridApi, GridReadyEvent, RowClickedEvent } from "ag-grid-community";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 
 import {
   ConfirmDialog,
@@ -73,6 +73,7 @@ import {
   generateRecurrencePreview,
   type RecurrencePreviewRule
 } from "./recurrence-preview";
+import { buildHelpHashPath } from "../help/help-topics";
 import "./ExpensesPage.css";
 
 type ExpenseStatus = "planned" | "approved" | "committed" | "actual" | "cancelled";
@@ -328,6 +329,7 @@ function mapIpcDimensions(
 }
 
 export function ExpensesPage() {
+  const navigate = useNavigate();
   const hasIpc = isIpcAvailable();
   const useAgGrid = isAgGridAvailable();
   const { selectedScenarioId, selectScenario } = useScenarioContext();
@@ -1233,6 +1235,22 @@ export function ExpensesPage() {
       )
     : [];
 
+  function openHelpTopic(
+    topic: string,
+    anchor?: string,
+    q?: string,
+    context?: string
+  ): void {
+    navigate(
+      buildHelpHashPath({
+        topic,
+        anchor,
+        q,
+        context
+      })
+    );
+  }
+
   return (
     <section className="expenses-page">
       <PageHeader
@@ -1590,6 +1608,21 @@ export function ExpensesPage() {
             <div className="expenses-form__section-header">
               <Text weight="semibold">Core details</Text>
               <Text size={200}>Primary identity and accounting fields.</Text>
+              <Button
+                appearance="secondary"
+                size="small"
+                type="button"
+                onClick={() =>
+                  openHelpTopic(
+                    "expenses-form",
+                    "createedit-expense-form",
+                    "expense form",
+                    "expenses:form"
+                  )
+                }
+              >
+                Expense Form Guide
+              </Button>
             </div>
             <div className="expenses-form__grid expenses-form__grid--two">
               <div className="expenses-form__field expenses-form__field--full">

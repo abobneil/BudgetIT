@@ -10,9 +10,11 @@ import {
   waitFor,
   within
 } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, useLocation } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { AppShell } from "../../app/AppShell";
+import { AppRoutes } from "../../app/routes";
 import { budgetItLightTheme } from "../../ui/theme";
 import { ExpensesPage } from "./ExpensesPage";
 
@@ -21,6 +23,26 @@ function renderExpensesPage() {
     <FluentProvider theme={budgetItLightTheme}>
       <MemoryRouter>
         <ExpensesPage />
+      </MemoryRouter>
+    </FluentProvider>
+  );
+}
+
+function LocationProbe() {
+  const location = useLocation();
+  return <div data-testid="current-location">{`${location.pathname}${location.search}`}</div>;
+}
+
+function renderExpensesWorkspace(initialPath = "/expenses") {
+  return render(
+    <FluentProvider theme={budgetItLightTheme}>
+      <MemoryRouter initialEntries={[initialPath]}>
+        <AppShell>
+          <>
+            <LocationProbe />
+            <AppRoutes />
+          </>
+        </AppShell>
       </MemoryRouter>
     </FluentProvider>
   );
@@ -154,5 +176,17 @@ describe("ExpensesPage", () => {
       within(refreshedEndpointRow as HTMLElement).getByText(/security, Security/i)
     ).toBeInTheDocument();
     expect(screen.getByText("Security ×")).toBeInTheDocument();
+  });
+  it("opens the expense form guide from the drawer", async () => {
+    renderExpensesWorkspace("/expenses");
+
+    fireEvent.click(screen.getByRole("button", { name: "Create Expense" }));
+    fireEvent.click(screen.getByRole("button", { name: "Expense Form Guide" }));
+
+    expect(await screen.findByRole("heading", { name: "Help Center" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Selected help topic")).toHaveValue("expenses-form");
+    expect(screen.getByTestId("current-location")).toHaveTextContent(
+      "/help?topic=expenses-form&anchor=createedit-expense-form&q=expense+form&context=expenses%3Aform"
+    );
   });
 });

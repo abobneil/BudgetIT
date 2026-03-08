@@ -3,7 +3,7 @@
 import "@testing-library/jest-dom/vitest";
 import { FluentProvider } from "@fluentui/react-components";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { getHelpDocument } from "../../lib/ipcClient";
@@ -40,12 +40,18 @@ function renderHelp(path: string) {
   return render(
     <FluentProvider theme={budgetItLightTheme}>
       <MemoryRouter initialEntries={[path]}>
+        <LocationProbe />
         <Routes>
           <Route path="/help" element={<HelpPage />} />
         </Routes>
       </MemoryRouter>
     </FluentProvider>
   );
+}
+
+function LocationProbe() {
+  const location = useLocation();
+  return <div data-testid="current-location">{`${location.pathname}${location.search}`}</div>;
 }
 
 describe("HelpPage", () => {
@@ -274,5 +280,72 @@ describe("HelpPage", () => {
 
     expect(await screen.findByRole("heading", { name: "2) Dashboard" })).toBeInTheDocument();
     expect(screen.getByLabelText("Search help index")).toHaveValue("");
+  });
+
+  it("applies a topic default anchor when selecting a form topic from the dropdown", async () => {
+    getHelpDocumentMock.mockResolvedValue({
+      markdown: `
+# BudgetIT Help System
+
+## Quick Start (First Launch)
+### First 10 minutes
+- Start here
+
+## 3) Expenses Workspace
+### Overview
+Workspace body.
+
+### Create/Edit Expense form
+Form body.
+      `.trim(),
+      sourcePath: "docs/help-system.md"
+    });
+
+    renderHelp("/help?topic=quick-start");
+    await screen.findByRole("heading", { name: "Quick Start (First Launch)" });
+
+    fireEvent.change(screen.getByLabelText("Selected help topic"), {
+      target: { value: "expenses-form" }
+    });
+
+    expect(await screen.findByRole("heading", { name: "3) Expenses Workspace" })).toBeInTheDocument();
+    expect(screen.getByTestId("current-location")).toHaveTextContent(
+      "/help?topic=expenses-form&anchor=createedit-expense-form"
+    );
+  });
+
+  it("applies a topic default anchor when opening a jump result", async () => {
+    getHelpDocumentMock.mockResolvedValue({
+      markdown: `
+# BudgetIT Help System
+
+## Quick Start (First Launch)
+### First 10 minutes
+- Start here
+
+## 3) Expenses Workspace
+### Overview
+Workspace body.
+
+### Create/Edit Expense form
+Form body.
+      `.trim(),
+      sourcePath: "docs/help-system.md"
+    });
+
+    renderHelp("/help?topic=quick-start");
+    await screen.findByRole("heading", { name: "Quick Start (First Launch)" });
+
+    fireEvent.change(screen.getByLabelText("Search help index"), {
+      target: { value: "expense form" }
+    });
+
+    const jumpResults = screen.getByLabelText("Help jump results");
+    fireEvent.click(within(jumpResults).getByRole("button", { name: /^Expense Form/ }));
+
+    expect(await screen.findByRole("heading", { name: "3) Expenses Workspace" })).toBeInTheDocument();
+    expect(screen.getByTestId("current-location")).toHaveTextContent(
+      "/help?topic=expenses-form&anchor=createedit-expense-form"
+    );
   });
 });

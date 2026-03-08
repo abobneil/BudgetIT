@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  getApplicationMenuTemplate,
   bootstrapDesktop,
   DIAGNOSTICS_TRACKED_TABLES,
   parseApprovalCreatePayload,
@@ -19,6 +20,39 @@ import {
 } from "./main";
 
 describe("desktop bootstrap", () => {
+  it("wires Help menu items to canonical help topics", () => {
+    const helpCalls: Array<{ topic?: string; anchor?: string }> = [];
+    const template = getApplicationMenuTemplate(() => undefined, {
+      openHelp: (payload) => {
+        helpCalls.push(payload);
+      }
+    });
+
+    const helpMenu = template.find((item) => item.label === "Help");
+    expect(helpMenu).toBeDefined();
+
+    const submenu = helpMenu?.submenu;
+    expect(Array.isArray(submenu)).toBe(true);
+    const items = submenu as Array<{
+      label?: string;
+      accelerator?: string;
+      click?: (...args: unknown[]) => void;
+    }>;
+    const helpCenter = items.find((item) => item.label === "Help Center");
+    const shortcuts = items.find((item) => item.label === "Keyboard Shortcuts");
+
+    expect(helpCenter?.accelerator).toBe("F1");
+    expect(shortcuts).toBeDefined();
+
+    helpCenter?.click?.();
+    shortcuts?.click?.();
+
+    expect(helpCalls).toEqual([
+      { topic: "quick-start" },
+      { topic: "global-keyboard-shortcuts" }
+    ]);
+  });
+
   it("runs app boot smoke behavior and creates initial window", async () => {
     let activateCallback: (() => void) | undefined;
     let windowsOpen = 0;

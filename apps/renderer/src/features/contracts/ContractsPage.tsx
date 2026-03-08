@@ -45,6 +45,7 @@ import {
   renewalWindowLabel
 } from "../services/service-lifecycle-model";
 import { useScenarioContext } from "../scenarios/ScenarioContext";
+import { buildHelpHashPath } from "../help/help-topics";
 import "./ContractsPage.css";
 
 type ServiceContext = {
@@ -497,6 +498,22 @@ export function ContractsPage() {
     setMessage(`Contract ${contractNumber} deleted.`);
   }
 
+  function openHelpTopic(
+    topic: string,
+    anchor?: string,
+    q?: string,
+    context?: string
+  ): void {
+    navigate(
+      buildHelpHashPath({
+        topic,
+        anchor,
+        q,
+        context
+      })
+    );
+  }
+
   return (
     <section className="contracts-page">
       <PageHeader
@@ -758,6 +775,21 @@ export function ContractsPage() {
             <div className="contracts-form__section-header">
               <Text weight="semibold">Core details</Text>
               <Text size={200}>Identity, linked service, term, and renewal configuration.</Text>
+              <Button
+                appearance="secondary"
+                size="small"
+                type="button"
+                onClick={() =>
+                  openHelpTopic(
+                    "contracts-form",
+                    "createedit-contract-form",
+                    "contract form",
+                    "contracts:form"
+                  )
+                }
+              >
+                Contract Form Guide
+              </Button>
             </div>
             <div className="contracts-form__grid contracts-form__grid--two">
               <div className="contracts-form__field contracts-form__field--full">

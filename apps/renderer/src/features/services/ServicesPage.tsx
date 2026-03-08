@@ -55,6 +55,7 @@ import {
   serviceRiskTone
 } from "./service-lifecycle-model";
 import { useScenarioContext } from "../scenarios/ScenarioContext";
+import { buildHelpHashPath } from "../help/help-topics";
 import "./ServicesPage.css";
 
 type ServiceDetailTab =
@@ -531,6 +532,22 @@ export function ServicesPage() {
     setPageMessage(`Service ${deletedName} deleted.`);
   }
 
+  function openHelpTopic(
+    topic: string,
+    anchor?: string,
+    q?: string,
+    context?: string
+  ): void {
+    navigate(
+      buildHelpHashPath({
+        topic,
+        anchor,
+        q,
+        context
+      })
+    );
+  }
+
   return (
     <section className="services-page">
       <PageHeader
@@ -861,6 +878,21 @@ export function ServicesPage() {
             <div className="services-form__section-header">
               <Text weight="semibold">Core details</Text>
               <Text size={200}>Primary service identity, ownership, and lifecycle posture.</Text>
+              <Button
+                appearance="secondary"
+                size="small"
+                type="button"
+                onClick={() =>
+                  openHelpTopic(
+                    "services-form",
+                    "createedit-service-form",
+                    "service form",
+                    "services:form"
+                  )
+                }
+              >
+                Service Form Guide
+              </Button>
             </div>
             <div className="services-form__grid services-form__grid--two">
               <div className="services-form__field services-form__field--full">

@@ -4079,8 +4079,13 @@ function getHelpDocument(): { markdown: string; sourcePath: string | null } {
   };
 }
 
-function getApplicationMenuTemplate(
-  requestExit: () => void
+export type ApplicationMenuHandlers = {
+  openHelp: (payload: { topic?: string; anchor?: string }) => void;
+};
+
+export function getApplicationMenuTemplate(
+  requestExit: () => void,
+  handlers: ApplicationMenuHandlers = { openHelp: openHelpWindow }
 ): MenuItemConstructorOptions[] {
   return [
     {
@@ -4125,11 +4130,11 @@ function getApplicationMenuTemplate(
         {
           label: "Help Center",
           accelerator: "F1",
-          click: () => openHelpWindow({ topic: "quick-start" })
+          click: () => handlers.openHelp({ topic: "quick-start" })
         },
         {
           label: "Keyboard Shortcuts",
-          click: () => openHelpWindow({ topic: "global-keyboard-shortcuts" })
+          click: () => handlers.openHelp({ topic: "global-keyboard-shortcuts" })
         }
       ]
     }

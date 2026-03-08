@@ -144,7 +144,10 @@ function resolveContextHelpPayload(pathname: string): ContextHelpPayload {
     return { topic: "nlq-workspace", anchor: "overview" };
   }
   if (pathname.startsWith("/settings")) {
-    return { topic: "settings-center", anchor: "overview" };
+    return { topic: "settings-center", anchor: "runtime" };
+  }
+  if (pathname.startsWith("/developer")) {
+    return { topic: "developer-tools", anchor: "overview" };
   }
   return { topic: "quick-start" };
 }
