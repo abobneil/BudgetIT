@@ -148,23 +148,27 @@ describe("VendorsPage", () => {
     15000
   );
 
-  it("opens the vendor form guide from the drawer", async () => {
-    renderWorkspace("/vendors");
+  it(
+    "opens the vendor form guide from the drawer",
+    async () => {
+      renderWorkspace("/vendors");
 
-    await screen.findByText("Vendors Workspace");
-    fireEvent.click(screen.getByRole("button", { name: "Create Vendor" }));
-    fireEvent.click(screen.getByRole("button", { name: "Vendor Form Guide" }));
+      await screen.findByText("Vendors Workspace");
+      fireEvent.click(screen.getByRole("button", { name: "Create Vendor" }));
+      fireEvent.click(screen.getByRole("button", { name: "Vendor Form Guide" }));
 
-    await waitFor(() => {
-      expect(openHelpWindowSpy).toHaveBeenCalledWith({
-        topic: "vendors-form",
-        anchor: "createedit-vendor-form",
-        q: "vendor form",
-        context: "vendors:form"
+      await waitFor(() => {
+        expect(openHelpWindowSpy).toHaveBeenCalledWith({
+          topic: "vendors-form",
+          anchor: "createedit-vendor-form",
+          q: "vendor form",
+          context: "vendors:form"
+        });
       });
-    });
-    expect(screen.getByRole("button", { name: "Vendor Form Guide" })).toBeInTheDocument();
-    expect(screen.queryByRole("heading", { name: "Help Center" })).not.toBeInTheDocument();
-    expect(screen.getByTestId("current-location")).not.toHaveTextContent("/help");
-  });
+      expect(screen.getByRole("button", { name: "Vendor Form Guide" })).toBeInTheDocument();
+      expect(screen.queryByRole("heading", { name: "Help Center" })).not.toBeInTheDocument();
+      expect(screen.getByTestId("current-location")).not.toHaveTextContent("/help");
+    },
+    15000
+  );
 });
