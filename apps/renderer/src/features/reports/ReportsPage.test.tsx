@@ -2,19 +2,27 @@
 
 import "@testing-library/jest-dom/vitest";
 import { FluentProvider } from "@fluentui/react-components";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { DashboardDataset } from "../../reporting";
-import { exportReport, previewReport, queryReport } from "../../lib/ipcClient";
+import {
+  exportReport,
+  isIpcAvailable,
+  listUnmatchedActuals,
+  pickDirectoryPath,
+  previewReport,
+  queryReport
+} from "../../lib/ipcClient";
 import { budgetItLightTheme } from "../../ui/theme";
 import { ReportsPage } from "./ReportsPage";
 
 vi.mock("../../lib/ipcClient", () => ({
-  isIpcAvailable: vi.fn(() => false),
+  isIpcAvailable: vi.fn(),
   queryReport: vi.fn(),
   exportReport: vi.fn(),
+  pickDirectoryPath: vi.fn(),
   previewReport: vi.fn(),
   listUnmatchedActuals: vi.fn(),
   reviewUnmatchedActual: vi.fn(),
@@ -23,8 +31,11 @@ vi.mock("../../lib/ipcClient", () => ({
   exportShowbackStatement: vi.fn()
 }));
 
+const isIpcAvailableMock = vi.mocked(isIpcAvailable);
+const listUnmatchedActualsMock = vi.mocked(listUnmatchedActuals);
 const queryReportMock = vi.mocked(queryReport);
 const exportReportMock = vi.mocked(exportReport);
+const pickDirectoryPathMock = vi.mocked(pickDirectoryPath);
 const previewReportMock = vi.mocked(previewReport);
 
 const datasetFixture: DashboardDataset = {
@@ -79,9 +90,18 @@ describe("ReportsPage", () => {
       configurable: true,
       value: scrollIntoViewMock
     });
+    isIpcAvailableMock.mockReset();
+    listUnmatchedActualsMock.mockReset();
     queryReportMock.mockReset();
     exportReportMock.mockReset();
+    pickDirectoryPathMock.mockReset();
     previewReportMock.mockReset();
+    isIpcAvailableMock.mockReturnValue(false);
+    listUnmatchedActualsMock.mockResolvedValue({
+      scenarioId: "baseline",
+      items: [],
+      total: 0
+    });
     queryReportMock.mockResolvedValue(datasetFixture);
     exportReportMock.mockImplementation(async (payload) => {
       const input = payload as { formats: Array<"html" | "pdf" | "excel" | "csv" | "png"> };
@@ -97,6 +117,7 @@ describe("ReportsPage", () => {
       scenarioId: "baseline",
       reportType: "dashboard.summary"
     });
+    pickDirectoryPathMock.mockResolvedValue(null);
   });
 
   afterEach(() => {
@@ -198,6 +219,48 @@ describe("ReportsPage", () => {
     expect(await screen.findByText(/C:\\exports\\report\.csv/i)).toBeInTheDocument();
     expect(await screen.findByText(/C:\\exports\\report\.pdf/i)).toBeInTheDocument();
     expect(screen.getAllByText("succeeded").length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("browses export and showback directories and populates both inputs", async () => {
+    isIpcAvailableMock.mockReturnValue(true);
+    pickDirectoryPathMock
+      .mockResolvedValueOnce("C:\\exports\\reports")
+      .mockResolvedValueOnce("C:\\exports\\showback");
+
+    renderReportsPage();
+    await screen.findByText("Report Gallery");
+
+    const exportStep = screen
+      .getByLabelText("Export destination")
+      .closest(".reports-export-controls__step") as HTMLElement | null;
+    if (!exportStep) {
+      throw new Error("Expected export destination step to be rendered.");
+    }
+    fireEvent.click(within(exportStep).getByRole("button", { name: "Browse…" }));
+
+    const showbackFilters = screen
+      .getByLabelText("Showback output directory")
+      .closest(".reports-filters") as HTMLElement | null;
+    if (!showbackFilters) {
+      throw new Error("Expected showback filters to be rendered.");
+    }
+    fireEvent.click(within(showbackFilters).getByRole("button", { name: "Browse…" }));
+
+    await waitFor(() => {
+      expect(pickDirectoryPathMock).toHaveBeenCalledTimes(2);
+    });
+    expect(pickDirectoryPathMock).toHaveBeenNthCalledWith(1, {
+      title: "Choose export destination",
+      defaultPath: undefined
+    });
+    expect(pickDirectoryPathMock).toHaveBeenNthCalledWith(2, {
+      title: "Choose showback output directory",
+      defaultPath: undefined
+    });
+    expect(screen.getByLabelText("Export destination")).toHaveValue("C:\\exports\\reports");
+    expect(screen.getByLabelText("Showback output directory")).toHaveValue(
+      "C:\\exports\\showback"
+    );
   });
 
   it("generates an export preview before queueing report export", async () => {

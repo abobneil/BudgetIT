@@ -3,6 +3,12 @@ import {
   getForecastStaleIndicator,
   type DashboardDataset
 } from "../../reporting";
+import {
+  readStoredJson,
+  resolveBrowserStorage,
+  writeStoredJson
+} from "../../lib/browserStorage";
+import { DASHBOARD_LAYOUT_STORAGE_KEY } from "../../lib/machineLocalState";
 
 export type DashboardKpiMetrics = {
   forecastMinor: number;
@@ -64,8 +70,6 @@ export type DashboardLayout = {
 };
 
 export type DashboardCardMoveDirection = "up" | "down";
-
-const DASHBOARD_LAYOUT_STORAGE_KEY = "budgetit.dashboard-layout.v1";
 
 export const DASHBOARD_DEFAULT_SECTIONS: DashboardLayoutSection[] = [
   { id: "section-financial", name: "Financial" },
@@ -169,13 +173,7 @@ export function mapDashboardStaleState(
 function getStorage(
   storage: Pick<Storage, "getItem" | "setItem"> | null | undefined = undefined
 ): Pick<Storage, "getItem" | "setItem"> | null {
-  if (storage) {
-    return storage;
-  }
-  if (typeof window === "undefined" || !window.localStorage) {
-    return null;
-  }
-  return window.localStorage;
+  return resolveBrowserStorage(storage) as Pick<Storage, "getItem" | "setItem"> | null;
 }
 
 function normalizeSections(value: unknown): DashboardLayoutSection[] {
@@ -328,15 +326,11 @@ export function loadDashboardLayout(
   if (!resolvedStorage) {
     return createDefaultDashboardLayout();
   }
-  const raw = resolvedStorage.getItem(DASHBOARD_LAYOUT_STORAGE_KEY);
-  if (!raw) {
+  const parsed = readStoredJson<unknown>(resolvedStorage, DASHBOARD_LAYOUT_STORAGE_KEY);
+  if (parsed === null) {
     return createDefaultDashboardLayout();
   }
-  try {
-    return normalizeDashboardLayout(JSON.parse(raw));
-  } catch {
-    return createDefaultDashboardLayout();
-  }
+  return normalizeDashboardLayout(parsed);
 }
 
 export function saveDashboardLayout(
@@ -348,7 +342,7 @@ export function saveDashboardLayout(
   if (!resolvedStorage) {
     return normalized;
   }
-  resolvedStorage.setItem(DASHBOARD_LAYOUT_STORAGE_KEY, JSON.stringify(normalized));
+  writeStoredJson(resolvedStorage, DASHBOARD_LAYOUT_STORAGE_KEY, normalized);
   return normalized;
 }
 

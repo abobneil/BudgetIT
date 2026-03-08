@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Button,
   Card,
@@ -13,7 +13,7 @@ import {
   Text,
   Title3
 } from "@fluentui/react-components";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 
 import {
   ConfirmDialog,
@@ -140,13 +140,14 @@ function normalizeVendorId(name: string): string {
 
 export function VendorsPage() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const hasIpc = isIpcAvailable();
   const [vendors, setVendors] = useState<VendorRecord[]>(INITIAL_VENDOR_RECORDS);
   const [searchText, setSearchText] = useState("");
   const [sortKey, setSortKey] = useState<VendorSortKey>("name");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
   const [selectedVendorId, setSelectedVendorId] = useState<string>(
-    INITIAL_VENDOR_RECORDS[0]?.id ?? ""
+    searchParams.get("vendor") ?? INITIAL_VENDOR_RECORDS[0]?.id ?? ""
   );
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerMode, setDrawerMode] = useState<"create" | "edit">("create");
@@ -157,6 +158,7 @@ export function VendorsPage() {
   const [deleteVendorId, setDeleteVendorId] = useState<string | null>(null);
   const [pageMessage, setPageMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const lastSyncedVendorIdRef = useRef<string | null>(null);
 
   const loadWorkspaceData = useCallback(async () => {
     if (!hasIpc) {
@@ -211,6 +213,32 @@ export function VendorsPage() {
   useEffect(() => {
     void loadWorkspaceData();
   }, [loadWorkspaceData]);
+
+  useEffect(() => {
+    const focusedVendorId = searchParams.get("vendor");
+    if (
+      focusedVendorId &&
+      focusedVendorId !== lastSyncedVendorIdRef.current &&
+      vendors.some((vendor) => vendor.id === focusedVendorId)
+    ) {
+      setSelectedVendorId(focusedVendorId);
+    }
+  }, [searchParams, vendors]);
+
+  useEffect(() => {
+    if (!selectedVendorId) {
+      return;
+    }
+    lastSyncedVendorIdRef.current = selectedVendorId;
+    setSearchParams(
+      (current) => {
+        const next = new URLSearchParams(current);
+        next.set("vendor", selectedVendorId);
+        return next;
+      },
+      { replace: true }
+    );
+  }, [selectedVendorId, setSearchParams]);
 
   const filteredVendors = useMemo(() => {
     const query = searchText.trim().toLowerCase();

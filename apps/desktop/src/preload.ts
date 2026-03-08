@@ -5,6 +5,8 @@ const fallbackInvokeChannels = [
   "settings.update",
   "help.open",
   "help.document.get",
+  "dialog.pickFile",
+  "dialog.pickDirectory",
   "app.exit",
   "db.open",
   "db.rekey",

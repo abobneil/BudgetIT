@@ -40,6 +40,7 @@ import {
   buildVendorFilterOptions,
   matchesVendorFilter
 } from "../vendors/vendor-filter-model";
+import { currentYearDateRange, toUtcIsoDate } from "../../lib/dateDefaults";
 import {
   CONTRACT_BY_ID,
   SERVICE_RECORDS,
@@ -53,6 +54,7 @@ import {
   serviceLifecycleTone,
   serviceRiskTone
 } from "./service-lifecycle-model";
+import { useScenarioContext } from "../scenarios/ScenarioContext";
 import "./ServicesPage.css";
 
 type ServiceDetailTab =
@@ -77,8 +79,6 @@ type ServiceFormState = {
   risk: ServiceRisk;
   replacementStatus: "not-started" | "candidate-review" | "approved";
 };
-
-const REFERENCE_DATE = "2026-03-01";
 
 function resolveDetailTab(value: string | null): ServiceDetailTab {
   if (
@@ -163,6 +163,7 @@ function fromService(service: WorkspaceServiceRecord): ServiceFormState {
 export function ServicesPage() {
   const navigate = useNavigate();
   const hasIpc = isIpcAvailable();
+  const { selectedScenarioId } = useScenarioContext();
   const [searchParams, setSearchParams] = useSearchParams();
   const [serviceRecords, setServiceRecords] = useState<WorkspaceServiceRecord[]>(
     SERVICE_RECORDS.map((entry) => ({
@@ -203,6 +204,8 @@ export function ServicesPage() {
   const [formState, setFormState] = useState<ServiceFormState>(() => createDefaultFormState(""));
   const [formError, setFormError] = useState<string | null>(null);
   const [deleteServiceId, setDeleteServiceId] = useState<string | null>(null);
+  const referenceDate = toUtcIsoDate();
+  const currentYearRange = useMemo(() => currentYearDateRange(), []);
 
   const vendorChoices = useMemo(
     () =>
@@ -222,7 +225,7 @@ export function ServicesPage() {
         listVendorsIpc(),
         listServicesIpc(),
         listContractsIpc(),
-        listExpensesIpc({ scenarioId: "baseline" })
+        listExpensesIpc({ scenarioId: selectedScenarioId })
       ]);
       const nextVendorNameById = Object.fromEntries(
         vendors.map((vendor) => [vendor.id, vendor.name])
@@ -247,7 +250,7 @@ export function ServicesPage() {
           linkedContracts
             .map((contract) => contract.renewalDate)
             .filter((value): value is string => Boolean(value))
-            .sort()[0] ?? "2026-12-31";
+            .sort()[0] ?? currentYearRange.dateTo;
         return {
           id: service.id,
           vendorId: service.vendorId,
@@ -301,7 +304,7 @@ export function ServicesPage() {
     } finally {
       setLoading(false);
     }
-  }, [hasIpc, selectedServiceId]);
+  }, [currentYearRange.dateTo, hasIpc, selectedScenarioId, selectedServiceId]);
 
   useEffect(() => {
     void loadWorkspaceData();
@@ -466,7 +469,7 @@ export function ServicesPage() {
       vendorName: vendorNameById[formState.vendorId] ?? formState.vendorId,
       owner: trimmedOwner,
       annualSpendMinor,
-      renewalDate: "2026-12-31",
+      renewalDate: currentYearRange.dateTo,
       risk: formState.risk,
       replacementStatus: formState.replacementStatus,
       linkedContractIds: [],
@@ -602,11 +605,11 @@ export function ServicesPage() {
                   const lifecycleState = deriveServiceLifecycleState(
                     service.renewalDate,
                     service.risk,
-                    REFERENCE_DATE
+                    referenceDate
                   );
                   const highlightRenewal = isInRenewalWindow(
                     service.renewalDate,
-                    REFERENCE_DATE,
+                    referenceDate,
                     60
                   );
                   const firstContractId = primaryContractId(service);
@@ -731,7 +734,7 @@ export function ServicesPage() {
               <Text>{`Status: ${selectedService.status}`}</Text>
               <Text>{`Renewal: ${formatDate(selectedService.renewalDate)} (${renewalWindowLabel(
                 selectedService.renewalDate,
-                REFERENCE_DATE
+                referenceDate
               )})`}</Text>
 
               <TabList
@@ -812,7 +815,7 @@ export function ServicesPage() {
               {detailTab === "renewals" ? (
                 <div className="services-detail__section">
                   <Text weight="semibold">Renewal path</Text>
-                  <Text>{renewalWindowLabel(selectedService.renewalDate, REFERENCE_DATE)}</Text>
+                  <Text>{renewalWindowLabel(selectedService.renewalDate, referenceDate)}</Text>
                   <Button
                     size="small"
                     appearance="secondary"

@@ -1,3 +1,9 @@
+import {
+  readStoredJson,
+  resolveBrowserStorage,
+  writeStoredJson
+} from "../../lib/browserStorage";
+
 export type ScenarioStatus = "draft" | "reviewed" | "approved";
 
 export type ScenarioRecord = {
@@ -148,17 +154,17 @@ export function loadScenarioState(
   if (!storage) {
     return DEFAULT_SCENARIO_STATE;
   }
-  const raw = storage.getItem(SCENARIO_STORAGE_KEY);
-  if (!raw) {
-    return DEFAULT_SCENARIO_STATE;
-  }
-
-  try {
-    const parsed = JSON.parse(raw) as ScenarioState;
-    return normalizeScenarioState(parsed);
-  } catch {
-    return DEFAULT_SCENARIO_STATE;
-  }
+  const parsed = readStoredJson<{
+    selectedScenarioId?: unknown;
+  }>(storage, SCENARIO_STORAGE_KEY);
+  const selectedScenarioId =
+    typeof parsed?.selectedScenarioId === "string"
+      ? parsed.selectedScenarioId
+      : DEFAULT_SCENARIO_STATE.selectedScenarioId;
+  return normalizeScenarioState({
+    scenarios: DEFAULT_SCENARIO_STATE.scenarios,
+    selectedScenarioId
+  });
 }
 
 export function persistScenarioState(
@@ -168,7 +174,9 @@ export function persistScenarioState(
   if (!storage) {
     return;
   }
-  storage.setItem(SCENARIO_STORAGE_KEY, JSON.stringify(state));
+  writeStoredJson(storage, SCENARIO_STORAGE_KEY, {
+    selectedScenarioId: state.selectedScenarioId
+  });
 }
 
 export function getScenarioStorageKey(): string {
@@ -200,10 +208,7 @@ export function compareScenarioToBaseline(
 }
 
 function getStorage(): Storage | null {
-  if (typeof window === "undefined" || !window.localStorage) {
-    return null;
-  }
-  return window.localStorage;
+  return resolveBrowserStorage();
 }
 
 function nextCloneName(baseName: string, scenarios: ScenarioRecord[]): string {

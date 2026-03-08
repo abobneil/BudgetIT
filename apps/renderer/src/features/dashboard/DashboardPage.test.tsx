@@ -20,6 +20,7 @@ import { budgetItLightTheme } from "../../ui/theme";
 import { DashboardPage } from "./DashboardPage";
 
 vi.mock("../../lib/ipcClient", () => ({
+  isIpcAvailable: vi.fn(() => false),
   queryReport: vi.fn(),
   exportReport: vi.fn()
 }));

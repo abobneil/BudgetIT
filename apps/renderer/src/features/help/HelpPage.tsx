@@ -19,7 +19,13 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useSearchParams } from "react-router-dom";
 
+import {
+  getWindowLocalStorage,
+  readStoredJson,
+  writeStoredJson
+} from "../../lib/browserStorage";
 import { getHelpDocument } from "../../lib/ipcClient";
+import { QUICK_START_CHECKLIST_STORAGE_KEY } from "../../lib/machineLocalState";
 import { InlineError, LoadingState } from "../../ui/primitives";
 import {
   buildHelpHashPath,
@@ -52,8 +58,6 @@ type TopicGroup = {
   label: string;
   topics: (typeof HELP_TOPICS)[number][];
 };
-
-const QUICK_START_CHECKLIST_STORAGE_KEY = "budgetit.help.quick-start-checklist.v1";
 
 const JOURNEY_STEP_ORDER: HelpJourneyStep[] = [
   "orientation",
@@ -110,33 +114,24 @@ const QUICK_START_JOURNEY_LINKS: QuickStartJourneyLink[] = [
 ];
 
 function loadQuickStartChecklistState(): QuickStartChecklistState {
-  if (typeof window === "undefined" || !window.localStorage) {
+  const storage = getWindowLocalStorage();
+  const parsed = readStoredJson<Record<string, unknown>>(
+    storage,
+    QUICK_START_CHECKLIST_STORAGE_KEY
+  );
+  if (!parsed || typeof parsed !== "object") {
     return {};
   }
-  const raw = window.localStorage.getItem(QUICK_START_CHECKLIST_STORAGE_KEY);
-  if (!raw) {
-    return {};
+
+  const next: QuickStartChecklistState = {};
+  for (const item of QUICK_START_CHECKLIST_ITEMS) {
+    next[item.id] = parsed[item.id] === true;
   }
-  try {
-    const parsed = JSON.parse(raw);
-    if (!parsed || typeof parsed !== "object") {
-      return {};
-    }
-    const next: QuickStartChecklistState = {};
-    for (const item of QUICK_START_CHECKLIST_ITEMS) {
-      next[item.id] = parsed[item.id] === true;
-    }
-    return next;
-  } catch {
-    return {};
-  }
+  return next;
 }
 
 function persistQuickStartChecklistState(state: QuickStartChecklistState): void {
-  if (typeof window === "undefined" || !window.localStorage) {
-    return;
-  }
-  window.localStorage.setItem(QUICK_START_CHECKLIST_STORAGE_KEY, JSON.stringify(state));
+  writeStoredJson(getWindowLocalStorage(), QUICK_START_CHECKLIST_STORAGE_KEY, state);
 }
 
 function decodeAnchorValue(value: string): string {

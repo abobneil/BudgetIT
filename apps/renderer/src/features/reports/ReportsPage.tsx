@@ -26,6 +26,7 @@ import {
   generateShowbackStatement,
   isIpcAvailable,
   listUnmatchedActuals,
+  pickDirectoryPath,
   previewReport,
   queryReport,
   reviewUnmatchedActual,
@@ -34,6 +35,7 @@ import {
 } from "../../lib/ipcClient";
 import { isAgGridAvailable } from "../../lib/agGrid";
 import { formatCurrencyMinor, resolveDisplayCurrency } from "../../lib/currency";
+import { currentMonthDateRange, currentYearDateRange } from "../../lib/dateDefaults";
 import { useFeedback } from "../../ui/feedback";
 import {
   EmptyState,
@@ -87,12 +89,14 @@ export function ReportsPage() {
   const navigate = useNavigate();
   const { selectedScenarioId, selectedScenario } = useScenarioContext();
   const { notify } = useFeedback();
+  const defaultYearRange = useMemo(() => currentYearDateRange(), []);
+  const defaultMonthRange = useMemo(() => currentMonthDateRange(), []);
   const [savedPresets, setSavedPresets] = useState(() => loadSavedReportPresets());
   const [selectedPresetId, setSelectedPresetId] = useState(
     DEFAULT_REPORT_PRESETS[0]?.id ?? ""
   );
-  const [dateFrom, setDateFrom] = useState("2026-01-01");
-  const [dateTo, setDateTo] = useState("2026-12-31");
+  const [dateFrom, setDateFrom] = useState(defaultYearRange.dateFrom);
+  const [dateTo, setDateTo] = useState(defaultYearRange.dateTo);
   const [tagFilter, setTagFilter] = useState("all");
   const [visualizations, setVisualizations] = useState(
     DEFAULT_REPORT_PRESETS[0]?.visualizations ?? {
@@ -125,8 +129,8 @@ export function ReportsPage() {
   >({});
   const [unmatchedCommentByTxn, setUnmatchedCommentByTxn] = useState<Record<string, string>>({});
   const [unmatchedBusyTxn, setUnmatchedBusyTxn] = useState<string | null>(null);
-  const [showbackPeriodStart, setShowbackPeriodStart] = useState("2026-01-01");
-  const [showbackPeriodEnd, setShowbackPeriodEnd] = useState("2026-01-31");
+  const [showbackPeriodStart, setShowbackPeriodStart] = useState(defaultMonthRange.dateFrom);
+  const [showbackPeriodEnd, setShowbackPeriodEnd] = useState(defaultMonthRange.dateTo);
   const [showbackGroupBy, setShowbackGroupBy] = useState<"cost_center" | "team">("cost_center");
   const [showbackStatements, setShowbackStatements] = useState<ShowbackStatement[]>([]);
   const [showbackOutputDir, setShowbackOutputDir] = useState("");
@@ -542,6 +546,34 @@ export function ReportsPage() {
     });
   }
 
+  async function browseExportDestination(): Promise<void> {
+    const picked = await pickDirectoryPath({
+      title: "Choose export destination",
+      defaultPath: destinationPath.trim() || undefined
+    });
+    if (!picked) {
+      return;
+    }
+    setDestinationPath(picked);
+    setDestinationConfirmed(true);
+    setExportError(null);
+    notify({
+      tone: "success",
+      message: `Export destination confirmed: ${picked}.`
+    });
+  }
+
+  async function browseShowbackOutputDirectory(): Promise<void> {
+    const picked = await pickDirectoryPath({
+      title: "Choose showback output directory",
+      defaultPath: showbackOutputDir.trim() || undefined
+    });
+    if (!picked) {
+      return;
+    }
+    setShowbackOutputDir(picked);
+  }
+
   async function queueExportJob(): Promise<void> {
     if (!selectedPreset) {
       return;
@@ -642,6 +674,7 @@ export function ReportsPage() {
       if (disposition === "create_expense") {
         await createExpenseFromUnmatchedActual({
           transactionId: item.id,
+          scenarioId: selectedScenarioId,
           reviewer: "single-it-user",
           name: item.description ?? `Imported actual ${item.id.slice(0, 8)}`,
           status: "planned",
@@ -939,6 +972,13 @@ export function ReportsPage() {
                 }}
                 placeholder="Leave blank to use system default"
               />
+              <Button
+                appearance="secondary"
+                disabled={!hasIpc}
+                onClick={() => void browseExportDestination()}
+              >
+                Browse…
+              </Button>
               <Button
                 appearance="secondary"
                 onClick={() => {
@@ -1326,6 +1366,13 @@ export function ReportsPage() {
             onChange={(_event, data) => setShowbackOutputDir(data.value)}
             placeholder="Leave blank to use system default"
           />
+          <Button
+            appearance="secondary"
+            disabled={!hasIpc || showbackBusy !== null}
+            onClick={() => void browseShowbackOutputDirectory()}
+          >
+            Browse…
+          </Button>
           <Button
             appearance="primary"
             disabled={!hasIpc || showbackBusy !== null}

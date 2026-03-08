@@ -375,7 +375,7 @@ function buildNarratives(input: {
 
 export function buildDashboardDataset(
   db: Database.Database,
-  scenarioId: string = "baseline",
+  scenarioId: string,
   filters?: ReportDatasetFilters
 ): DashboardDataset {
   const variance = buildMonthlyVarianceDataset(db, scenarioId);
@@ -415,7 +415,7 @@ export function buildDashboardDataset(
 
 export function buildRenewalsTimelineDataset(
   db: Database.Database,
-  scenarioId: string = "baseline",
+  scenarioId: string,
   filters?: ReportDatasetFilters
 ): DashboardDataset {
   const base = buildDashboardDataset(db, scenarioId, filters);
@@ -429,7 +429,7 @@ export function buildRenewalsTimelineDataset(
 
 export function buildSpendByTagDataset(
   db: Database.Database,
-  scenarioId: string = "baseline",
+  scenarioId: string,
   filters?: ReportDatasetFilters
 ): DashboardDataset {
   const base = buildDashboardDataset(db, scenarioId, filters);
@@ -452,7 +452,7 @@ export function buildSpendByTagDataset(
 
 export function buildSpendByVendorDataset(
   db: Database.Database,
-  scenarioId: string = "baseline",
+  scenarioId: string,
   filters?: ReportDatasetFilters
 ): DashboardDataset {
   const base = buildDashboardDataset(db, scenarioId, filters);
@@ -473,7 +473,7 @@ export function buildSpendByVendorDataset(
 
 export function buildReplacementPipelineDataset(
   db: Database.Database,
-  scenarioId: string = "baseline",
+  scenarioId: string,
   filters?: ReportDatasetFilters
 ): DashboardDataset {
   const base = buildDashboardDataset(db, scenarioId, filters);
@@ -486,7 +486,7 @@ export function buildReplacementPipelineDataset(
 
 export function buildTaggingCompletenessDataset(
   db: Database.Database,
-  scenarioId: string = "baseline",
+  scenarioId: string,
   filters?: ReportDatasetFilters
 ): DashboardDataset {
   const base = buildDashboardDataset(db, scenarioId, filters);
@@ -500,7 +500,7 @@ export function buildTaggingCompletenessDataset(
 export function buildReportPresetDataset(
   db: Database.Database,
   query: ReportPresetQuery,
-  scenarioId: string = "baseline",
+  scenarioId: string,
   filters?: ReportDatasetFilters
 ): DashboardDataset {
   if (query === "dashboard.summary" || query === "nlq.saved") {

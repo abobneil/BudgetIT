@@ -3,9 +3,19 @@ import { describe, expect, it } from "vitest";
 import {
   bootstrapDesktop,
   DIAGNOSTICS_TRACKED_TABLES,
+  parseApprovalCreatePayload,
+  parseApprovalListPayload,
+  parseExpenseListPayload,
   parseExportReportPayload,
+  parsePickDirectoryDialogPayload,
+  parsePickFileDialogPayload,
   parseReportPreviewPayload,
-  parseReportsQueryPayload
+  parseReportsQueryPayload,
+  parseScenarioSettingsPayload,
+  parseShowbackListPayload,
+  parseUnmatchedCreateExpensePayload,
+  parseUnmatchedListPayload,
+  parseUnmatchedReviewPayload
 } from "./main";
 
 describe("desktop bootstrap", () => {
@@ -68,7 +78,7 @@ describe("desktop bootstrap", () => {
     expect(quitCalls).toBe(1);
   });
 
-  it("accepts all supported reports.query values", () => {
+  it("accepts all supported reports.query values when scenarioId is explicit", () => {
     const supported = [
       "dashboard.summary",
       "renewals.timeline",
@@ -79,7 +89,6 @@ describe("desktop bootstrap", () => {
       "nlq.saved",
       "variance.monthly",
       "replacement.detail",
-      "scenario.comparison",
       "actuals.unmatched.summary",
       "showback.summary",
       "dataQuality.summary",
@@ -88,12 +97,30 @@ describe("desktop bootstrap", () => {
     ] as const;
 
     for (const query of supported) {
-      const parsed = parseReportsQueryPayload({ query });
+      const parsed = parseReportsQueryPayload({ query, scenarioId: "baseline" });
       expect(parsed.query).toBe(query);
       expect(parsed.scenarioId).toBe("baseline");
     }
 
-    expect(() => parseReportsQueryPayload({ query: "unknown.query" })).toThrow(
+    const comparison = parseReportsQueryPayload({
+      query: "scenario.comparison",
+      scenarioId: "scenario-compare",
+      baselineScenarioId: "baseline"
+    });
+    expect(comparison.query).toBe("scenario.comparison");
+    expect(comparison.scenarioId).toBe("scenario-compare");
+    expect(comparison.baselineScenarioId).toBe("baseline");
+
+    expect(() => parseReportsQueryPayload({ query: "dashboard.summary" })).toThrow(
+      /scenarioId/
+    );
+    expect(() =>
+      parseReportsQueryPayload({
+        query: "scenario.comparison",
+        scenarioId: "scenario-compare"
+      })
+    ).toThrow(/baselineScenarioId/);
+    expect(() => parseReportsQueryPayload({ query: "unknown.query", scenarioId: "baseline" })).toThrow(
       /Unsupported reports\.query/
     );
   });
@@ -113,6 +140,7 @@ describe("desktop bootstrap", () => {
 
     const parsedLegacy = parseExportReportPayload(
       {
+        scenarioId: "baseline",
         reportType: "dashboard.summary",
         destinationPath: "C:\\exports\\legacy",
         formats: ["pdf"]
@@ -125,6 +153,7 @@ describe("desktop bootstrap", () => {
     expect(() =>
       parseExportReportPayload(
         {
+          scenarioId: "baseline",
           reportType: "unknown.report"
         },
         "C:\\exports\\default"
@@ -134,19 +163,25 @@ describe("desktop bootstrap", () => {
     expect(() =>
       parseExportReportPayload(
         {
+          scenarioId: "baseline",
           reportType: "dashboard.summary",
           formats: ["docx"]
         },
         "C:\\exports\\default"
       )
     ).toThrow(/Unsupported export\.report format/);
+
+    expect(() =>
+      parseExportReportPayload(
+        {
+          reportType: "dashboard.summary"
+        },
+        "C:\\exports\\default"
+      )
+    ).toThrow(/scenarioId/);
   });
 
   it("parses report preview payload and validates report types", () => {
-    const parsedDefault = parseReportPreviewPayload({});
-    expect(parsedDefault.scenarioId).toBe("baseline");
-    expect(parsedDefault.reportType).toBe("dashboard.summary");
-
     const parsedConfigured = parseReportPreviewPayload({
       scenarioId: "scenario-2",
       reportType: "spend.byTag",
@@ -164,11 +199,148 @@ describe("desktop bootstrap", () => {
       tag: "security"
     });
 
+    expect(() => parseReportPreviewPayload({ reportType: "dashboard.summary" })).toThrow(
+      /scenarioId/
+    );
     expect(() =>
       parseReportPreviewPayload({
+        scenarioId: "scenario-2",
         reportType: "unknown.report"
       })
     ).toThrow(/Unsupported report\.preview reportType/);
+  });
+
+  it("requires explicit scenario context for unmatched actuals and scenario settings payloads", () => {
+    expect(parseUnmatchedListPayload({ scenarioId: "baseline" })).toEqual({
+      scenarioId: "baseline"
+    });
+    expect(() => parseUnmatchedListPayload({})).toThrow(/scenarioId/);
+
+    expect(
+      parseUnmatchedReviewPayload({
+        transactionId: "txn-1",
+        scenarioId: "baseline",
+        disposition: "matched",
+        matchedOccurrenceId: "occ-1"
+      })
+    ).toMatchObject({
+      transactionId: "txn-1",
+      scenarioId: "baseline",
+      disposition: "matched",
+      matchedOccurrenceId: "occ-1"
+    });
+    expect(() =>
+      parseUnmatchedReviewPayload({
+        transactionId: "txn-1",
+        disposition: "ignored"
+      })
+    ).toThrow(/scenarioId/);
+
+    expect(
+      parseUnmatchedCreateExpensePayload({
+        transactionId: "txn-1",
+        scenarioId: "baseline",
+        status: "actual"
+      })
+    ).toMatchObject({
+      transactionId: "txn-1",
+      scenarioId: "baseline",
+      status: "actual"
+    });
+    expect(() =>
+      parseUnmatchedCreateExpensePayload({
+        transactionId: "txn-1"
+      })
+    ).toThrow(/scenarioId/);
+
+    expect(parseScenarioSettingsPayload({ scenarioId: "baseline" }, "scenarioSettings.get")).toEqual({
+      scenarioId: "baseline"
+    });
+    expect(() => parseScenarioSettingsPayload({}, "scenarioSettings.update")).toThrow(
+      /scenarioId/
+    );
+  });
+
+  it("requires explicit scenario context for expenses and approval payloads", () => {
+    expect(
+      parseExpenseListPayload({ scenarioId: "baseline", includeDeleted: true })
+    ).toEqual({
+      scenarioId: "baseline",
+      includeDeleted: true
+    });
+    expect(() => parseExpenseListPayload({ includeDeleted: true })).toThrow(/scenarioId/);
+
+    expect(
+      parseApprovalListPayload({ scenarioId: "baseline", entityType: "scenario", limit: 20 })
+    ).toEqual({
+      scenarioId: "baseline",
+      entityType: "scenario",
+      limit: 20
+    });
+    expect(() => parseApprovalListPayload({ limit: 20 })).toThrow(/scenarioId/);
+
+    expect(
+      parseApprovalCreatePayload({
+        scenarioId: "baseline",
+        servicePlanId: "plan-1",
+        entityType: "scenario",
+        entityId: "baseline",
+        action: "approve"
+      })
+    ).toMatchObject({
+      scenarioId: "baseline",
+      servicePlanId: "plan-1",
+      entityType: "scenario",
+      entityId: "baseline",
+      action: "approve"
+    });
+    expect(() =>
+      parseApprovalCreatePayload({
+        entityType: "scenario",
+        entityId: "baseline",
+        action: "approve"
+      })
+    ).toThrow(/scenarioId/);
+  });
+
+  it("keeps showback list scenario filtering optional for global listing paths", () => {
+    expect(parseShowbackListPayload(undefined)).toEqual({ includeLines: false });
+    expect(parseShowbackListPayload({ includeLines: true })).toEqual({
+      scenarioId: undefined,
+      includeLines: true
+    });
+    expect(parseShowbackListPayload({ scenarioId: "baseline", includeLines: true })).toEqual({
+      scenarioId: "baseline",
+      includeLines: true
+    });
+  });
+
+  it("normalizes native dialog payloads", () => {
+    expect(
+      parsePickFileDialogPayload({
+        title: "Choose backup",
+        defaultPath: "C:\\Backups",
+        filters: [
+          { name: "Backup DB", extensions: ["db", "sqlite"] },
+          { name: "Ignored", extensions: ["", 4] }
+        ]
+      })
+    ).toEqual({
+      title: "Choose backup",
+      defaultPath: "C:\\Backups",
+      filters: [{ name: "Backup DB", extensions: ["db", "sqlite"] }]
+    });
+    expect(parsePickFileDialogPayload(null)).toEqual({});
+    expect(
+      parsePickDirectoryDialogPayload({
+        title: "Choose export folder",
+        defaultPath: "C:\\Exports"
+      })
+    ).toEqual({
+      title: "Choose export folder",
+      defaultPath: "C:\\Exports"
+    });
+    expect(parsePickDirectoryDialogPayload(undefined)).toEqual({});
   });
 
   it("tracks the expected diagnostics tables", () => {

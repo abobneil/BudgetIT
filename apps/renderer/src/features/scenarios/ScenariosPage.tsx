@@ -81,6 +81,10 @@ export function ScenariosPage() {
       Object.fromEntries(scenarios.map((scenario) => [scenario.id, scenario.name])),
     [scenarios]
   );
+  const baselineScenarioId = useMemo(
+    () => scenarios.find((scenario) => scenario.parentScenarioId === null)?.id ?? "baseline",
+    [scenarios]
+  );
   const comparisonText = comparisonScenarioId
     ? compareScenarioToBaseline(
         { scenarios, selectedScenarioId },
@@ -105,7 +109,7 @@ export function ScenariosPage() {
       try {
         const result = (await queryReport({
           query: "scenario.comparison",
-          baselineScenarioId: "baseline",
+          baselineScenarioId,
           comparisonScenarioId: scenarioId,
           scenarioId
         })) as {

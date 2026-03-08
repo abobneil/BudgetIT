@@ -9,7 +9,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { DashboardDataset } from "../../reporting";
 import { AppShell } from "../../app/AppShell";
 import { AppRoutes } from "../../app/routes";
-import { exportReport, parseNlq, queryReport } from "../../lib/ipcClient";
+import {
+  exportReport,
+  parseNlq,
+  pickDirectoryPath,
+  queryReport
+} from "../../lib/ipcClient";
 import { budgetItLightTheme } from "../../ui/theme";
 import { ScenarioProvider } from "../scenarios/ScenarioContext";
 import { NlqPage } from "./NlqPage";
@@ -22,11 +27,13 @@ vi.mock("../../lib/ipcClient", () => ({
   lockScenario: vi.fn(),
   parseNlq: vi.fn(),
   exportReport: vi.fn(),
+  pickDirectoryPath: vi.fn(),
   queryReport: vi.fn()
 }));
 
 const parseNlqMock = vi.mocked(parseNlq);
 const exportReportMock = vi.mocked(exportReport);
+const pickDirectoryPathMock = vi.mocked(pickDirectoryPath);
 const queryReportMock = vi.mocked(queryReport);
 
 const reportDataset: DashboardDataset = {
@@ -87,6 +94,7 @@ describe("NlqPage", () => {
     localStorage.clear();
     parseNlqMock.mockReset();
     exportReportMock.mockReset();
+    pickDirectoryPathMock.mockReset();
     queryReportMock.mockReset();
     parseNlqMock.mockResolvedValue({
       filterSpec: {
@@ -103,6 +111,7 @@ describe("NlqPage", () => {
     exportReportMock.mockResolvedValue({
       files: { csv: "C:\\exports\\nlq-results.csv", excel: "C:\\exports\\nlq-results.xlsx" }
     });
+    pickDirectoryPathMock.mockResolvedValue(null);
     queryReportMock.mockResolvedValue(reportDataset);
   });
 
@@ -157,6 +166,28 @@ describe("NlqPage", () => {
     expect(
       screen.getByRole("button", { name: "Open Security Variance Report" })
     ).toBeInTheDocument();
+  });
+
+  it("browses an NLQ export directory and populates the output path", async () => {
+    pickDirectoryPathMock.mockResolvedValueOnce("C:\\exports\\nlq");
+
+    renderNlqStandalone();
+
+    fireEvent.change(screen.getByLabelText("NLQ prompt input"), {
+      target: { value: "show microsoft spend over 50000 in next 90 days" }
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Run Query" }));
+    await screen.findByText(/Parsed filters:/i);
+
+    fireEvent.click(screen.getByRole("button", { name: "Browse…" }));
+
+    await waitFor(() => {
+      expect(pickDirectoryPathMock).toHaveBeenCalledWith({
+        title: "Choose NLQ export directory",
+        defaultPath: undefined
+      });
+    });
+    expect(screen.getByLabelText("NLQ export path")).toHaveValue("C:\\exports\\nlq");
   });
 
   it("exports NLQ results with canonical payload keys", async () => {
