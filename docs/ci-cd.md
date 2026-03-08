@@ -15,6 +15,14 @@ This repository includes two GitHub Actions workflows:
   - Linux: `npm run dist:linux`
   - Single-arch Linux builds: `npm run dist:linux -- --arch=x64` or `npm run dist:linux -- --arch=arm64`
 
+## Local Prerequisites
+
+- Node 22 is required (see `.nvmrc` and root `package.json` `engines`).
+- After `npm ci`, rebuild native SQLite bindings for local Node before DB/desktop tests:
+  - `npm run rebuild:native:node`
+- For installer packaging, rebuild for Electron:
+  - `npm run rebuild:native:electron`
+
 ## CI workflow
 
 Triggers:
