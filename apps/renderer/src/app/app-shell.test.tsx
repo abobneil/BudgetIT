@@ -45,7 +45,6 @@ vi.mock("../lib/ipcClient", async (importOriginal) => {
     listServices: vi.fn(),
     listVendors: vi.fn(),
     openHelpWindow: vi.fn()
-    listVendors: vi.fn()
   };
 });
 
