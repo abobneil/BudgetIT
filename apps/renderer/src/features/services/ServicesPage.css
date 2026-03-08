@@ -99,6 +99,14 @@
   color: var(--colorNeutralForeground2);
 }
 
+.services-form__hint {
+  color: var(--colorNeutralForeground3);
+}
+
+.services-form__hint--placeholder {
+  visibility: hidden;
+}
+
 @media (max-width: 980px) {
   .services-toolbar {
     grid-template-columns: 1fr;

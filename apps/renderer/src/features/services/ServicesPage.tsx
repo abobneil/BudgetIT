@@ -942,6 +942,13 @@ export function ServicesPage() {
                   }
                   placeholder="Owner team"
                 />
+                <Text
+                  aria-hidden="true"
+                  className="services-form__hint services-form__hint--placeholder"
+                  size={100}
+                >
+                  {`Example: ${annualSpendExample.input} = ${annualSpendExample.formatted}.`}
+                </Text>
               </div>
               <div className="services-form__field">
                 <Text className="services-form__label" size={200} weight="medium">
