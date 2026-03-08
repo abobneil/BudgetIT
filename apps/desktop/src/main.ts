@@ -772,15 +772,22 @@ function parseDbRekeyPayload(payload: unknown): {
   return { newKeyHex: normalized };
 }
 
-function parseHelpOpenPayload(payload: unknown): {
+export function parseHelpOpenPayload(payload: unknown): {
   topic?: string;
   anchor?: string;
+  q?: string;
+  context?: string;
 } {
   if (!payload || typeof payload !== "object") {
     return {};
   }
 
-  const value = payload as { topic?: unknown; anchor?: unknown };
+  const value = payload as {
+    topic?: unknown;
+    anchor?: unknown;
+    q?: unknown;
+    context?: unknown;
+  };
   const topic =
     typeof value.topic === "string" && value.topic.trim().length > 0
       ? value.topic.trim()
@@ -789,8 +796,16 @@ function parseHelpOpenPayload(payload: unknown): {
     typeof value.anchor === "string" && value.anchor.trim().length > 0
       ? value.anchor.trim()
       : undefined;
+  const q =
+    typeof value.q === "string" && value.q.trim().length > 0
+      ? value.q.trim()
+      : undefined;
+  const context =
+    typeof value.context === "string" && value.context.trim().length > 0
+      ? value.context.trim()
+      : undefined;
 
-  return { topic, anchor };
+  return { topic, anchor, q, context };
 }
 
 export function parsePickFileDialogPayload(payload: unknown): {
@@ -3993,7 +4008,9 @@ function loadRendererRoute(window: BrowserWindow, hashRoute: string): void {
   void window.loadFile(indexPath, { hash: normalizedHash });
 }
 
-function buildHelpHashRoute(payload: { topic?: string; anchor?: string } = {}): string {
+export function buildHelpHashRoute(
+  payload: { topic?: string; anchor?: string; q?: string; context?: string } = {}
+): string {
   const params = new URLSearchParams();
   if (payload.topic) {
     params.set("topic", payload.topic);
@@ -4001,11 +4018,19 @@ function buildHelpHashRoute(payload: { topic?: string; anchor?: string } = {}): 
   if (payload.anchor) {
     params.set("anchor", payload.anchor);
   }
+  if (payload.q) {
+    params.set("q", payload.q);
+  }
+  if (payload.context) {
+    params.set("context", payload.context);
+  }
   const query = params.toString();
   return query ? `/help?${query}` : "/help";
 }
 
-function openHelpWindow(payload: { topic?: string; anchor?: string } = {}): void {
+function openHelpWindow(
+  payload: { topic?: string; anchor?: string; q?: string; context?: string } = {}
+): void {
   const route = buildHelpHashRoute(payload);
 
   if (helpWindow && !helpWindow.isDestroyed()) {
@@ -4080,7 +4105,12 @@ function getHelpDocument(): { markdown: string; sourcePath: string | null } {
 }
 
 export type ApplicationMenuHandlers = {
-  openHelp: (payload: { topic?: string; anchor?: string }) => void;
+  openHelp: (payload: {
+    topic?: string;
+    anchor?: string;
+    q?: string;
+    context?: string;
+  }) => void;
 };
 
 export function getApplicationMenuTemplate(

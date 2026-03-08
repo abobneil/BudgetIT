@@ -32,6 +32,7 @@ import {
   listExpenses as listExpensesIpc,
   listServices as listServicesIpc,
   listVendors as listVendorsIpc,
+  openHelpWindow,
   updateContract as updateContractIpc
 } from "../../lib/ipcClient";
 import {
@@ -45,7 +46,6 @@ import {
   renewalWindowLabel
 } from "../services/service-lifecycle-model";
 import { useScenarioContext } from "../scenarios/ScenarioContext";
-import { buildHelpHashPath } from "../help/help-topics";
 import "./ContractsPage.css";
 
 type ServiceContext = {
@@ -504,14 +504,7 @@ export function ContractsPage() {
     q?: string,
     context?: string
   ): void {
-    navigate(
-      buildHelpHashPath({
-        topic,
-        anchor,
-        q,
-        context
-      })
-    );
+    void openHelpWindow({ topic, anchor, q, context });
   }
 
   return (

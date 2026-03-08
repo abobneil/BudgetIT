@@ -11,11 +11,14 @@ import {
   within
 } from "@testing-library/react";
 import { MemoryRouter, useLocation } from "react-router-dom";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AppShell } from "../../app/AppShell";
 import { AppRoutes } from "../../app/routes";
+import * as ipcClient from "../../lib/ipcClient";
 import { budgetItLightTheme } from "../../ui/theme";
+
+const openHelpWindowSpy = vi.spyOn(ipcClient, "openHelpWindow");
 
 function LocationProbe() {
   const location = useLocation();
@@ -38,6 +41,11 @@ function renderWorkspace(initialPath: string) {
 }
 
 describe("VendorsPage", () => {
+  beforeEach(() => {
+    openHelpWindowSpy.mockReset();
+    openHelpWindowSpy.mockResolvedValue({ ok: true });
+  });
+
   afterEach(() => {
     cleanup();
   });
@@ -147,10 +155,16 @@ describe("VendorsPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Create Vendor" }));
     fireEvent.click(screen.getByRole("button", { name: "Vendor Form Guide" }));
 
-    expect(await screen.findByRole("heading", { name: "Help Center" })).toBeInTheDocument();
-    expect(screen.getByLabelText("Selected help topic")).toHaveValue("vendors-form");
-    expect(screen.getByTestId("current-location")).toHaveTextContent(
-      "/help?topic=vendors-form&anchor=createedit-vendor-form&q=vendor+form&context=vendors%3Aform"
-    );
+    await waitFor(() => {
+      expect(openHelpWindowSpy).toHaveBeenCalledWith({
+        topic: "vendors-form",
+        anchor: "createedit-vendor-form",
+        q: "vendor form",
+        context: "vendors:form"
+      });
+    });
+    expect(screen.getByRole("button", { name: "Vendor Form Guide" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Help Center" })).not.toBeInTheDocument();
+    expect(screen.getByTestId("current-location")).not.toHaveTextContent("/help");
   });
 });

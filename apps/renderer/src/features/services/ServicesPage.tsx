@@ -34,6 +34,7 @@ import {
   listExpenses as listExpensesIpc,
   listServices as listServicesIpc,
   listVendors as listVendorsIpc,
+  openHelpWindow,
   updateService as updateServiceIpc
 } from "../../lib/ipcClient";
 import {
@@ -55,7 +56,6 @@ import {
   serviceRiskTone
 } from "./service-lifecycle-model";
 import { useScenarioContext } from "../scenarios/ScenarioContext";
-import { buildHelpHashPath } from "../help/help-topics";
 import "./ServicesPage.css";
 
 type ServiceDetailTab =
@@ -538,14 +538,7 @@ export function ServicesPage() {
     q?: string,
     context?: string
   ): void {
-    navigate(
-      buildHelpHashPath({
-        topic,
-        anchor,
-        q,
-        context
-      })
-    );
+    void openHelpWindow({ topic, anchor, q, context });
   }
 
   return (

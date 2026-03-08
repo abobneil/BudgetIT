@@ -19,7 +19,7 @@ import { useNavigate } from "react-router-dom";
 import type { DashboardDataset } from "../../reporting";
 import { formatCurrencyMinor } from "../../lib/currency";
 import { useScenarioContext } from "../scenarios/ScenarioContext";
-import { exportReport, queryReport } from "../../lib/ipcClient";
+import { exportReport, openHelpWindow, queryReport } from "../../lib/ipcClient";
 import { useFeedback } from "../../ui/feedback";
 import {
   EmptyState,
@@ -29,7 +29,6 @@ import {
   PageHeader
 } from "../../ui/primitives";
 import { toTitleCaseLabel } from "../../ui/text/labelCase";
-import { buildHelpHashPath } from "../help/help-topics";
 import {
   DASHBOARD_CARD_DEFINITION_MAP,
   buildDashboardKpiMetrics,
@@ -517,14 +516,12 @@ export function DashboardPage() {
 
   function openCardHelp(cardId: DashboardCardId): void {
     const definition = DASHBOARD_CARD_DEFINITION_MAP[cardId];
-    navigate(
-      buildHelpHashPath({
-        topic: "dashboard-overview",
-        anchor: DASHBOARD_CARD_HELP_ANCHOR_MAP[cardId],
-        q: definition.title,
-        context: `dashboard:${cardId}`
-      })
-    );
+    void openHelpWindow({
+      topic: "dashboard-overview",
+      anchor: DASHBOARD_CARD_HELP_ANCHOR_MAP[cardId],
+      q: definition.title,
+      context: `dashboard:${cardId}`
+    });
   }
 
   return (

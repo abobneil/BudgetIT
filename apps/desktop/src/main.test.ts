@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  buildHelpHashRoute,
   getApplicationMenuTemplate,
   bootstrapDesktop,
   DIAGNOSTICS_TRACKED_TABLES,
@@ -8,6 +9,7 @@ import {
   parseApprovalListPayload,
   parseExpenseListPayload,
   parseExportReportPayload,
+  parseHelpOpenPayload,
   parsePickDirectoryDialogPayload,
   parsePickFileDialogPayload,
   parseReportPreviewPayload,
@@ -51,6 +53,33 @@ describe("desktop bootstrap", () => {
       { topic: "quick-start" },
       { topic: "global-keyboard-shortcuts" }
     ]);
+  });
+
+  it("preserves deep-link help query state for contextual help windows", () => {
+    expect(
+      parseHelpOpenPayload({
+        topic: "vendors-form",
+        anchor: "createedit-vendor-form",
+        q: "vendor form",
+        context: "vendors:form"
+      })
+    ).toEqual({
+      topic: "vendors-form",
+      anchor: "createedit-vendor-form",
+      q: "vendor form",
+      context: "vendors:form"
+    });
+
+    expect(
+      buildHelpHashRoute({
+        topic: "vendors-form",
+        anchor: "createedit-vendor-form",
+        q: "vendor form",
+        context: "vendors:form"
+      })
+    ).toBe(
+      "/help?topic=vendors-form&anchor=createedit-vendor-form&q=vendor+form&context=vendors%3Aform"
+    );
   });
 
   it("runs app boot smoke behavior and creates initial window", async () => {

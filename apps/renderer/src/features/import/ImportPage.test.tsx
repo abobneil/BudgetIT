@@ -11,6 +11,7 @@ import {
   deleteImportTemplate,
   isIpcAvailable,
   listImportTemplates,
+  openHelpWindow,
   pickFilePath,
   previewImport
 } from "../../lib/ipcClient";
@@ -21,6 +22,7 @@ vi.mock("../../lib/ipcClient", () => ({
   isIpcAvailable: vi.fn(),
   listImportTemplates: vi.fn(),
   deleteImportTemplate: vi.fn(),
+  openHelpWindow: vi.fn(),
   pickFilePath: vi.fn(),
   previewImport: vi.fn(),
   commitImport: vi.fn()
@@ -29,6 +31,7 @@ vi.mock("../../lib/ipcClient", () => ({
 const isIpcAvailableMock = vi.mocked(isIpcAvailable);
 const listImportTemplatesMock = vi.mocked(listImportTemplates);
 const deleteImportTemplateMock = vi.mocked(deleteImportTemplate);
+const openHelpWindowMock = vi.mocked(openHelpWindow);
 const pickFilePathMock = vi.mocked(pickFilePath);
 const previewImportMock = vi.mocked(previewImport);
 const commitImportMock = vi.mocked(commitImport);
@@ -48,6 +51,7 @@ describe("ImportPage", () => {
     isIpcAvailableMock.mockReset();
     listImportTemplatesMock.mockReset();
     deleteImportTemplateMock.mockReset();
+    openHelpWindowMock.mockReset();
     pickFilePathMock.mockReset();
     previewImportMock.mockReset();
     commitImportMock.mockReset();
@@ -61,6 +65,7 @@ describe("ImportPage", () => {
       deleted: true,
       remaining: 0
     });
+    openHelpWindowMock.mockResolvedValue({ ok: true });
     pickFilePathMock.mockResolvedValue(null);
     previewImportMock.mockResolvedValue({
       totalRows: 6,
@@ -223,5 +228,30 @@ describe("ImportPage", () => {
     expect(commitSummary).toHaveTextContent("Matched: 3");
     expect(commitSummary).toHaveTextContent("Unmatched: 1");
     expect(screen.getByText(/2026-02-10/i)).toBeInTheDocument();
+  });
+
+  it("opens import help in the help window instead of replacing the page", async () => {
+    renderImportPage();
+    await waitFor(() => {
+      expect(listImportTemplatesMock).toHaveBeenCalledTimes(1);
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Import Guide" }));
+    fireEvent.click(screen.getByRole("button", { name: "Open Full Definitions" }));
+
+    await waitFor(() => {
+      expect(openHelpWindowMock).toHaveBeenNthCalledWith(1, {
+        topic: "import-wizard",
+        anchor: "5-steps",
+        q: "import workflow",
+        context: "import:wizard"
+      });
+      expect(openHelpWindowMock).toHaveBeenNthCalledWith(2, {
+        topic: "import-wizard",
+        anchor: "glossary-import-statuses-and-match-outcomes",
+        q: "import statuses",
+        context: "import:definitions"
+      });
+    });
   });
 });

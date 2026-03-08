@@ -11,11 +11,14 @@ import {
   within
 } from "@testing-library/react";
 import { MemoryRouter, useLocation } from "react-router-dom";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AppShell } from "../../app/AppShell";
 import { AppRoutes } from "../../app/routes";
+import * as ipcClient from "../../lib/ipcClient";
 import { budgetItLightTheme } from "../../ui/theme";
+
+const openHelpWindowSpy = vi.spyOn(ipcClient, "openHelpWindow");
 
 function LocationProbe() {
   const location = useLocation();
@@ -38,6 +41,11 @@ function renderWorkspace(initialPath: string) {
 }
 
 describe("service and contract workspaces", () => {
+  beforeEach(() => {
+    openHelpWindowSpy.mockReset();
+    openHelpWindowSpy.mockResolvedValue({ ok: true });
+  });
+
   afterEach(() => {
     cleanup();
   });
@@ -110,11 +118,17 @@ describe("service and contract workspaces", () => {
     fireEvent.click(screen.getByRole("button", { name: "Create Service" }));
     fireEvent.click(screen.getByRole("button", { name: "Service Form Guide" }));
 
-    expect(await screen.findByRole("heading", { name: "Help Center" })).toBeInTheDocument();
-    expect(screen.getByLabelText("Selected help topic")).toHaveValue("services-form");
-    expect(screen.getByTestId("current-location")).toHaveTextContent(
-      "/help?topic=services-form&anchor=createedit-service-form&q=service+form&context=services%3Aform"
-    );
+    await waitFor(() => {
+      expect(openHelpWindowSpy).toHaveBeenCalledWith({
+        topic: "services-form",
+        anchor: "createedit-service-form",
+        q: "service form",
+        context: "services:form"
+      });
+    });
+    expect(screen.getByRole("button", { name: "Service Form Guide" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Help Center" })).not.toBeInTheDocument();
+    expect(screen.getByTestId("current-location")).not.toHaveTextContent("/help");
   });
 
   it("opens the contract form guide from the drawer", async () => {
@@ -124,10 +138,16 @@ describe("service and contract workspaces", () => {
     fireEvent.click(screen.getByRole("button", { name: "Create Contract" }));
     fireEvent.click(screen.getByRole("button", { name: "Contract Form Guide" }));
 
-    expect(await screen.findByRole("heading", { name: "Help Center" })).toBeInTheDocument();
-    expect(screen.getByLabelText("Selected help topic")).toHaveValue("contracts-form");
-    expect(screen.getByTestId("current-location")).toHaveTextContent(
-      "/help?topic=contracts-form&anchor=createedit-contract-form&q=contract+form&context=contracts%3Aform"
-    );
+    await waitFor(() => {
+      expect(openHelpWindowSpy).toHaveBeenCalledWith({
+        topic: "contracts-form",
+        anchor: "createedit-contract-form",
+        q: "contract form",
+        context: "contracts:form"
+      });
+    });
+    expect(screen.getByRole("button", { name: "Contract Form Guide" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Help Center" })).not.toBeInTheDocument();
+    expect(screen.getByTestId("current-location")).not.toHaveTextContent("/help");
   });
 });

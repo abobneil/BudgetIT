@@ -508,6 +508,8 @@ export type AuditRecord = {
 export type HelpOpenPayload = {
   topic?: string;
   anchor?: string;
+  q?: string;
+  context?: string;
 };
 
 export type HelpDocumentResult = {
@@ -569,6 +571,12 @@ export async function openHelpWindow(
     }
     if (payload.anchor) {
       params.set("anchor", payload.anchor);
+    }
+    if (payload.q) {
+      params.set("q", payload.q);
+    }
+    if (payload.context) {
+      params.set("context", payload.context);
     }
     const query = params.toString();
     window.open(

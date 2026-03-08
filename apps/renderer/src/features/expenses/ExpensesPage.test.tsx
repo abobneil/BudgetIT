@@ -11,12 +11,15 @@ import {
   within
 } from "@testing-library/react";
 import { MemoryRouter, useLocation } from "react-router-dom";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AppShell } from "../../app/AppShell";
 import { AppRoutes } from "../../app/routes";
+import * as ipcClient from "../../lib/ipcClient";
 import { budgetItLightTheme } from "../../ui/theme";
 import { ExpensesPage } from "./ExpensesPage";
+
+const openHelpWindowSpy = vi.spyOn(ipcClient, "openHelpWindow");
 
 function renderExpensesPage() {
   return render(
@@ -58,6 +61,11 @@ function getExpensesTable() {
 }
 
 describe("ExpensesPage", () => {
+  beforeEach(() => {
+    openHelpWindowSpy.mockReset();
+    openHelpWindowSpy.mockResolvedValue({ ok: true });
+  });
+
   afterEach(() => {
     cleanup();
   });
@@ -183,10 +191,16 @@ describe("ExpensesPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Create Expense" }));
     fireEvent.click(screen.getByRole("button", { name: "Expense Form Guide" }));
 
-    expect(await screen.findByRole("heading", { name: "Help Center" })).toBeInTheDocument();
-    expect(screen.getByLabelText("Selected help topic")).toHaveValue("expenses-form");
-    expect(screen.getByTestId("current-location")).toHaveTextContent(
-      "/help?topic=expenses-form&anchor=createedit-expense-form&q=expense+form&context=expenses%3Aform"
-    );
+    await waitFor(() => {
+      expect(openHelpWindowSpy).toHaveBeenCalledWith({
+        topic: "expenses-form",
+        anchor: "createedit-expense-form",
+        q: "expense form",
+        context: "expenses:form"
+      });
+    });
+    expect(screen.getByRole("button", { name: "Expense Form Guide" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Help Center" })).not.toBeInTheDocument();
+    expect(screen.getByTestId("current-location")).not.toHaveTextContent("/help");
   });
 });

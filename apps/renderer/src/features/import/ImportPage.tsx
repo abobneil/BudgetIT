@@ -21,11 +21,11 @@ import {
   deleteImportTemplate,
   isIpcAvailable,
   listImportTemplates,
+  openHelpWindow,
   pickFilePath,
   previewImport,
   type ImportTemplateSummary
 } from "../../lib/ipcClient";
-import { buildHelpHashPath } from "../help/help-topics";
 import { InlineError, PageHeader } from "../../ui/primitives";
 import {
   buildImportPayload,
@@ -39,7 +39,6 @@ import {
   type ImportWizardStep
 } from "./import-wizard-model";
 import { useFeedback } from "../../ui/feedback";
-import { useNavigate } from "react-router-dom";
 import "./ImportPage.css";
 
 type PreviewRow = {
@@ -92,7 +91,6 @@ function stepLabel(step: ImportWizardStep): string {
 export function ImportPage() {
   const hasIpc = isIpcAvailable();
   const { notify } = useFeedback();
-  const navigate = useNavigate();
   const [draft, setDraft] = useState(() => createInitialImportWizardDraft());
   const [currentStep, setCurrentStep] = useState<ImportWizardStep>("mode");
   const [errorFilter, setErrorFilter] = useState<ImportErrorFilter>("all");
@@ -257,20 +255,8 @@ export function ImportPage() {
     }
   }
 
-  function openHelpTopic(
-    topic: string,
-    anchor?: string,
-    q?: string,
-    context?: string
-  ): void {
-    navigate(
-      buildHelpHashPath({
-        topic,
-        anchor,
-        q,
-        context
-      })
-    );
+  function openHelpTopic(topic: string, anchor?: string, q?: string, context?: string): void {
+    void openHelpWindow({ topic, anchor, q, context });
   }
 
   return (

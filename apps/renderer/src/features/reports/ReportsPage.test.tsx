@@ -11,6 +11,7 @@ import {
   exportReport,
   isIpcAvailable,
   listUnmatchedActuals,
+  openHelpWindow,
   pickDirectoryPath,
   previewReport,
   queryReport
@@ -22,6 +23,7 @@ vi.mock("../../lib/ipcClient", () => ({
   isIpcAvailable: vi.fn(),
   queryReport: vi.fn(),
   exportReport: vi.fn(),
+  openHelpWindow: vi.fn(),
   pickDirectoryPath: vi.fn(),
   previewReport: vi.fn(),
   listUnmatchedActuals: vi.fn(),
@@ -35,6 +37,7 @@ const isIpcAvailableMock = vi.mocked(isIpcAvailable);
 const listUnmatchedActualsMock = vi.mocked(listUnmatchedActuals);
 const queryReportMock = vi.mocked(queryReport);
 const exportReportMock = vi.mocked(exportReport);
+const openHelpWindowMock = vi.mocked(openHelpWindow);
 const pickDirectoryPathMock = vi.mocked(pickDirectoryPath);
 const previewReportMock = vi.mocked(previewReport);
 
@@ -94,6 +97,7 @@ describe("ReportsPage", () => {
     listUnmatchedActualsMock.mockReset();
     queryReportMock.mockReset();
     exportReportMock.mockReset();
+    openHelpWindowMock.mockReset();
     pickDirectoryPathMock.mockReset();
     previewReportMock.mockReset();
     isIpcAvailableMock.mockReturnValue(false);
@@ -117,6 +121,7 @@ describe("ReportsPage", () => {
       scenarioId: "baseline",
       reportType: "dashboard.summary"
     });
+    openHelpWindowMock.mockResolvedValue({ ok: true });
     pickDirectoryPathMock.mockResolvedValue(null);
   });
 
@@ -288,5 +293,35 @@ describe("ReportsPage", () => {
 
     const frame = await screen.findByTitle("Report export preview");
     expect(frame).toHaveAttribute("srcdoc", expect.stringContaining("<h1>Preview</h1>"));
+  });
+
+  it("opens report help in the help window instead of navigating the workspace", async () => {
+    renderReportsPage();
+    await screen.findByText("Report Gallery");
+
+    fireEvent.click(screen.getByRole("button", { name: "Reports Help" }));
+    fireEvent.click(screen.getByRole("button", { name: "Import/Match Help" }));
+    fireEvent.click(screen.getByRole("button", { name: "Open Full Definitions" }));
+
+    await waitFor(() => {
+      expect(openHelpWindowMock).toHaveBeenNthCalledWith(1, {
+        topic: "reports-workspace",
+        anchor: "unmatched-actuals-review",
+        q: "reconciliation",
+        context: "reports:workspace"
+      });
+      expect(openHelpWindowMock).toHaveBeenNthCalledWith(2, {
+        topic: "import-wizard",
+        anchor: "commit-step",
+        q: "import commit",
+        context: "reports:import"
+      });
+      expect(openHelpWindowMock).toHaveBeenNthCalledWith(3, {
+        topic: "reports-workspace",
+        anchor: "glossary-reconciliation-statuses",
+        q: "reconciliation statuses",
+        context: "reports:definitions"
+      });
+    });
   });
 });

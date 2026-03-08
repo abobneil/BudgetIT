@@ -15,14 +15,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { DashboardDataset } from "../../reporting";
 import { AppShell } from "../../app/AppShell";
 import { AppRoutes } from "../../app/routes";
-import { exportReport, queryReport } from "../../lib/ipcClient";
+import { exportReport, openHelpWindow, queryReport } from "../../lib/ipcClient";
 import { budgetItLightTheme } from "../../ui/theme";
 import { DashboardPage } from "./DashboardPage";
 
 vi.mock("../../lib/ipcClient", () => ({
   isIpcAvailable: vi.fn(() => false),
   queryReport: vi.fn(),
-  exportReport: vi.fn()
+  exportReport: vi.fn(),
+  openHelpWindow: vi.fn()
 }));
 
 const datasetFixture: DashboardDataset = {
@@ -70,6 +71,7 @@ const datasetFixture: DashboardDataset = {
 
 const queryReportMock = vi.mocked(queryReport);
 const exportReportMock = vi.mocked(exportReport);
+const openHelpWindowMock = vi.mocked(openHelpWindow);
 
 function renderDashboardPage() {
   return render(
@@ -86,7 +88,9 @@ describe("DashboardPage", () => {
     localStorage.clear();
     queryReportMock.mockReset();
     exportReportMock.mockReset();
+    openHelpWindowMock.mockReset();
     queryReportMock.mockResolvedValue(datasetFixture);
+    openHelpWindowMock.mockResolvedValue({ ok: true });
   });
 
   afterEach(() => {
@@ -272,5 +276,21 @@ describe("DashboardPage", () => {
     expect(
       await screen.findByTestId("dashboard-section-section-reliability")
     ).toBeInTheDocument();
+  });
+
+  it("opens dashboard card help in the help window instead of navigating away", async () => {
+    renderDashboardPage();
+
+    await screen.findByText("Forecast");
+    fireEvent.click(screen.getByRole("button", { name: "Help for Forecast" }));
+
+    await waitFor(() => {
+      expect(openHelpWindowMock).toHaveBeenCalledWith({
+        topic: "dashboard-overview",
+        anchor: "forecast-kpi",
+        q: "Forecast",
+        context: "dashboard:kpi-forecast"
+      });
+    });
   });
 });
