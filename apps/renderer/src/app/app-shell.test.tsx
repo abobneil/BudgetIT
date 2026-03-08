@@ -45,6 +45,7 @@ vi.mock("../lib/ipcClient", async (importOriginal) => {
     listServices: vi.fn(),
     listVendors: vi.fn(),
     openHelpWindow: vi.fn()
+    listVendors: vi.fn()
   };
 });
 
@@ -319,7 +320,6 @@ describe("AppShell", () => {
       expect(openHelpWindowMock).toHaveBeenCalledWith(expectedPayload);
     });
   });
-
   it("uses fallback search entries when IPC is unavailable", async () => {
     renderSearchShell();
 

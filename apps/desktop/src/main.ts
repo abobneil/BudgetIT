@@ -877,6 +877,75 @@ export function parsePickDirectoryDialogPayload(payload: unknown): {
   };
 }
 
+export function parsePickFileDialogPayload(payload: unknown): {
+  title?: string;
+  defaultPath?: string;
+  filters?: Array<{ name: string; extensions: string[] }>;
+} {
+  if (!payload || typeof payload !== "object") {
+    return {};
+  }
+
+  const value = payload as {
+    title?: unknown;
+    defaultPath?: unknown;
+    filters?: unknown;
+  };
+
+  const filters = Array.isArray(value.filters)
+    ? value.filters
+        .filter((entry): entry is { name?: unknown; extensions?: unknown } =>
+          Boolean(entry && typeof entry === "object")
+        )
+        .map((entry) => ({
+          name:
+            typeof entry.name === "string" && entry.name.trim().length > 0
+              ? entry.name.trim()
+              : "Files",
+          extensions: Array.isArray(entry.extensions)
+            ? entry.extensions.filter(
+                (extension): extension is string =>
+                  typeof extension === "string" && extension.trim().length > 0
+              )
+            : []
+        }))
+        .filter((entry) => entry.extensions.length > 0)
+    : undefined;
+
+  return {
+    title:
+      typeof value.title === "string" && value.title.trim().length > 0
+        ? value.title.trim()
+        : undefined,
+    defaultPath:
+      typeof value.defaultPath === "string" && value.defaultPath.trim().length > 0
+        ? value.defaultPath.trim()
+        : undefined,
+    filters
+  };
+}
+
+export function parsePickDirectoryDialogPayload(payload: unknown): {
+  title?: string;
+  defaultPath?: string;
+} {
+  if (!payload || typeof payload !== "object") {
+    return {};
+  }
+
+  const value = payload as { title?: unknown; defaultPath?: unknown };
+  return {
+    title:
+      typeof value.title === "string" && value.title.trim().length > 0
+        ? value.title.trim()
+        : undefined,
+    defaultPath:
+      typeof value.defaultPath === "string" && value.defaultPath.trim().length > 0
+        ? value.defaultPath.trim()
+        : undefined
+  };
+}
+
 function parseImportPayload(payload: unknown): {
   mode: "expenses" | "actuals";
   filePath: string;
