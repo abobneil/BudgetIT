@@ -18,6 +18,14 @@ const archLabelByMachine = {
 const npmExecutable = process.platform === "win32" ? "npm.cmd" : "npm";
 const electronBuilderExecutable =
   process.platform === "win32" ? "electron-builder.cmd" : "electron-builder";
+const transientElectronBuilderErrorPatterns = [
+  /status code 5\d{2}/iu,
+  /cannot resolve https?:\/\/.+electron-builder-binaries/iu,
+  /ERR_ELECTRON_BUILDER_CANNOT_EXECUTE/iu,
+  /\bECONNRESET\b/iu,
+  /\bETIMEDOUT\b/iu,
+  /socket hang up/iu
+];
 
 function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -42,7 +50,7 @@ function runCommand(command, args) {
   console.log(`[dist-win] > ${command} ${args.join(" ")}`);
   const options = {
     cwd: rootDir,
-    stdio: "inherit",
+    encoding: "utf8",
     shell: false
   };
 
@@ -60,13 +68,55 @@ function runCommand(command, args) {
         )
       : spawnSync(command, args, options);
 
+  if (result.stdout) {
+    process.stdout.write(result.stdout);
+  }
+
+  if (result.stderr) {
+    process.stderr.write(result.stderr);
+  }
+
   if (result.error) {
     throw result.error;
   }
 
   if (result.status !== 0) {
-    throw new Error(`Command failed with exit code ${result.status}: ${command}`);
+    const error = new Error(`Command failed with exit code ${result.status}: ${command}`);
+    error.command = command;
+    error.args = args;
+    error.output = `${result.stdout || ""}\n${result.stderr || ""}`;
+    throw error;
   }
+}
+
+function isTransientElectronBuilderError(error) {
+  if (!error || error.command !== electronBuilderExecutable) {
+    return false;
+  }
+
+  const output = typeof error.output === "string" ? error.output : "";
+  return transientElectronBuilderErrorPatterns.some((pattern) => pattern.test(output));
+}
+
+function runWithRetry(operation, { attempts, label, shouldRetry }) {
+  let lastError;
+
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      return operation();
+    } catch (error) {
+      lastError = error;
+      if (attempt === attempts || !shouldRetry(error)) {
+        throw error;
+      }
+
+      console.warn(
+        `[dist-win] ${label} failed on attempt ${attempt}/${attempts}; retrying after transient electron-builder error`
+      );
+    }
+  }
+
+  throw lastError;
 }
 
 function removeIfExists(targetPath) {
@@ -216,25 +266,34 @@ function packageArchitecture(version, architecture) {
   const installerBlockMapPath = getInstallerBlockMapPath(version, architecture);
   const unpackedDirectoryPath = path.join(releaseDir, getUnpackedDirectory(architecture));
 
-  removeIfExists(installerPath);
-  removeIfExists(installerBlockMapPath);
-  removeIfExists(unpackedDirectoryPath);
+  runWithRetry(
+    () => {
+      removeIfExists(installerPath);
+      removeIfExists(installerBlockMapPath);
+      removeIfExists(unpackedDirectoryPath);
 
-  runCommand(npmExecutable, ["run", "rebuild:native:electron", "--", `--arch=${architecture}`]);
-  runCommand(electronBuilderExecutable, [
-    "--config",
-    "electron-builder.yml",
-    "--config.npmRebuild=false",
-    "--win",
-    "nsis",
-    `--${architecture}`,
-    "--publish",
-    "never"
-  ]);
+      runCommand(npmExecutable, ["run", "rebuild:native:electron", "--", `--arch=${architecture}`]);
+      runCommand(electronBuilderExecutable, [
+        "--config",
+        "electron-builder.yml",
+        "--config.npmRebuild=false",
+        "--win",
+        "nsis",
+        `--${architecture}`,
+        "--publish",
+        "never"
+      ]);
 
-  normalizeInstallerNames(version, architecture);
-  assertFileExists(installerPath, "Installer");
-  assertNativeModuleArchitecture(architecture);
+      normalizeInstallerNames(version, architecture);
+      assertFileExists(installerPath, "Installer");
+      assertNativeModuleArchitecture(architecture);
+    },
+    {
+      attempts: 3,
+      label: `${architecture} packaging`,
+      shouldRetry: isTransientElectronBuilderError
+    }
+  );
 }
 
 function run() {

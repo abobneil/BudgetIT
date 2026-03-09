@@ -21,6 +21,14 @@ const archLabelByMachine = {
 const npmExecutable = process.platform === "win32" ? "npm.cmd" : "npm";
 const electronBuilderExecutable =
   process.platform === "win32" ? "electron-builder.cmd" : "electron-builder";
+const transientElectronBuilderErrorPatterns = [
+  /status code 5\d{2}/iu,
+  /cannot resolve https?:\/\/.+electron-builder-binaries/iu,
+  /ERR_ELECTRON_BUILDER_CANNOT_EXECUTE/iu,
+  /\bECONNRESET\b/iu,
+  /\bETIMEDOUT\b/iu,
+  /socket hang up/iu
+];
 
 function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -30,17 +38,59 @@ function runCommand(command, args) {
   console.log(`[dist-linux] > ${command} ${args.join(" ")}`);
   const result = spawnSync(command, args, {
     cwd: rootDir,
-    stdio: "inherit",
+    encoding: "utf8",
     shell: false
   });
+
+  if (result.stdout) {
+    process.stdout.write(result.stdout);
+  }
+
+  if (result.stderr) {
+    process.stderr.write(result.stderr);
+  }
 
   if (result.error) {
     throw result.error;
   }
 
   if (result.status !== 0) {
-    throw new Error(`Command failed with exit code ${result.status}: ${command}`);
+    const error = new Error(`Command failed with exit code ${result.status}: ${command}`);
+    error.command = command;
+    error.args = args;
+    error.output = `${result.stdout || ""}\n${result.stderr || ""}`;
+    throw error;
   }
+}
+
+function isTransientElectronBuilderError(error) {
+  if (!error || error.command !== electronBuilderExecutable) {
+    return false;
+  }
+
+  const output = typeof error.output === "string" ? error.output : "";
+  return transientElectronBuilderErrorPatterns.some((pattern) => pattern.test(output));
+}
+
+function runWithRetry(operation, { attempts, label, shouldRetry }) {
+  let lastError;
+
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      return operation();
+    } catch (error) {
+      lastError = error;
+      if (attempt === attempts || !shouldRetry(error)) {
+        throw error;
+      }
+
+      console.warn(
+        `[dist-linux] ${label} failed on attempt ${attempt}/${attempts}; retrying after transient electron-builder error`
+      );
+    }
+  }
+
+  throw lastError;
 }
 
 function removeIfExists(targetPath) {
@@ -240,34 +290,43 @@ function packageArchitecture(version, architecture) {
   const aliases = linuxArtifactAliasesByArchitecture[architecture];
   const unpackedDirectoryPath = path.join(releaseDir, getUnpackedDirectory(architecture));
 
-  for (const alias of aliases) {
-    const appImagePath = path.join(releaseDir, `BudgetIT-${version}-linux-${alias}.AppImage`);
-    const appImageBlockMapPath = `${appImagePath}.blockmap`;
-    const debPath = path.join(releaseDir, `BudgetIT-${version}-linux-${alias}.deb`);
-    removeIfExists(appImagePath);
-    removeIfExists(appImageBlockMapPath);
-    removeIfExists(debPath);
-  }
+  runWithRetry(
+    () => {
+      for (const alias of aliases) {
+        const appImagePath = path.join(releaseDir, `BudgetIT-${version}-linux-${alias}.AppImage`);
+        const appImageBlockMapPath = `${appImagePath}.blockmap`;
+        const debPath = path.join(releaseDir, `BudgetIT-${version}-linux-${alias}.deb`);
+        removeIfExists(appImagePath);
+        removeIfExists(appImageBlockMapPath);
+        removeIfExists(debPath);
+      }
 
-  removeIfExists(unpackedDirectoryPath);
+      removeIfExists(unpackedDirectoryPath);
 
-  runCommand(npmExecutable, ["run", "rebuild:native:electron", "--", `--arch=${architecture}`]);
-  runCommand(electronBuilderExecutable, [
-    "--config",
-    "electron-builder.yml",
-    "--config.npmRebuild=false",
-    "--linux",
-    "AppImage",
-    "deb",
-    `--${architecture}`,
-    "--publish",
-    "never"
-  ]);
+      runCommand(npmExecutable, ["run", "rebuild:native:electron", "--", `--arch=${architecture}`]);
+      runCommand(electronBuilderExecutable, [
+        "--config",
+        "electron-builder.yml",
+        "--config.npmRebuild=false",
+        "--linux",
+        "AppImage",
+        "deb",
+        `--${architecture}`,
+        "--publish",
+        "never"
+      ]);
 
-  normalizeLinuxArtifactNames(version, architecture);
-  assertFileExists(getAppImagePath(version, architecture), "AppImage artifact");
-  assertFileExists(getDebPath(version, architecture), "Deb artifact");
-  assertNativeModuleArchitecture(architecture);
+      normalizeLinuxArtifactNames(version, architecture);
+      assertFileExists(getAppImagePath(version, architecture), "AppImage artifact");
+      assertFileExists(getDebPath(version, architecture), "Deb artifact");
+      assertNativeModuleArchitecture(architecture);
+    },
+    {
+      attempts: 3,
+      label: `${architecture} packaging`,
+      shouldRetry: isTransientElectronBuilderError
+    }
+  );
 }
 
 function run() {
