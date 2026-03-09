@@ -55,6 +55,18 @@ function renderVendorsPage() {
   );
 }
 
+async function addOwnerFromField(label: string, ownerName: string): Promise<void> {
+  const input = screen.getByLabelText(label);
+  fireEvent.focus(input);
+  fireEvent.change(input, {
+    target: { value: ownerName }
+  });
+  fireEvent.mouseDown(screen.getByRole("button", { name: `Add "${ownerName}"` }));
+  await waitFor(() => {
+    expect(input).toHaveValue(ownerName);
+  });
+}
+
 describe("VendorsPage", () => {
   beforeEach(() => {
     openHelpWindowSpy.mockReset();
@@ -112,9 +124,7 @@ describe("VendorsPage", () => {
       fireEvent.change(screen.getByLabelText("Vendor name"), {
         target: { value: "Acme Security" }
       });
-      fireEvent.change(screen.getByLabelText("Vendor owner"), {
-        target: { value: "Security Operations" }
-      });
+      await addOwnerFromField("Vendor owner", "Security Operations");
       fireEvent.change(screen.getByLabelText("Vendor annual spend"), {
         target: { value: "500.00" }
       });
@@ -206,6 +216,7 @@ describe("VendorsPage", () => {
         name: vendor.name,
         website: null,
         notes: null,
+        ownerId: vendor.ownerId,
         owner: vendor.owner,
         annualSpendMinor: vendor.annualSpendMinor,
         status: vendor.status,
@@ -214,6 +225,25 @@ describe("VendorsPage", () => {
         updatedAt: "2026-03-08T00:00:00.000Z",
         deletedAt: null
       }))
+    );
+    vi.spyOn(ipcClient, "listOwners").mockResolvedValue(
+      Array.from(
+        new Map(
+          INITIAL_VENDOR_RECORDS.map((vendor) => [
+            vendor.ownerId,
+            {
+              id: vendor.ownerId,
+              name: vendor.owner,
+              archivedAt: null,
+              createdAt: "2026-03-08T00:00:00.000Z",
+              updatedAt: "2026-03-08T00:00:00.000Z",
+              vendorCount: 1,
+              serviceCount: 0,
+              contractCount: 0
+            }
+          ])
+        ).values()
+      )
     );
     vi.spyOn(ipcClient, "listServices").mockResolvedValue([]);
     vi.spyOn(ipcClient, "listContracts").mockResolvedValue([]);
@@ -247,5 +277,18 @@ describe("VendorsPage", () => {
         screen.queryByRole("listbox", { name: "Vendor suggestions" })
       ).not.toBeInTheDocument();
     });
+  });
+
+  it("filters vendors by shared owner directory options", async () => {
+    renderVendorsPage();
+
+    await screen.findByText("Vendors Workspace");
+    fireEvent.change(screen.getByLabelText("Filter vendors by owner"), {
+      target: { value: INITIAL_VENDOR_RECORDS[0].ownerId }
+    });
+
+    const vendorsTable = screen.getByRole("table", { name: "Vendors table" });
+    expect(within(vendorsTable).getByText("Okta")).toBeInTheDocument();
+    expect(within(vendorsTable).queryByText("AWS")).not.toBeInTheDocument();
   });
 });

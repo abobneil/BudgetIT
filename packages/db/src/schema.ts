@@ -36,6 +36,7 @@ export const vendor = sqliteTable("vendor", {
   website: text("website"),
   notes: text("notes"),
   owner: text("owner"),
+  ownerId: text("owner_id"),
   annualSpendMinor: integer("annual_spend_minor").notNull(),
   status: text("status").notNull(),
   risk: text("risk").notNull(),
@@ -50,6 +51,7 @@ export const service = sqliteTable("service", {
   name: text("name").notNull(),
   status: text("status").notNull(),
   ownerTeam: text("owner_team"),
+  ownerId: text("owner_id"),
   annualSpendMinor: integer("annual_spend_minor").notNull(),
   risk: text("risk").notNull(),
   replacementStatus: text("replacement_status").notNull(),
@@ -68,11 +70,21 @@ export const contract = sqliteTable("contract", {
   renewalDate: text("renewal_date"),
   noticePeriodDays: integer("notice_period_days"),
   owner: text("owner"),
+  ownerId: text("owner_id"),
   lifecycleStatus: text("lifecycle_status").notNull(),
   renewalAction: text("renewal_action").notNull(),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
   deletedAt: text("deleted_at")
+});
+
+export const ownerDirectory = sqliteTable("owner_directory", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  normalizedName: text("normalized_name").notNull(),
+  archivedAt: text("archived_at"),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull()
 });
 
 export const expenseLine = sqliteTable("expense_line", {

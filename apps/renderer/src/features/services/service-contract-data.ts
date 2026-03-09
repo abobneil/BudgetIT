@@ -1,3 +1,5 @@
+import { toOwnerId } from "../owners/owner-model";
+
 export type ServiceRisk = "low" | "medium" | "high";
 export type ServiceReplacementStatus =
   | "not-started"
@@ -21,6 +23,7 @@ export type ServiceRecord = {
   vendorId: string;
   name: string;
   vendorName: string;
+  ownerId: string;
   owner: string;
   annualSpendMinor: number;
   renewalDate: string;
@@ -35,6 +38,7 @@ export type ContractRecord = {
   vendorId: string;
   contractNumber: string;
   providerName: string;
+  ownerId: string;
   owner: string;
   startDate: string;
   endDate: string;
@@ -52,6 +56,7 @@ export const SERVICE_RECORDS: ServiceRecord[] = [
     vendorId: "vend-okta",
     name: "Identity SSO",
     vendorName: "Okta",
+    ownerId: toOwnerId("IT Operations"),
     owner: "IT Operations",
     annualSpendMinor: 1820000,
     renewalDate: "2026-04-20",
@@ -78,6 +83,7 @@ export const SERVICE_RECORDS: ServiceRecord[] = [
     vendorId: "vend-aws",
     name: "Cloud Platform",
     vendorName: "AWS",
+    ownerId: toOwnerId("Platform Engineering"),
     owner: "Platform Engineering",
     annualSpendMinor: 5240000,
     renewalDate: "2026-07-15",
@@ -104,6 +110,7 @@ export const SERVICE_RECORDS: ServiceRecord[] = [
     vendorId: "vend-msft",
     name: "Endpoint Security",
     vendorName: "Microsoft",
+    ownerId: toOwnerId("Security Team"),
     owner: "Security Team",
     annualSpendMinor: 1310000,
     renewalDate: "2026-03-25",
@@ -133,6 +140,7 @@ export const CONTRACT_RECORDS: ContractRecord[] = [
     vendorId: "vend-okta",
     contractNumber: "CTR-SSO-001",
     providerName: "Okta",
+    ownerId: toOwnerId("IT Operations"),
     owner: "IT Operations",
     startDate: "2025-04-21",
     endDate: "2026-04-20",
@@ -148,6 +156,7 @@ export const CONTRACT_RECORDS: ContractRecord[] = [
     vendorId: "vend-okta",
     contractNumber: "CTR-SSO-ADD-02",
     providerName: "Okta",
+    ownerId: toOwnerId("IT Operations"),
     owner: "IT Operations",
     startDate: "2025-06-01",
     endDate: "2026-06-01",
@@ -163,6 +172,7 @@ export const CONTRACT_RECORDS: ContractRecord[] = [
     vendorId: "vend-aws",
     contractNumber: "CTR-CLOUD-OPS-07",
     providerName: "AWS",
+    ownerId: toOwnerId("Platform Engineering"),
     owner: "Platform Engineering",
     startDate: "2025-07-16",
     endDate: "2026-07-15",
@@ -178,6 +188,7 @@ export const CONTRACT_RECORDS: ContractRecord[] = [
     vendorId: "vend-datadog",
     contractNumber: "CTR-OBS-004",
     providerName: "Datadog",
+    ownerId: toOwnerId("Platform Engineering"),
     owner: "Platform Engineering",
     startDate: "2025-08-01",
     endDate: "2026-08-01",

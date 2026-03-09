@@ -144,5 +144,64 @@ describe("budget CRUD repository", () => {
       boot.db.close();
     }
   });
+
+  it("reuses, retires, and remaps shared owner directory records", () => {
+    const dataDir = createTempDir();
+    const boot = bootstrapEncryptedDatabase(dataDir);
+    try {
+      runMigrations(boot.db);
+      const repo = new BudgetCrudRepository(boot.db);
+
+      const platformOps = repo.createOwner("Platform Ops");
+      const reusedPlatformOps = repo.createOwner(" platform ops ");
+      expect(reusedPlatformOps.id).toBe(platformOps.id);
+
+      const vendorId = repo.createVendor({
+        name: "Vendor A",
+        ownerId: platformOps.id
+      });
+      const serviceId = repo.createService({
+        vendorId,
+        name: "Service A",
+        status: "active",
+        ownerId: platformOps.id
+      });
+      repo.createContract({
+        serviceId,
+        contractNumber: "CTR-1",
+        ownerId: platformOps.id
+      });
+
+      const usage = repo.getOwnerUsage(platformOps.id);
+      expect(usage.owner.vendorCount).toBe(1);
+      expect(usage.owner.serviceCount).toBe(1);
+      expect(usage.owner.contractCount).toBe(1);
+
+      expect(() => repo.retireOwner(platformOps.id)).toThrow(/Owner remap required/);
+
+      const financeOps = repo.createOwner("Finance Ops");
+      repo.retireOwner(platformOps.id, financeOps.id);
+
+      const archivedOwner = repo.listOwners(true).find((entry) => entry.id === platformOps.id);
+      expect(archivedOwner?.archivedAt).toBeTruthy();
+
+      const remappedVendor = repo.listVendors().find((entry) => entry.id === vendorId);
+      const remappedService = repo.listServices().find((entry) => entry.id === serviceId);
+      const remappedContract = repo.listContracts().find((entry) => entry.contractNumber === "CTR-1");
+
+      expect(remappedVendor?.ownerId).toBe(financeOps.id);
+      expect(remappedVendor?.owner).toBe("Finance Ops");
+      expect(remappedService?.ownerId).toBe(financeOps.id);
+      expect(remappedService?.ownerTeam).toBe("Finance Ops");
+      expect(remappedContract?.ownerId).toBe(financeOps.id);
+      expect(remappedContract?.owner).toBe("Finance Ops");
+
+      const unusedOwner = repo.createOwner("Unused Team");
+      const retiredUnused = repo.retireOwner(unusedOwner.id);
+      expect(retiredUnused.owner.archivedAt).toBeTruthy();
+    } finally {
+      boot.db.close();
+    }
+  });
 });
 

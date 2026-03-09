@@ -307,6 +307,7 @@ export type VendorRecord = {
   name: string;
   website: string | null;
   notes: string | null;
+  ownerId: string | null;
   owner: string | null;
   annualSpendMinor: number;
   status: VendorStatus;
@@ -321,6 +322,7 @@ export type ServiceRecord = {
   vendorId: string;
   name: string;
   status: ServiceStatus;
+  ownerId: string | null;
   ownerTeam: string | null;
   annualSpendMinor: number;
   risk: RiskLevel;
@@ -339,12 +341,31 @@ export type ContractRecord = {
   renewalType: ContractRenewalType | null;
   renewalDate: string | null;
   noticePeriodDays: number | null;
+  ownerId: string | null;
   owner: string | null;
   lifecycleStatus: ContractLifecycleStatus;
   renewalAction: ContractRenewalAction;
   createdAt: string;
   updatedAt: string;
   deletedAt: string | null;
+};
+
+export type OwnerOptionRecord = {
+  id: string;
+  name: string;
+  archivedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  vendorCount: number;
+  serviceCount: number;
+  contractCount: number;
+};
+
+export type OwnerUsageRecord = {
+  owner: OwnerOptionRecord;
+  vendors: Array<{ id: string; name: string }>;
+  services: Array<{ id: string; name: string }>;
+  contracts: Array<{ id: string; contractNumber: string | null }>;
 };
 
 export type ExpenseLineRecord = {
@@ -869,6 +890,7 @@ export async function createVendor(payload: {
   name: string;
   website?: string;
   notes?: string;
+  ownerId?: string | null;
   owner?: string;
   annualSpendMinor?: number;
   status?: VendorStatus;
@@ -882,6 +904,7 @@ export async function updateVendor(payload: {
   name: string;
   website?: string;
   notes?: string;
+  ownerId?: string | null;
   owner?: string;
   annualSpendMinor?: number;
   status?: VendorStatus;
@@ -904,6 +927,7 @@ export async function createService(payload: {
   vendorId: string;
   name: string;
   status?: ServiceStatus;
+  ownerId?: string | null;
   ownerTeam?: string;
   annualSpendMinor?: number;
   risk?: RiskLevel;
@@ -917,6 +941,7 @@ export async function updateService(payload: {
   vendorId: string;
   name: string;
   status?: ServiceStatus;
+  ownerId?: string | null;
   ownerTeam?: string;
   annualSpendMinor?: number;
   risk?: RiskLevel;
@@ -943,6 +968,7 @@ export async function createContract(payload: {
   renewalType?: ContractRenewalType;
   renewalDate?: string;
   noticePeriodDays?: number;
+  ownerId?: string | null;
   owner?: string;
   lifecycleStatus?: ContractLifecycleStatus;
   renewalAction?: ContractRenewalAction;
@@ -959,11 +985,33 @@ export async function updateContract(payload: {
   renewalType?: ContractRenewalType;
   renewalDate?: string;
   noticePeriodDays?: number;
+  ownerId?: string | null;
   owner?: string;
   lifecycleStatus?: ContractLifecycleStatus;
   renewalAction?: ContractRenewalAction;
 }): Promise<ContractRecord | null> {
   return invokeIpc<ContractRecord | null>("contracts.update", payload);
+}
+
+export async function listOwners(payload?: {
+  includeArchived?: boolean;
+}): Promise<OwnerOptionRecord[]> {
+  return invokeIpc<OwnerOptionRecord[]>("owners.list", payload);
+}
+
+export async function createOwner(payload: { name: string }): Promise<OwnerOptionRecord | null> {
+  return invokeIpc<OwnerOptionRecord | null>("owners.create", payload);
+}
+
+export async function getOwnerUsage(id: string): Promise<OwnerUsageRecord> {
+  return invokeIpc<OwnerUsageRecord>("owners.usage", { id });
+}
+
+export async function retireOwner(payload: {
+  id: string;
+  replacementOwnerId?: string | null;
+}): Promise<OwnerUsageRecord> {
+  return invokeIpc<OwnerUsageRecord>("owners.retire", payload);
 }
 
 export async function deleteContract(id: string): Promise<{ ok: boolean; id: string }> {

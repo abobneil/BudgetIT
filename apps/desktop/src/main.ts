@@ -2395,6 +2395,46 @@ function setupIpcHandlers(requestExit: () => void): void {
     );
     return getCrudRepository().listVendors(includeDeleted);
   });
+  ipcMain.handle("owners.list", async (_event, payload: unknown) => {
+    const includeArchived = Boolean(
+      payload &&
+        typeof payload === "object" &&
+        (payload as { includeArchived?: unknown }).includeArchived === true
+    );
+    return getCrudRepository().listOwners(includeArchived);
+  });
+  ipcMain.handle("owners.create", async (_event, payload: unknown) => {
+    const value = requireObjectPayload(payload, "owners.create requires payload.");
+    const created = getCrudRepository().createOwner(
+      getRequiredString(value, "name", "owners.create requires name.")
+    );
+    writeAuditLog({
+      action: "owners.create",
+      entityType: "owner_directory",
+      entityId: created.id,
+      after: created
+    });
+    return created;
+  });
+  ipcMain.handle("owners.usage", async (_event, payload: unknown) => {
+    const id = getRequiredIdPayload(payload, "owners.usage");
+    return getCrudRepository().getOwnerUsage(id);
+  });
+  ipcMain.handle("owners.retire", async (_event, payload: unknown) => {
+    const value = requireObjectPayload(payload, "owners.retire requires payload.");
+    const id = getRequiredString(value, "id", "owners.retire requires id.");
+    const repo = getCrudRepository();
+    const before = repo.getOwnerUsage(id);
+    const after = repo.retireOwner(id, getOptionalString(value, "replacementOwnerId"));
+    writeAuditLog({
+      action: "owners.retire",
+      entityType: "owner_directory",
+      entityId: id,
+      before,
+      after
+    });
+    return after;
+  });
   ipcMain.handle("vendors.create", async (_event, payload: unknown) => {
     const value = requireObjectPayload(payload, "vendors.create requires payload.");
     const repo = getCrudRepository();
@@ -2402,6 +2442,7 @@ function setupIpcHandlers(requestExit: () => void): void {
       name: getRequiredString(value, "name", "vendors.create requires name."),
       website: getOptionalString(value, "website"),
       notes: getOptionalString(value, "notes"),
+      ownerId: getOptionalString(value, "ownerId"),
       owner: getOptionalString(value, "owner"),
       annualSpendMinor: getOptionalNumber(value, "annualSpendMinor"),
       status: getOptionalEnumValue(value, "status", VENDOR_STATUSES),
@@ -2425,6 +2466,7 @@ function setupIpcHandlers(requestExit: () => void): void {
       name: getRequiredString(value, "name", "vendors.update requires name."),
       website: getOptionalString(value, "website"),
       notes: getOptionalString(value, "notes"),
+      ownerId: getOptionalString(value, "ownerId"),
       owner: getOptionalString(value, "owner"),
       annualSpendMinor: getOptionalNumber(value, "annualSpendMinor"),
       status: getOptionalEnumValue(value, "status", VENDOR_STATUSES),
@@ -2471,6 +2513,7 @@ function setupIpcHandlers(requestExit: () => void): void {
       vendorId: getRequiredString(value, "vendorId", "services.create requires vendorId."),
       name: getRequiredString(value, "name", "services.create requires name."),
       status: getOptionalEnumValue(value, "status", SERVICE_STATUSES) ?? "active",
+      ownerId: getOptionalString(value, "ownerId"),
       ownerTeam: getOptionalString(value, "ownerTeam"),
       annualSpendMinor: getOptionalNumber(value, "annualSpendMinor"),
       risk: getOptionalEnumValue(value, "risk", RISK_LEVELS),
@@ -2494,6 +2537,7 @@ function setupIpcHandlers(requestExit: () => void): void {
       vendorId: getRequiredString(value, "vendorId", "services.update requires vendorId."),
       name: getRequiredString(value, "name", "services.update requires name."),
       status: getOptionalEnumValue(value, "status", SERVICE_STATUSES) ?? "active",
+      ownerId: getOptionalString(value, "ownerId"),
       ownerTeam: getOptionalString(value, "ownerTeam"),
       annualSpendMinor: getOptionalNumber(value, "annualSpendMinor"),
       risk: getOptionalEnumValue(value, "risk", RISK_LEVELS),
@@ -2544,6 +2588,7 @@ function setupIpcHandlers(requestExit: () => void): void {
       renewalType: getOptionalEnumValue(value, "renewalType", RENEWAL_TYPES),
       renewalDate: getOptionalString(value, "renewalDate"),
       noticePeriodDays: getOptionalNumber(value, "noticePeriodDays"),
+      ownerId: getOptionalString(value, "ownerId"),
       owner: getOptionalString(value, "owner"),
       lifecycleStatus: getOptionalEnumValue(value, "lifecycleStatus", CONTRACT_LIFECYCLE_STATUSES),
       renewalAction: getOptionalEnumValue(value, "renewalAction", RENEWAL_ACTIONS)
@@ -2570,6 +2615,7 @@ function setupIpcHandlers(requestExit: () => void): void {
       renewalType: getOptionalEnumValue(value, "renewalType", RENEWAL_TYPES),
       renewalDate: getOptionalString(value, "renewalDate"),
       noticePeriodDays: getOptionalNumber(value, "noticePeriodDays"),
+      ownerId: getOptionalString(value, "ownerId"),
       owner: getOptionalString(value, "owner"),
       lifecycleStatus: getOptionalEnumValue(value, "lifecycleStatus", CONTRACT_LIFECYCLE_STATUSES),
       renewalAction: getOptionalEnumValue(value, "renewalAction", RENEWAL_ACTIONS)

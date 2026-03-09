@@ -28,14 +28,18 @@ import {
 import { buildSuggestionList } from "../../lib/autocomplete";
 import { toTitleCaseLabel } from "../../ui/text/labelCase";
 import {
+  createOwner as createOwnerIpc,
   createService as createServiceIpc,
   deleteService as deleteServiceIpc,
+  getOwnerUsage as getOwnerUsageIpc,
   isIpcAvailable,
   listContracts as listContractsIpc,
   listExpenses as listExpensesIpc,
+  listOwners as listOwnersIpc,
   listServices as listServicesIpc,
   listVendors as listVendorsIpc,
   openHelpWindow,
+  retireOwner as retireOwnerIpc,
   updateService as updateServiceIpc
 } from "../../lib/ipcClient";
 import {
@@ -53,9 +57,13 @@ import { currentYearDateRange, toUtcIsoDate } from "../../lib/dateDefaults";
 import {
   CONTRACT_BY_ID,
   SERVICE_RECORDS,
+  CONTRACT_RECORDS,
   type ServiceRecord,
   type ServiceRisk
 } from "./service-contract-data";
+import { INITIAL_VENDOR_RECORDS } from "../vendors/vendor-data";
+import { OwnerSelectField } from "../owners/OwnerSelectField";
+import { buildOwnerOptions, toOwnerId } from "../owners/owner-model";
 import {
   deriveServiceLifecycleState,
   isInRenewalWindow,
@@ -82,7 +90,7 @@ type WorkspaceServiceRecord = ServiceRecord & {
 type ServiceFormState = {
   vendorId: string;
   name: string;
-  owner: string;
+  ownerId: string;
   annualSpendMinor: string;
   status: ServiceStatusValue;
   risk: ServiceRisk;
@@ -142,7 +150,7 @@ function createDefaultFormState(vendorId: string, currency: string = "USD"): Ser
   return {
     vendorId,
     name: "",
-    owner: "",
+    ownerId: "",
     annualSpendMinor: formatCurrencyInputMinor(0, currency),
     status: "active",
     risk: "low",
@@ -154,7 +162,7 @@ function fromService(service: WorkspaceServiceRecord, currency: string = "USD"):
   return {
     vendorId: service.vendorId,
     name: service.name,
-    owner: service.owner,
+    ownerId: service.ownerId,
     annualSpendMinor: formatCurrencyInputMinor(service.annualSpendMinor, currency),
     status: service.status,
     risk: service.risk,
@@ -196,6 +204,7 @@ export function ServicesPage() {
   const [vendorFilter, setVendorFilter] = useState<string>(() => {
     return searchParams.get("vendor") ?? "all";
   });
+  const [ownerFilter, setOwnerFilter] = useState<string>("all");
   const [riskFilter, setRiskFilter] = useState<ServiceRisk | "all">("all");
   const [detailTab, setDetailTab] = useState<ServiceDetailTab>(() =>
     resolveDetailTab(searchParams.get("tab"))
@@ -209,6 +218,13 @@ export function ServicesPage() {
   );
   const [formError, setFormError] = useState<string | null>(null);
   const [deleteServiceId, setDeleteServiceId] = useState<string | null>(null);
+  const [owners, setOwners] = useState(() =>
+    buildOwnerOptions({
+      vendors: INITIAL_VENDOR_RECORDS,
+      services: SERVICE_RECORDS,
+      contracts: CONTRACT_RECORDS
+    })
+  );
   const referenceDate = toUtcIsoDate();
   const currentYearRange = useMemo(() => currentYearDateRange(), []);
   const annualSpendExample = useMemo(
@@ -216,7 +232,6 @@ export function ServicesPage() {
     [displayCurrency]
   );
   const serviceNameSuggestionsId = useId();
-  const serviceOwnerSuggestionsId = useId();
 
   const vendorChoices = useMemo(
     () =>
@@ -229,10 +244,37 @@ export function ServicesPage() {
     () => buildSuggestionList(serviceRecords.map((service) => service.name)),
     [serviceRecords]
   );
-  const serviceOwnerSuggestions = useMemo(
-    () => buildSuggestionList(serviceRecords.map((service) => service.owner)),
-    [serviceRecords]
+  const ownerNameById = useMemo(
+    () => Object.fromEntries(owners.map((owner) => [owner.id, owner.name])),
+    [owners]
   );
+  const refreshLocalOwners = useCallback((nextServices: WorkspaceServiceRecord[]) => {
+    setOwners((current) => {
+      const serviceCounts = new Map<string, number>();
+      for (const service of nextServices) {
+        serviceCounts.set(service.ownerId, (serviceCounts.get(service.ownerId) ?? 0) + 1);
+      }
+      const nextOwners = new Map(current.map((owner) => [owner.id, { ...owner }]));
+      for (const service of nextServices) {
+        if (!nextOwners.has(service.ownerId)) {
+          nextOwners.set(service.ownerId, {
+            id: service.ownerId,
+            name: service.owner,
+            archivedAt: null,
+            createdAt: "",
+            updatedAt: "",
+            vendorCount: 0,
+            serviceCount: 0,
+            contractCount: 0
+          });
+        }
+      }
+      for (const owner of nextOwners.values()) {
+        owner.serviceCount = serviceCounts.get(owner.id) ?? 0;
+      }
+      return [...nextOwners.values()].sort((left, right) => left.name.localeCompare(right.name));
+    });
+  }, []);
 
   const loadWorkspaceData = useCallback(async () => {
     if (!hasIpc) {
@@ -240,11 +282,12 @@ export function ServicesPage() {
     }
     setLoading(true);
     try {
-      const [vendors, services, contracts, expenses] = await Promise.all([
+      const [vendors, services, contracts, expenses, ownerRows] = await Promise.all([
         listVendorsIpc(),
         listServicesIpc(),
         listContractsIpc(),
-        listExpensesIpc({ scenarioId: selectedScenarioId })
+        listExpensesIpc({ scenarioId: selectedScenarioId }),
+        listOwnersIpc()
       ]);
       const nextVendorNameById = Object.fromEntries(
         vendors.map((vendor) => [vendor.id, vendor.name])
@@ -275,6 +318,7 @@ export function ServicesPage() {
           vendorId: service.vendorId,
           name: service.name,
           vendorName: nextVendorNameById[service.vendorId] ?? service.vendorId,
+          ownerId: service.ownerId ?? toOwnerId(service.ownerTeam ?? ""),
           owner: service.ownerTeam ?? "",
           annualSpendMinor: service.annualSpendMinor,
           renewalDate: firstRenewal,
@@ -299,6 +343,7 @@ export function ServicesPage() {
         };
       });
       setServiceRecords(mappedServices);
+      setOwners(ownerRows);
       setContractById(
         Object.fromEntries(
           contracts.map((contract) => [
@@ -346,6 +391,9 @@ export function ServicesPage() {
       if (!matchesVendorFilter(vendorFilter, service.vendorId)) {
         return false;
       }
+      if (ownerFilter !== "all" && service.ownerId !== ownerFilter) {
+        return false;
+      }
       if (riskFilter !== "all" && service.risk !== riskFilter) {
         return false;
       }
@@ -358,7 +406,7 @@ export function ServicesPage() {
         service.owner.toLowerCase().includes(normalized)
       );
     });
-  }, [query, riskFilter, vendorFilter, serviceRecords]);
+  }, [ownerFilter, query, riskFilter, vendorFilter, serviceRecords]);
 
   useEffect(() => {
     if (visibleServices.length === 0) {
@@ -418,9 +466,113 @@ export function ServicesPage() {
     setDrawerOpen(true);
   }
 
+  async function handleCreateOwner(name: string) {
+    if (hasIpc) {
+      const created = await createOwnerIpc({ name });
+      await loadWorkspaceData();
+      return created;
+    }
+
+    const trimmed = name.trim();
+    if (!trimmed) {
+      throw new Error("Owner name is required.");
+    }
+    const existing = owners.find(
+      (owner) => owner.name.trim().toLowerCase() === trimmed.toLowerCase()
+    );
+    if (existing) {
+      return existing;
+    }
+    const created = {
+      id: toOwnerId(trimmed),
+      name: trimmed,
+      archivedAt: null,
+      createdAt: "",
+      updatedAt: "",
+      vendorCount: 0,
+      serviceCount: 0,
+      contractCount: 0
+    };
+    setOwners((current) =>
+      [...current, created].sort((left, right) => left.name.localeCompare(right.name))
+    );
+    return created;
+  }
+
+  async function handleGetOwnerUsage(ownerId: string) {
+    if (hasIpc) {
+      return getOwnerUsageIpc(ownerId);
+    }
+
+    const owner = owners.find((entry) => entry.id === ownerId);
+    if (!owner) {
+      throw new Error(`Owner not found: ${ownerId}`);
+    }
+    return {
+      owner,
+      vendors: INITIAL_VENDOR_RECORDS
+        .filter((vendor) => vendor.ownerId === ownerId)
+        .map((vendor) => ({ id: vendor.id, name: vendor.name })),
+      services: serviceRecords
+        .filter((service) => service.ownerId === ownerId)
+        .map((service) => ({ id: service.id, name: service.name })),
+      contracts: CONTRACT_RECORDS
+        .filter((contract) => contract.ownerId === ownerId)
+        .map((contract) => ({ id: contract.id, contractNumber: contract.contractNumber }))
+    };
+  }
+
+  async function handleRetireOwner(ownerId: string, replacementOwnerId?: string | null) {
+    if (hasIpc) {
+      await retireOwnerIpc({
+        id: ownerId,
+        replacementOwnerId
+      });
+      await loadWorkspaceData();
+      return;
+    }
+
+    const usage = await handleGetOwnerUsage(ownerId);
+    const totalUsage =
+      usage.owner.vendorCount + usage.owner.serviceCount + usage.owner.contractCount;
+    if (totalUsage > 0 && !replacementOwnerId) {
+      throw new Error("Choose a replacement owner before retiring this owner.");
+    }
+
+    if (replacementOwnerId) {
+      setServiceRecords((current) => {
+        const replacementName =
+          owners.find((owner) => owner.id === replacementOwnerId)?.name ?? "";
+        const next = current.map((service) =>
+          service.ownerId === ownerId
+            ? {
+                ...service,
+                ownerId: replacementOwnerId,
+                owner: replacementName
+              }
+            : service
+        );
+        refreshLocalOwners(next);
+        return next;
+      });
+    }
+
+    setOwners((current) =>
+      current.map((owner) =>
+        owner.id === ownerId
+          ? {
+              ...owner,
+              archivedAt: new Date().toISOString()
+            }
+          : owner
+      )
+    );
+  }
+
   function handleSubmitDrawer(): void {
     const trimmedName = formState.name.trim();
-    const trimmedOwner = formState.owner.trim();
+    const ownerId = formState.ownerId;
+    const trimmedOwner = ownerNameById[ownerId]?.trim() ?? "";
     const annualSpendMinor = parseCurrencyInputToMinor(
       formState.annualSpendMinor,
       displayCurrency
@@ -434,7 +586,7 @@ export function ServicesPage() {
       setFormError("Service name is required.");
       return;
     }
-    if (!trimmedOwner) {
+    if (!ownerId || !trimmedOwner) {
       setFormError("Service owner is required.");
       return;
     }
@@ -451,6 +603,7 @@ export function ServicesPage() {
               vendorId: formState.vendorId,
               name: trimmedName,
               status: formState.status,
+              ownerId,
               ownerTeam: trimmedOwner,
               annualSpendMinor,
               risk: formState.risk,
@@ -466,6 +619,7 @@ export function ServicesPage() {
               vendorId: formState.vendorId,
               name: trimmedName,
               status: formState.status,
+              ownerId,
               ownerTeam: trimmedOwner,
               annualSpendMinor,
               risk: formState.risk,
@@ -489,6 +643,7 @@ export function ServicesPage() {
       vendorId: formState.vendorId,
       name: trimmedName,
       vendorName: vendorNameById[formState.vendorId] ?? formState.vendorId,
+      ownerId,
       owner: trimmedOwner,
       annualSpendMinor,
       renewalDate: currentYearRange.dateTo,
@@ -500,12 +655,14 @@ export function ServicesPage() {
     };
 
     setServiceRecords((current) => {
-      if (drawerMode === "create") {
-        return [...current, nextService];
-      }
-      return current.map((service) =>
-        service.id === nextService.id ? { ...service, ...nextService } : service
-      );
+      const next =
+        drawerMode === "create"
+          ? [...current, nextService]
+          : current.map((service) =>
+              service.id === nextService.id ? { ...service, ...nextService } : service
+            );
+      refreshLocalOwners(next);
+      return next;
     });
     setSelectedServiceId(nextService.id);
     setDrawerOpen(false);
@@ -545,7 +702,11 @@ export function ServicesPage() {
 
     const deletedName =
       serviceRecords.find((entry) => entry.id === deleteServiceId)?.name ?? deleteServiceId;
-    setServiceRecords((current) => current.filter((entry) => entry.id !== deleteServiceId));
+    setServiceRecords((current) => {
+      const next = current.filter((entry) => entry.id !== deleteServiceId);
+      refreshLocalOwners(next);
+      return next;
+    });
     if (selectedServiceId === deleteServiceId) {
       setSelectedServiceId("");
     }
@@ -592,6 +753,20 @@ export function ServicesPage() {
               {option.label}
             </option>
           ))}
+        </Select>
+        <Select
+          aria-label="Filter by owner"
+          value={ownerFilter}
+          onChange={(event) => setOwnerFilter(event.target.value)}
+        >
+          <option value="all">All owners</option>
+          {owners
+            .filter((owner) => owner.archivedAt === null)
+            .map((owner) => (
+              <option key={owner.id} value={owner.id}>
+                {owner.name}
+              </option>
+            ))}
         </Select>
         <Select
           aria-label="Filter by risk"
@@ -943,17 +1118,18 @@ export function ServicesPage() {
                 </Select>
               </div>
               <div className="services-form__field">
-                <Text className="services-form__label" size={200} weight="medium">
-                  Owner
-                </Text>
-                <Input
-                  aria-label="Service owner"
-                  list={serviceOwnerSuggestionsId}
-                  value={formState.owner}
-                  onChange={(_event, data) =>
-                    setFormState((current) => ({ ...current, owner: data.value }))
-                  }
+                <OwnerSelectField
+                  label="Owner"
+                  inputAriaLabel="Service owner"
+                  owners={owners}
                   placeholder="Owner team"
+                  selectedOwnerId={formState.ownerId}
+                  onSelect={(ownerId) =>
+                    setFormState((current) => ({ ...current, ownerId }))
+                  }
+                  onCreateOwner={handleCreateOwner}
+                  onGetOwnerUsage={handleGetOwnerUsage}
+                  onRetireOwner={handleRetireOwner}
                 />
                 <Text
                   aria-hidden="true"
@@ -1046,11 +1222,6 @@ export function ServicesPage() {
           </section>
           <datalist id={serviceNameSuggestionsId}>
             {serviceNameSuggestions.map((suggestion) => (
-              <option key={suggestion} value={suggestion} />
-            ))}
-          </datalist>
-          <datalist id={serviceOwnerSuggestionsId}>
-            {serviceOwnerSuggestions.map((suggestion) => (
               <option key={suggestion} value={suggestion} />
             ))}
           </datalist>

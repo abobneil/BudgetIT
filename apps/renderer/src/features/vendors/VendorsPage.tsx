@@ -25,14 +25,18 @@ import {
 } from "../../ui/primitives";
 import { buildSuggestionList } from "../../lib/autocomplete";
 import {
+  createOwner as createOwnerIpc,
   createVendor as createVendorIpc,
   deleteVendor as deleteVendorIpc,
+  getOwnerUsage as getOwnerUsageIpc,
   isIpcAvailable,
   listTechCatalogEntries as listTechCatalogEntriesIpc,
   listContracts as listContractsIpc,
+  listOwners as listOwnersIpc,
   listServices as listServicesIpc,
   listVendors as listVendorsIpc,
   openHelpWindow,
+  retireOwner as retireOwnerIpc,
   updateVendor as updateVendorIpc
 } from "../../lib/ipcClient";
 import {
@@ -44,6 +48,8 @@ import {
 } from "../../lib/currency";
 import { toTitleCaseLabel } from "../../ui/text/labelCase";
 import { CONTRACT_BY_ID, SERVICE_BY_ID } from "../services/service-contract-data";
+import { OwnerSelectField } from "../owners/OwnerSelectField";
+import { buildOwnerOptions, toOwnerId } from "../owners/owner-model";
 import {
   INITIAL_VENDOR_RECORDS,
   type VendorRecord,
@@ -59,7 +65,7 @@ type SortDirection = "asc" | "desc";
 
 type VendorFormState = {
   name: string;
-  owner: string;
+  ownerId: string;
   annualSpendMinor: string;
   status: VendorStatus;
   risk: VendorRisk;
@@ -72,7 +78,7 @@ const MAX_VISIBLE_VENDOR_NAME_SUGGESTIONS = 4;
 function createDefaultFormState(currency: string = "USD"): VendorFormState {
   return {
     name: "",
-    owner: "",
+    ownerId: "",
     annualSpendMinor: formatCurrencyInputMinor(0, currency),
     status: "active",
     risk: "low",
@@ -84,7 +90,7 @@ function createDefaultFormState(currency: string = "USD"): VendorFormState {
 function fromVendor(vendor: VendorRecord, currency: string = "USD"): VendorFormState {
   return {
     name: vendor.name,
-    owner: vendor.owner,
+    ownerId: vendor.ownerId,
     annualSpendMinor: formatCurrencyInputMinor(vendor.annualSpendMinor, currency),
     status: vendor.status,
     risk: vendor.risk,
@@ -154,6 +160,7 @@ export function VendorsPage() {
   const [searchText, setSearchText] = useState("");
   const [sortKey, setSortKey] = useState<VendorSortKey>("name");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
+  const [ownerFilter, setOwnerFilter] = useState<string>("all");
   const [selectedVendorId, setSelectedVendorId] = useState<string>(
     searchParams.get("vendor") ?? INITIAL_VENDOR_RECORDS[0]?.id ?? ""
   );
@@ -169,13 +176,19 @@ export function VendorsPage() {
   const [pageMessage, setPageMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [catalogVendorNames, setCatalogVendorNames] = useState<string[]>([]);
+  const [owners, setOwners] = useState(() =>
+    buildOwnerOptions({
+      vendors: INITIAL_VENDOR_RECORDS,
+      services: Object.values(SERVICE_BY_ID),
+      contracts: Object.values(CONTRACT_BY_ID)
+    })
+  );
   const lastSyncedVendorIdRef = useRef<string | null>(null);
   const annualSpendExample = useMemo(
     () => buildCurrencyInputExample(displayCurrency),
     [displayCurrency]
   );
   const vendorNameSuggestionsListboxId = useId();
-  const vendorOwnerSuggestionsId = useId();
   const vendorNameComboboxRef = useRef<HTMLDivElement | null>(null);
   const vendorNameSuggestionRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const [vendorNameSuggestionsOpen, setVendorNameSuggestionsOpen] = useState(false);
@@ -188,16 +201,43 @@ export function VendorsPage() {
       ]),
     [catalogVendorNames, vendors]
   );
-  const vendorOwnerSuggestions = useMemo(
-    () => buildSuggestionList(vendors.map((vendor) => vendor.owner)),
-    [vendors]
-  );
   const filteredVendorNameSuggestions = useMemo(() => {
     const query = formState.name.trim().toLowerCase();
     return vendorNameSuggestions.filter((suggestion) =>
       query.length === 0 ? true : suggestion.toLowerCase().includes(query)
     );
   }, [formState.name, vendorNameSuggestions]);
+  const ownerNameById = useMemo(
+    () => Object.fromEntries(owners.map((owner) => [owner.id, owner.name])),
+    [owners]
+  );
+  const refreshLocalOwners = useCallback((nextVendors: VendorRecord[]) => {
+    setOwners((current) => {
+      const vendorCounts = new Map<string, number>();
+      for (const vendor of nextVendors) {
+        vendorCounts.set(vendor.ownerId, (vendorCounts.get(vendor.ownerId) ?? 0) + 1);
+      }
+      const nextOwners = new Map(current.map((owner) => [owner.id, { ...owner }]));
+      for (const vendor of nextVendors) {
+        if (!nextOwners.has(vendor.ownerId)) {
+          nextOwners.set(vendor.ownerId, {
+            id: vendor.ownerId,
+            name: vendor.owner,
+            archivedAt: null,
+            createdAt: "",
+            updatedAt: "",
+            vendorCount: 0,
+            serviceCount: 0,
+            contractCount: 0
+          });
+        }
+      }
+      for (const owner of nextOwners.values()) {
+        owner.vendorCount = vendorCounts.get(owner.id) ?? 0;
+      }
+      return [...nextOwners.values()].sort((left, right) => left.name.localeCompare(right.name));
+    });
+  }, []);
 
   const loadWorkspaceData = useCallback(async () => {
     if (!hasIpc) {
@@ -205,10 +245,11 @@ export function VendorsPage() {
     }
     setLoading(true);
     try {
-      const [vendorRows, serviceRows, contractRows] = await Promise.all([
+      const [vendorRows, serviceRows, contractRows, ownerRows] = await Promise.all([
         listVendorsIpc(),
         listServicesIpc(),
-        listContractsIpc()
+        listContractsIpc(),
+        listOwnersIpc()
       ]);
       const serviceIdsByVendor = new Map<string, string[]>();
       for (const service of serviceRows) {
@@ -230,6 +271,7 @@ export function VendorsPage() {
       const mapped: VendorRecord[] = vendorRows.map((vendor) => ({
         id: vendor.id,
         name: vendor.name,
+        ownerId: vendor.ownerId ?? toOwnerId(vendor.owner ?? ""),
         owner: vendor.owner ?? "",
         annualSpendMinor: vendor.annualSpendMinor,
         status: vendor.status,
@@ -238,6 +280,7 @@ export function VendorsPage() {
         linkedContractIds: contractIdsByVendor.get(vendor.id) ?? []
       }));
       setVendors(mapped);
+      setOwners(ownerRows);
       if (mapped.length > 0 && !mapped.some((vendor) => vendor.id === selectedVendorId)) {
         setSelectedVendorId(mapped[0].id);
       }
@@ -328,6 +371,9 @@ export function VendorsPage() {
     const query = searchText.trim().toLowerCase();
     return vendors
       .filter((vendor) => {
+        if (ownerFilter !== "all" && vendor.ownerId !== ownerFilter) {
+          return false;
+        }
         if (!query) {
           return true;
         }
@@ -338,7 +384,7 @@ export function VendorsPage() {
         );
       })
       .sort((left, right) => compareVendor(left, right, sortKey, sortDirection));
-  }, [searchText, sortDirection, sortKey, vendors]);
+  }, [ownerFilter, searchText, sortDirection, sortKey, vendors]);
 
   const selectedVendor =
     filteredVendors.find((vendor) => vendor.id === selectedVendorId) ??
@@ -388,9 +434,113 @@ export function VendorsPage() {
     closeVendorNameSuggestions();
   }
 
+  async function handleCreateOwner(name: string) {
+    if (hasIpc) {
+      const created = await createOwnerIpc({ name });
+      await loadWorkspaceData();
+      return created;
+    }
+
+    const trimmed = name.trim();
+    if (!trimmed) {
+      throw new Error("Owner name is required.");
+    }
+    const existing = owners.find(
+      (owner) => owner.name.trim().toLowerCase() === trimmed.toLowerCase()
+    );
+    if (existing) {
+      return existing;
+    }
+    const created = {
+      id: toOwnerId(trimmed),
+      name: trimmed,
+      archivedAt: null,
+      createdAt: "",
+      updatedAt: "",
+      vendorCount: 0,
+      serviceCount: 0,
+      contractCount: 0
+    };
+    setOwners((current) =>
+      [...current, created].sort((left, right) => left.name.localeCompare(right.name))
+    );
+    return created;
+  }
+
+  async function handleGetOwnerUsage(ownerId: string) {
+    if (hasIpc) {
+      return getOwnerUsageIpc(ownerId);
+    }
+
+    const owner = owners.find((entry) => entry.id === ownerId);
+    if (!owner) {
+      throw new Error(`Owner not found: ${ownerId}`);
+    }
+    return {
+      owner,
+      vendors: vendors
+        .filter((vendor) => vendor.ownerId === ownerId)
+        .map((vendor) => ({ id: vendor.id, name: vendor.name })),
+      services: Object.values(SERVICE_BY_ID)
+        .filter((service) => service.ownerId === ownerId)
+        .map((service) => ({ id: service.id, name: service.name })),
+      contracts: Object.values(CONTRACT_BY_ID)
+        .filter((contract) => contract.ownerId === ownerId)
+        .map((contract) => ({ id: contract.id, contractNumber: contract.contractNumber }))
+    };
+  }
+
+  async function handleRetireOwner(ownerId: string, replacementOwnerId?: string | null) {
+    if (hasIpc) {
+      await retireOwnerIpc({
+        id: ownerId,
+        replacementOwnerId
+      });
+      await loadWorkspaceData();
+      return;
+    }
+
+    const usage = await handleGetOwnerUsage(ownerId);
+    const totalUsage =
+      usage.owner.vendorCount + usage.owner.serviceCount + usage.owner.contractCount;
+    if (totalUsage > 0 && !replacementOwnerId) {
+      throw new Error("Choose a replacement owner before retiring this owner.");
+    }
+
+    if (replacementOwnerId) {
+      setVendors((current) => {
+        const replacementName =
+          owners.find((owner) => owner.id === replacementOwnerId)?.name ?? "";
+        const next = current.map((vendor) =>
+          vendor.ownerId === ownerId
+            ? {
+                ...vendor,
+                ownerId: replacementOwnerId,
+                owner: replacementName
+              }
+            : vendor
+        );
+        refreshLocalOwners(next);
+        return next;
+      });
+    }
+
+    setOwners((current) =>
+      current.map((owner) =>
+        owner.id === ownerId
+          ? {
+              ...owner,
+              archivedAt: new Date().toISOString()
+            }
+          : owner
+      )
+    );
+  }
+
   function handleSubmitDrawer(): void {
     const trimmedName = formState.name.trim();
-    const trimmedOwner = formState.owner.trim();
+    const ownerId = formState.ownerId;
+    const trimmedOwner = ownerNameById[ownerId]?.trim() ?? "";
     const annualSpendMinor = parseCurrencyInputToMinor(
       formState.annualSpendMinor,
       displayCurrency
@@ -402,7 +552,7 @@ export function VendorsPage() {
       setFormError("Vendor name is required.");
       return;
     }
-    if (!trimmedOwner) {
+    if (!ownerId || !trimmedOwner) {
       setFormError("Vendor owner is required.");
       return;
     }
@@ -429,6 +579,7 @@ export function VendorsPage() {
           if (drawerMode === "create") {
             const created = await createVendorIpc({
               name: trimmedName,
+              ownerId,
               owner: trimmedOwner,
               annualSpendMinor,
               status: formState.status,
@@ -442,6 +593,7 @@ export function VendorsPage() {
             await updateVendorIpc({
               id: editingVendorId,
               name: trimmedName,
+              ownerId,
               owner: trimmedOwner,
               annualSpendMinor,
               status: formState.status,
@@ -463,6 +615,7 @@ export function VendorsPage() {
     const nextVendor: VendorRecord = {
       id: editingVendorId ?? normalizeVendorId(trimmedName),
       name: trimmedName,
+      ownerId,
       owner: trimmedOwner,
       annualSpendMinor,
       status: formState.status,
@@ -472,12 +625,12 @@ export function VendorsPage() {
     };
 
     setVendors((current) => {
-      if (drawerMode === "create") {
-        return [...current, nextVendor];
-      }
-      return current.map((vendor) =>
-        vendor.id === nextVendor.id ? nextVendor : vendor
-      );
+      const next =
+        drawerMode === "create"
+          ? [...current, nextVendor]
+          : current.map((vendor) => (vendor.id === nextVendor.id ? nextVendor : vendor));
+      refreshLocalOwners(next);
+      return next;
     });
     setSelectedVendorId(nextVendor.id);
     setDrawerOpen(false);
@@ -512,6 +665,7 @@ export function VendorsPage() {
         await updateVendorIpc({
           id: vendor.id,
           name: vendor.name,
+          ownerId: vendor.ownerId,
           owner: vendor.owner,
           annualSpendMinor: vendor.annualSpendMinor,
           status: "archived",
@@ -564,7 +718,11 @@ export function VendorsPage() {
     }
     const deletedVendorName =
       vendors.find((vendor) => vendor.id === deleteVendorId)?.name ?? deleteVendorId;
-    setVendors((current) => current.filter((vendor) => vendor.id !== deleteVendorId));
+    setVendors((current) => {
+      const next = current.filter((vendor) => vendor.id !== deleteVendorId);
+      refreshLocalOwners(next);
+      return next;
+    });
     if (selectedVendorId === deleteVendorId) {
       setSelectedVendorId("");
     }
@@ -600,6 +758,20 @@ export function VendorsPage() {
           value={searchText}
           onChange={(_event, data) => setSearchText(data.value)}
         />
+        <Select
+          aria-label="Filter vendors by owner"
+          value={ownerFilter}
+          onChange={(event) => setOwnerFilter(event.target.value)}
+        >
+          <option value="all">All owners</option>
+          {owners
+            .filter((owner) => owner.archivedAt === null)
+            .map((owner) => (
+              <option key={owner.id} value={owner.id}>
+                {owner.name}
+              </option>
+            ))}
+        </Select>
       </div>
       {loading ? <Text>Loading vendors...</Text> : null}
 
@@ -956,17 +1128,18 @@ export function VendorsPage() {
                 </div>
               </div>
               <div className="vendors-form__field">
-                <Text className="vendors-form__label" size={200} weight="medium">
-                  Owner
-                </Text>
-                <Input
-                  aria-label="Vendor owner"
-                  list={vendorOwnerSuggestionsId}
-                  value={formState.owner}
-                  onChange={(_event, data) =>
-                    setFormState((current) => ({ ...current, owner: data.value }))
-                  }
+                <OwnerSelectField
+                  label="Owner"
+                  inputAriaLabel="Vendor owner"
+                  owners={owners}
                   placeholder="Vendor owner"
+                  selectedOwnerId={formState.ownerId}
+                  onSelect={(ownerId) =>
+                    setFormState((current) => ({ ...current, ownerId }))
+                  }
+                  onCreateOwner={handleCreateOwner}
+                  onGetOwnerUsage={handleGetOwnerUsage}
+                  onRetireOwner={handleRetireOwner}
                 />
                 <Text
                   aria-hidden="true"
@@ -1067,11 +1240,6 @@ export function VendorsPage() {
               </div>
             </div>
           </section>
-          <datalist id={vendorOwnerSuggestionsId}>
-            {vendorOwnerSuggestions.map((suggestion) => (
-              <option key={suggestion} value={suggestion} />
-            ))}
-          </datalist>
         </div>
         {formError ? <InlineError message={formError} /> : null}
       </FormDrawer>

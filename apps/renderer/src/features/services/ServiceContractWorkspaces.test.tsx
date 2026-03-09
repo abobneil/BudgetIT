@@ -40,6 +40,18 @@ function renderWorkspace(initialPath: string) {
   );
 }
 
+async function addOwnerFromField(label: string, ownerName: string): Promise<void> {
+  const input = screen.getByLabelText(label);
+  fireEvent.focus(input);
+  fireEvent.change(input, {
+    target: { value: ownerName }
+  });
+  fireEvent.mouseDown(screen.getByRole("button", { name: `Add "${ownerName}"` }));
+  await waitFor(() => {
+    expect(input).toHaveValue(ownerName);
+  });
+}
+
 describe("service and contract workspaces", () => {
   beforeEach(() => {
     openHelpWindowSpy.mockReset();
@@ -140,9 +152,7 @@ describe("service and contract workspaces", () => {
     fireEvent.change(screen.getByLabelText("Service name"), {
       target: { value: "Acme Monitoring" }
     });
-    fireEvent.change(screen.getByLabelText("Service owner"), {
-      target: { value: "Platform Ops" }
-    });
+    await addOwnerFromField("Service owner", "Platform Ops");
     fireEvent.change(screen.getByLabelText("Service annual spend"), {
       target: { value: "500.00" }
     });
@@ -173,5 +183,40 @@ describe("service and contract workspaces", () => {
     expect(screen.getByRole("button", { name: "Contract Form Guide" })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Help Center" })).not.toBeInTheDocument();
     expect(screen.getByTestId("current-location")).not.toHaveTextContent("/help");
+  });
+
+  it("defaults contract owner from the selected service until manually changed", async () => {
+    renderWorkspace("/contracts");
+
+    await screen.findByText("Contracts Workspace");
+    fireEvent.click(screen.getByRole("button", { name: "Create Contract" }));
+
+    const ownerInput = screen.getByLabelText("Contract owner");
+    expect(ownerInput).toHaveValue("Platform Engineering");
+
+    fireEvent.change(screen.getByLabelText("Contract linked service"), {
+      target: { value: "svc-identity-sso" }
+    });
+    await waitFor(() => {
+      expect(ownerInput).toHaveValue("IT Operations");
+    });
+
+    fireEvent.focus(ownerInput);
+    fireEvent.change(ownerInput, {
+      target: { value: "Security Team" }
+    });
+    fireEvent.mouseDown(
+      within(screen.getByRole("listbox", { name: "Owner options" })).getByRole("button", {
+        name: /Security Team/i
+      })
+    );
+    await waitFor(() => {
+      expect(ownerInput).toHaveValue("Security Team");
+    });
+
+    fireEvent.change(screen.getByLabelText("Contract linked service"), {
+      target: { value: "svc-cloud-platform" }
+    });
+    expect(ownerInput).toHaveValue("Security Team");
   });
 });

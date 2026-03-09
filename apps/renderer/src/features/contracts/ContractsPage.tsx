@@ -25,22 +25,30 @@ import {
 } from "../../ui/primitives";
 import { toTitleCaseLabel } from "../../ui/text/labelCase";
 import {
+  createOwner as createOwnerIpc,
   createContract as createContractIpc,
   deleteContract as deleteContractIpc,
+  getOwnerUsage as getOwnerUsageIpc,
   isIpcAvailable,
   listContracts as listContractsIpc,
   listExpenses as listExpensesIpc,
+  listOwners as listOwnersIpc,
   listServices as listServicesIpc,
   listVendors as listVendorsIpc,
   openHelpWindow,
+  retireOwner as retireOwnerIpc,
   updateContract as updateContractIpc
 } from "../../lib/ipcClient";
 import { formatCurrencyMinor, useScenarioCurrency } from "../../lib/currency";
 import {
   CONTRACT_RECORDS,
+  SERVICE_RECORDS,
   SERVICE_BY_ID,
   type ContractLifecycleStatus
 } from "../services/service-contract-data";
+import { INITIAL_VENDOR_RECORDS } from "../vendors/vendor-data";
+import { OwnerSelectField } from "../owners/OwnerSelectField";
+import { buildOwnerOptions, toOwnerId } from "../owners/owner-model";
 import { currentYearDateRange, toUtcIsoDate } from "../../lib/dateDefaults";
 import {
   contractLifecycleTone,
@@ -54,13 +62,14 @@ type ServiceContext = {
   name: string;
   vendorId: string;
   vendorName: string;
+  ownerId: string;
   ownerTeam: string;
 };
 
 type ContractFormState = {
   serviceId: string;
   contractNumber: string;
-  owner: string;
+  ownerId: string;
   startDate: string;
   endDate: string;
   renewalType: "auto" | "manual" | "none";
@@ -108,12 +117,12 @@ function buildNoticeDeadline(renewalDate: string, noticePeriodDays: number): str
   return renewalDateValue.toISOString().slice(0, 10);
 }
 
-function createDefaultFormState(serviceId: string): ContractFormState {
+function createDefaultFormState(serviceId: string, ownerId: string = ""): ContractFormState {
   const currentYearRange = currentYearDateRange();
   return {
     serviceId,
     contractNumber: "",
-    owner: "",
+    ownerId,
     startDate: currentYearRange.dateFrom,
     endDate: currentYearRange.dateTo,
     renewalType: "manual",
@@ -133,7 +142,7 @@ function fromContract(contract: (typeof CONTRACT_RECORDS)[number]): ContractForm
   return {
     serviceId: contract.linkedServiceIds[0] ?? "",
     contractNumber: contract.contractNumber,
-    owner: contract.owner,
+    ownerId: contract.ownerId,
     startDate: contract.startDate,
     endDate: contract.endDate,
     renewalType: contract.renewalAction === "auto-renew" ? "auto" : "manual",
@@ -154,13 +163,14 @@ export function ContractsPage() {
   const [serviceById, setServiceById] = useState<Record<string, ServiceContext>>(
     () =>
       Object.fromEntries(
-        Object.values(SERVICE_BY_ID).map((service) => [
+      Object.values(SERVICE_BY_ID).map((service) => [
           service.id,
           {
             id: service.id,
             name: service.name,
             vendorId: service.vendorId,
             vendorName: service.vendorName,
+            ownerId: service.ownerId,
             ownerTeam: service.owner
           }
         ])
@@ -171,14 +181,23 @@ export function ContractsPage() {
   const [statusFilter, setStatusFilter] = useState<ContractLifecycleStatus | "all">(
     "all"
   );
+  const [ownerFilter, setOwnerFilter] = useState<string>("all");
   const [selectedContractId, setSelectedContractId] = useState<string>(() => searchParams.get("contract") ?? "");
   const [message, setMessage] = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerMode, setDrawerMode] = useState<"create" | "edit">("create");
   const [editingContractId, setEditingContractId] = useState<string | null>(null);
   const [formState, setFormState] = useState<ContractFormState>(() => createDefaultFormState(""));
+  const [ownerDirty, setOwnerDirty] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [deleteContractId, setDeleteContractId] = useState<string | null>(null);
+  const [owners, setOwners] = useState(() =>
+    buildOwnerOptions({
+      vendors: INITIAL_VENDOR_RECORDS,
+      services: SERVICE_RECORDS,
+      contracts: CONTRACT_RECORDS
+    })
+  );
   const referenceDate = toUtcIsoDate();
   const currentYearRange = useMemo(() => currentYearDateRange(), []);
 
@@ -189,6 +208,37 @@ export function ContractsPage() {
         .map((entry) => ({ value: entry.id, label: entry.name })),
     [serviceById]
   );
+  const ownerNameById = useMemo(
+    () => Object.fromEntries(owners.map((owner) => [owner.id, owner.name])),
+    [owners]
+  );
+  const refreshLocalOwners = useCallback((nextContracts: typeof CONTRACT_RECORDS) => {
+    setOwners((current) => {
+      const contractCounts = new Map<string, number>();
+      for (const contract of nextContracts) {
+        contractCounts.set(contract.ownerId, (contractCounts.get(contract.ownerId) ?? 0) + 1);
+      }
+      const nextOwners = new Map(current.map((owner) => [owner.id, { ...owner }]));
+      for (const contract of nextContracts) {
+        if (!nextOwners.has(contract.ownerId)) {
+          nextOwners.set(contract.ownerId, {
+            id: contract.ownerId,
+            name: contract.owner,
+            archivedAt: null,
+            createdAt: "",
+            updatedAt: "",
+            vendorCount: 0,
+            serviceCount: 0,
+            contractCount: 0
+          });
+        }
+      }
+      for (const owner of nextOwners.values()) {
+        owner.contractCount = contractCounts.get(owner.id) ?? 0;
+      }
+      return [...nextOwners.values()].sort((left, right) => left.name.localeCompare(right.name));
+    });
+  }, []);
 
   const loadWorkspaceData = useCallback(async () => {
     if (!hasIpc) {
@@ -196,11 +246,12 @@ export function ContractsPage() {
     }
     setLoading(true);
     try {
-      const [vendors, services, contracts, expenses] = await Promise.all([
+      const [vendors, services, contracts, expenses, ownerRows] = await Promise.all([
         listVendorsIpc(),
         listServicesIpc(),
         listContractsIpc(),
-        listExpensesIpc({ scenarioId: selectedScenarioId })
+        listExpensesIpc({ scenarioId: selectedScenarioId }),
+        listOwnersIpc()
       ]);
       const vendorNameById = new Map(vendors.map((vendor) => [vendor.id, vendor.name]));
       const serviceMap = Object.fromEntries(
@@ -211,6 +262,7 @@ export function ContractsPage() {
             name: service.name,
             vendorId: service.vendorId,
             vendorName: vendorNameById.get(service.vendorId) ?? service.vendorId,
+            ownerId: service.ownerId ?? toOwnerId(service.ownerTeam ?? ""),
             ownerTeam: service.ownerTeam ?? ""
           }
         ])
@@ -239,6 +291,8 @@ export function ContractsPage() {
           vendorId: service?.vendorId ?? "",
           contractNumber: contract.contractNumber ?? contract.id,
           providerName: vendorName,
+          ownerId:
+            contract.ownerId ?? service?.ownerId ?? toOwnerId(contract.owner ?? service?.ownerTeam ?? ""),
           owner: contract.owner ?? service?.ownerTeam ?? "",
           startDate: contract.startDate ?? renewalDate,
           endDate: contract.endDate ?? renewalDate,
@@ -251,6 +305,7 @@ export function ContractsPage() {
         };
       });
       setContractRecords(mappedContracts);
+      setOwners(ownerRows);
       if (mappedContracts.length > 0 && !mappedContracts.some((entry) => entry.id === selectedContractId)) {
         setSelectedContractId(mappedContracts[0].id);
       }
@@ -272,6 +327,9 @@ export function ContractsPage() {
       if (statusFilter !== "all" && contract.lifecycleStatus !== statusFilter) {
         return false;
       }
+      if (ownerFilter !== "all" && contract.ownerId !== ownerFilter) {
+        return false;
+      }
       if (!normalized) {
         return true;
       }
@@ -281,7 +339,7 @@ export function ContractsPage() {
         contract.owner.toLowerCase().includes(normalized)
       );
     });
-  }, [query, statusFilter, contractRecords]);
+  }, [contractRecords, ownerFilter, query, statusFilter]);
 
   useEffect(() => {
     if (visibleContracts.length === 0) {
@@ -305,6 +363,14 @@ export function ContractsPage() {
     );
   }, [selectedContractId, setSearchParams]);
 
+  useEffect(() => {
+    if (!drawerOpen || drawerMode !== "create" || ownerDirty) {
+      return;
+    }
+    const ownerId = serviceById[formState.serviceId]?.ownerId ?? "";
+    setFormState((current) => ({ ...current, ownerId }));
+  }, [drawerMode, drawerOpen, formState.serviceId, ownerDirty, serviceById]);
+
   const selectedContract =
     contractRecords.find((contract) => contract.id === selectedContractId) ??
     visibleContracts[0] ??
@@ -326,7 +392,8 @@ export function ContractsPage() {
     const defaultService = serviceChoices[0]?.value ?? contractRecords[0]?.linkedServiceIds[0] ?? "";
     setDrawerMode("create");
     setEditingContractId(null);
-    setFormState(createDefaultFormState(defaultService));
+    setFormState(createDefaultFormState(defaultService, serviceById[defaultService]?.ownerId ?? ""));
+    setOwnerDirty(false);
     setFormError(null);
     setDrawerOpen(true);
   }
@@ -335,14 +402,119 @@ export function ContractsPage() {
     setDrawerMode("edit");
     setEditingContractId(contract.id);
     setFormState(fromContract(contract));
+    setOwnerDirty(true);
     setFormError(null);
     setDrawerOpen(true);
+  }
+
+  async function handleCreateOwner(name: string) {
+    if (hasIpc) {
+      const created = await createOwnerIpc({ name });
+      await loadWorkspaceData();
+      return created;
+    }
+
+    const trimmed = name.trim();
+    if (!trimmed) {
+      throw new Error("Owner name is required.");
+    }
+    const existing = owners.find(
+      (owner) => owner.name.trim().toLowerCase() === trimmed.toLowerCase()
+    );
+    if (existing) {
+      return existing;
+    }
+    const created = {
+      id: toOwnerId(trimmed),
+      name: trimmed,
+      archivedAt: null,
+      createdAt: "",
+      updatedAt: "",
+      vendorCount: 0,
+      serviceCount: 0,
+      contractCount: 0
+    };
+    setOwners((current) =>
+      [...current, created].sort((left, right) => left.name.localeCompare(right.name))
+    );
+    return created;
+  }
+
+  async function handleGetOwnerUsage(ownerId: string) {
+    if (hasIpc) {
+      return getOwnerUsageIpc(ownerId);
+    }
+
+    const owner = owners.find((entry) => entry.id === ownerId);
+    if (!owner) {
+      throw new Error(`Owner not found: ${ownerId}`);
+    }
+    return {
+      owner,
+      vendors: INITIAL_VENDOR_RECORDS
+        .filter((vendor) => vendor.ownerId === ownerId)
+        .map((vendor) => ({ id: vendor.id, name: vendor.name })),
+      services: SERVICE_RECORDS
+        .filter((service) => service.ownerId === ownerId)
+        .map((service) => ({ id: service.id, name: service.name })),
+      contracts: contractRecords
+        .filter((contract) => contract.ownerId === ownerId)
+        .map((contract) => ({ id: contract.id, contractNumber: contract.contractNumber }))
+    };
+  }
+
+  async function handleRetireOwner(ownerId: string, replacementOwnerId?: string | null) {
+    if (hasIpc) {
+      await retireOwnerIpc({
+        id: ownerId,
+        replacementOwnerId
+      });
+      await loadWorkspaceData();
+      return;
+    }
+
+    const usage = await handleGetOwnerUsage(ownerId);
+    const totalUsage =
+      usage.owner.vendorCount + usage.owner.serviceCount + usage.owner.contractCount;
+    if (totalUsage > 0 && !replacementOwnerId) {
+      throw new Error("Choose a replacement owner before retiring this owner.");
+    }
+
+    if (replacementOwnerId) {
+      setContractRecords((current) => {
+        const replacementName =
+          owners.find((owner) => owner.id === replacementOwnerId)?.name ?? "";
+        const next = current.map((contract) =>
+          contract.ownerId === ownerId
+            ? {
+                ...contract,
+                ownerId: replacementOwnerId,
+                owner: replacementName
+              }
+            : contract
+        );
+        refreshLocalOwners(next);
+        return next;
+      });
+    }
+
+    setOwners((current) =>
+      current.map((owner) =>
+        owner.id === ownerId
+          ? {
+              ...owner,
+              archivedAt: new Date().toISOString()
+            }
+          : owner
+      )
+    );
   }
 
   function handleSubmitDrawer(): void {
     const serviceId = formState.serviceId;
     const contractNumber = formState.contractNumber.trim();
-    const owner = formState.owner.trim();
+    const ownerId = formState.ownerId;
+    const owner = ownerNameById[ownerId]?.trim() ?? "";
     const noticePeriodDays = Number.parseInt(formState.noticePeriodDays, 10);
 
     if (!serviceId) {
@@ -353,7 +525,7 @@ export function ContractsPage() {
       setFormError("Contract number is required.");
       return;
     }
-    if (!owner) {
+    if (!ownerId || !owner) {
       setFormError("Owner is required.");
       return;
     }
@@ -386,6 +558,7 @@ export function ContractsPage() {
               renewalType: formState.renewalType,
               renewalDate: formState.renewalDate,
               noticePeriodDays,
+              ownerId,
               owner,
               lifecycleStatus: formState.lifecycleStatus,
               renewalAction: formState.renewalAction
@@ -404,6 +577,7 @@ export function ContractsPage() {
               renewalType: formState.renewalType,
               renewalDate: formState.renewalDate,
               noticePeriodDays,
+              ownerId,
               owner,
               lifecycleStatus: formState.lifecycleStatus,
               renewalAction: formState.renewalAction
@@ -427,6 +601,7 @@ export function ContractsPage() {
       vendorId: service?.vendorId ?? "",
       contractNumber,
       providerName: service?.vendorName ?? "",
+      ownerId,
       owner,
       startDate: formState.startDate,
       endDate: formState.endDate,
@@ -439,12 +614,14 @@ export function ContractsPage() {
     } satisfies (typeof CONTRACT_RECORDS)[number];
 
     setContractRecords((current) => {
-      if (drawerMode === "create") {
-        return [...current, nextContract];
-      }
-      return current.map((contract) =>
-        contract.id === nextContract.id ? nextContract : contract
-      );
+      const next =
+        drawerMode === "create"
+          ? [...current, nextContract]
+          : current.map((contract) =>
+              contract.id === nextContract.id ? nextContract : contract
+            );
+      refreshLocalOwners(next);
+      return next;
     });
     setSelectedContractId(nextContract.id);
     setDrawerOpen(false);
@@ -485,7 +662,11 @@ export function ContractsPage() {
     const contractNumber =
       contractRecords.find((entry) => entry.id === deleteContractId)?.contractNumber ??
       deleteContractId;
-    setContractRecords((current) => current.filter((entry) => entry.id !== deleteContractId));
+    setContractRecords((current) => {
+      const next = current.filter((entry) => entry.id !== deleteContractId);
+      refreshLocalOwners(next);
+      return next;
+    });
     if (selectedContractId === deleteContractId) {
       setSelectedContractId("");
     }
@@ -521,6 +702,20 @@ export function ContractsPage() {
           value={query}
           onChange={(_event, data) => setQuery(data.value)}
         />
+        <Select
+          aria-label="Filter by owner"
+          value={ownerFilter}
+          onChange={(event) => setOwnerFilter(event.target.value)}
+        >
+          <option value="all">All owners</option>
+          {owners
+            .filter((owner) => owner.archivedAt === null)
+            .map((owner) => (
+              <option key={owner.id} value={owner.id}>
+                {owner.name}
+              </option>
+            ))}
+        </Select>
         <Select
           aria-label="Filter by contract status"
           value={statusFilter}
@@ -815,16 +1010,19 @@ export function ContractsPage() {
                 />
               </div>
               <div className="contracts-form__field">
-                <Text className="contracts-form__label" size={200} weight="medium">
-                  Owner
-                </Text>
-                <Input
-                  aria-label="Contract owner"
-                  value={formState.owner}
-                  onChange={(_event, data) =>
-                    setFormState((current) => ({ ...current, owner: data.value }))
-                  }
+                <OwnerSelectField
+                  label="Owner"
+                  inputAriaLabel="Contract owner"
+                  owners={owners}
                   placeholder="Owner"
+                  selectedOwnerId={formState.ownerId}
+                  onSelect={(ownerId) => {
+                    setOwnerDirty(true);
+                    setFormState((current) => ({ ...current, ownerId }));
+                  }}
+                  onCreateOwner={handleCreateOwner}
+                  onGetOwnerUsage={handleGetOwnerUsage}
+                  onRetireOwner={handleRetireOwner}
                 />
               </div>
               <div className="contracts-form__field">

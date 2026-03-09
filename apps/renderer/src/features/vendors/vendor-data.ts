@@ -1,9 +1,12 @@
+import { toOwnerId } from "../owners/owner-model";
+
 export type VendorStatus = "active" | "watch" | "archived";
 export type VendorRisk = "low" | "medium" | "high";
 
 export type VendorRecord = {
   id: string;
   name: string;
+  ownerId: string;
   owner: string;
   annualSpendMinor: number;
   status: VendorStatus;
@@ -16,6 +19,7 @@ export const INITIAL_VENDOR_RECORDS: VendorRecord[] = [
   {
     id: "vend-okta",
     name: "Okta",
+    ownerId: toOwnerId("IT Operations"),
     owner: "IT Operations",
     annualSpendMinor: 1820000,
     status: "active",
@@ -26,6 +30,7 @@ export const INITIAL_VENDOR_RECORDS: VendorRecord[] = [
   {
     id: "vend-aws",
     name: "AWS",
+    ownerId: toOwnerId("Platform Engineering"),
     owner: "Platform Engineering",
     annualSpendMinor: 5240000,
     status: "active",
@@ -36,6 +41,7 @@ export const INITIAL_VENDOR_RECORDS: VendorRecord[] = [
   {
     id: "vend-msft",
     name: "Microsoft",
+    ownerId: toOwnerId("Security Team"),
     owner: "Security Team",
     annualSpendMinor: 1310000,
     status: "watch",
@@ -46,6 +52,7 @@ export const INITIAL_VENDOR_RECORDS: VendorRecord[] = [
   {
     id: "vend-datadog",
     name: "Datadog",
+    ownerId: toOwnerId("Platform Engineering"),
     owner: "Platform Engineering",
     annualSpendMinor: 860000,
     status: "active",
@@ -56,6 +63,7 @@ export const INITIAL_VENDOR_RECORDS: VendorRecord[] = [
   {
     id: "vend-unused",
     name: "Unused Supplier",
+    ownerId: toOwnerId("Finance Ops"),
     owner: "Finance Ops",
     annualSpendMinor: 0,
     status: "watch",

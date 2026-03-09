@@ -18,6 +18,7 @@ const vendorInputSchema = z.object({
   name: z.string().min(1),
   website: z.string().optional(),
   notes: z.string().optional(),
+  ownerId: z.string().nullable().optional(),
   owner: z.string().optional(),
   annualSpendMinor: z.number().int().nonnegative().default(0),
   status: z.enum(["active", "watch", "archived"]).default("active"),
@@ -28,6 +29,7 @@ const serviceInputSchema = z.object({
   vendorId: z.string().min(1),
   name: z.string().min(1),
   status: z.enum(["active", "trial", "deprecated", "retiring", "retired"]),
+  ownerId: z.string().nullable().optional(),
   ownerTeam: z.string().optional(),
   annualSpendMinor: z.number().int().nonnegative().default(0),
   risk: z.enum(["low", "medium", "high"]).default("low"),
@@ -42,6 +44,7 @@ const contractInputSchema = z.object({
   renewalType: z.enum(["auto", "manual", "none"]).optional(),
   renewalDate: z.string().optional(),
   noticePeriodDays: z.number().int().nonnegative().optional(),
+  ownerId: z.string().nullable().optional(),
   owner: z.string().optional(),
   lifecycleStatus: z.enum(["active", "renewal-window", "notice-window", "expired"]).default("active"),
   renewalAction: z.enum(["auto-renew", "manual-review", "cancel-window"]).default("manual-review")
@@ -135,6 +138,7 @@ export type VendorRecord = {
   name: string;
   website: string | null;
   notes: string | null;
+  ownerId: string | null;
   owner: string | null;
   annualSpendMinor: number;
   status: "active" | "watch" | "archived";
@@ -149,6 +153,7 @@ export type ServiceRecord = {
   vendorId: string;
   name: string;
   status: string;
+  ownerId: string | null;
   ownerTeam: string | null;
   annualSpendMinor: number;
   risk: "low" | "medium" | "high";
@@ -167,6 +172,7 @@ export type ContractRecord = {
   renewalType: "auto" | "manual" | "none" | null;
   renewalDate: string | null;
   noticePeriodDays: number | null;
+  ownerId: string | null;
   owner: string | null;
   lifecycleStatus: "active" | "renewal-window" | "notice-window" | "expired";
   renewalAction: "auto-renew" | "manual-review" | "cancel-window";
@@ -271,8 +277,30 @@ export type GlAccountRecord = {
   updatedAt: string;
 };
 
+export type OwnerOptionRecord = {
+  id: string;
+  name: string;
+  archivedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  vendorCount: number;
+  serviceCount: number;
+  contractCount: number;
+};
+
+export type OwnerUsageRecord = {
+  owner: OwnerOptionRecord;
+  vendors: Array<{ id: string; name: string }>;
+  services: Array<{ id: string; name: string }>;
+  contracts: Array<{ id: string; contractNumber: string | null }>;
+};
+
 function nowIso(): string {
   return new Date().toISOString();
+}
+
+function normalizeOwnerName(value: string): string {
+  return value.trim().toLowerCase();
 }
 
 export function toCurrencyMinorUnits(value: number | string): number {
@@ -324,8 +352,268 @@ export class BudgetCrudRepository {
     }
   }
 
+  private getOwnerNameById(ownerId: string): string {
+    const row = this.db
+      .prepare("SELECT name FROM owner_directory WHERE id = ?")
+      .get(ownerId) as { name: string } | undefined;
+    if (!row) {
+      throw new Error(`Owner not found: ${ownerId}`);
+    }
+    return row.name;
+  }
+
+  private resolveOwnerReference(ownerId?: string | null, ownerName?: string | null): {
+    ownerId: string | null;
+    ownerName: string | null;
+  } {
+    if (ownerId && ownerId.trim().length > 0) {
+      return {
+        ownerId,
+        ownerName: this.getOwnerNameById(ownerId)
+      };
+    }
+    if (ownerName && ownerName.trim().length > 0) {
+      const resolved = this.createOwner(ownerName);
+      return {
+        ownerId: resolved.id,
+        ownerName: resolved.name
+      };
+    }
+    return {
+      ownerId: null,
+      ownerName: null
+    };
+  }
+
+  private buildOwnerUsage(ownerId: string): OwnerUsageRecord {
+    const owner = this.db
+      .prepare(
+        `
+          SELECT
+            od.id,
+            od.name,
+            od.archived_at AS archivedAt,
+            od.created_at AS createdAt,
+            od.updated_at AS updatedAt,
+            (
+              SELECT COUNT(*)
+              FROM vendor v
+              WHERE v.owner_id = od.id AND v.deleted_at IS NULL
+            ) AS vendorCount,
+            (
+              SELECT COUNT(*)
+              FROM service s
+              WHERE s.owner_id = od.id AND s.deleted_at IS NULL
+            ) AS serviceCount,
+            (
+              SELECT COUNT(*)
+              FROM contract c
+              WHERE c.owner_id = od.id AND c.deleted_at IS NULL
+            ) AS contractCount
+          FROM owner_directory od
+          WHERE od.id = ?
+        `
+      )
+      .get(ownerId) as OwnerOptionRecord | undefined;
+
+    if (!owner) {
+      throw new Error(`Owner not found: ${ownerId}`);
+    }
+
+    const vendors = this.db
+      .prepare(
+        `
+          SELECT id, name
+          FROM vendor
+          WHERE owner_id = ? AND deleted_at IS NULL
+          ORDER BY name
+        `
+      )
+      .all(ownerId) as Array<{ id: string; name: string }>;
+    const services = this.db
+      .prepare(
+        `
+          SELECT id, name
+          FROM service
+          WHERE owner_id = ? AND deleted_at IS NULL
+          ORDER BY name
+        `
+      )
+      .all(ownerId) as Array<{ id: string; name: string }>;
+    const contracts = this.db
+      .prepare(
+        `
+          SELECT id, contract_number AS contractNumber
+          FROM contract
+          WHERE owner_id = ? AND deleted_at IS NULL
+          ORDER BY contract_number, id
+        `
+      )
+      .all(ownerId) as Array<{ id: string; contractNumber: string | null }>;
+
+    return {
+      owner,
+      vendors,
+      services,
+      contracts
+    };
+  }
+
+  listOwners(includeArchived: boolean = false): OwnerOptionRecord[] {
+    const whereClause = includeArchived ? "" : "WHERE od.archived_at IS NULL";
+    return this.db
+      .prepare(
+        `
+          SELECT
+            od.id,
+            od.name,
+            od.archived_at AS archivedAt,
+            od.created_at AS createdAt,
+            od.updated_at AS updatedAt,
+            (
+              SELECT COUNT(*)
+              FROM vendor v
+              WHERE v.owner_id = od.id AND v.deleted_at IS NULL
+            ) AS vendorCount,
+            (
+              SELECT COUNT(*)
+              FROM service s
+              WHERE s.owner_id = od.id AND s.deleted_at IS NULL
+            ) AS serviceCount,
+            (
+              SELECT COUNT(*)
+              FROM contract c
+              WHERE c.owner_id = od.id AND c.deleted_at IS NULL
+            ) AS contractCount
+          FROM owner_directory od
+          ${whereClause}
+          ORDER BY od.name
+        `
+      )
+      .all() as OwnerOptionRecord[];
+  }
+
+  createOwner(name: string): OwnerOptionRecord {
+    const trimmed = name.trim();
+    if (!trimmed) {
+      throw new Error("Owner name is required.");
+    }
+    const normalizedName = normalizeOwnerName(trimmed);
+    const existing = this.db
+      .prepare(
+        `
+          SELECT id
+          FROM owner_directory
+          WHERE normalized_name = ?
+        `
+      )
+      .get(normalizedName) as { id: string } | undefined;
+
+    if (existing) {
+      this.db
+        .prepare(
+          `
+            UPDATE owner_directory
+            SET name = ?,
+                archived_at = NULL,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+          `
+        )
+        .run(trimmed, existing.id);
+      return this.buildOwnerUsage(existing.id).owner;
+    }
+
+    const id = crypto.randomUUID();
+    this.db
+      .prepare(
+        `
+          INSERT INTO owner_directory (
+            id,
+            name,
+            normalized_name,
+            archived_at,
+            created_at,
+            updated_at
+          )
+          VALUES (?, ?, ?, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        `
+      )
+      .run(id, trimmed, normalizedName);
+    return this.buildOwnerUsage(id).owner;
+  }
+
+  getOwnerUsage(ownerId: string): OwnerUsageRecord {
+    return this.buildOwnerUsage(ownerId);
+  }
+
+  retireOwner(ownerId: string, replacementOwnerId?: string | null): OwnerUsageRecord {
+    const apply = this.db.transaction(() => {
+      const usage = this.buildOwnerUsage(ownerId);
+      const totalUsage =
+        usage.owner.vendorCount + usage.owner.serviceCount + usage.owner.contractCount;
+
+      if (totalUsage > 0) {
+        if (!replacementOwnerId || replacementOwnerId === ownerId) {
+          throw new Error(
+            `Owner remap required for ${usage.owner.name}: ${usage.owner.vendorCount} vendors, ${usage.owner.serviceCount} services, ${usage.owner.contractCount} contracts.`
+          );
+        }
+        const replacementName = this.getOwnerNameById(replacementOwnerId);
+        this.db
+          .prepare(
+            `
+              UPDATE vendor
+              SET owner_id = ?,
+                  owner = ?,
+                  updated_at = CURRENT_TIMESTAMP
+              WHERE owner_id = ? AND deleted_at IS NULL
+            `
+          )
+          .run(replacementOwnerId, replacementName, ownerId);
+        this.db
+          .prepare(
+            `
+              UPDATE service
+              SET owner_id = ?,
+                  owner_team = ?,
+                  updated_at = CURRENT_TIMESTAMP
+              WHERE owner_id = ? AND deleted_at IS NULL
+            `
+          )
+          .run(replacementOwnerId, replacementName, ownerId);
+        this.db
+          .prepare(
+            `
+              UPDATE contract
+              SET owner_id = ?,
+                  owner = ?,
+                  updated_at = CURRENT_TIMESTAMP
+              WHERE owner_id = ? AND deleted_at IS NULL
+            `
+          )
+          .run(replacementOwnerId, replacementName, ownerId);
+      }
+
+      this.db
+        .prepare(
+          `
+            UPDATE owner_directory
+            SET archived_at = CURRENT_TIMESTAMP,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+          `
+        )
+        .run(ownerId);
+    });
+
+    apply();
+    return this.buildOwnerUsage(ownerId);
+  }
+
   createVendor(input: z.input<typeof vendorInputSchema>): string {
     const parsed = vendorInputSchema.parse(input);
+    const ownerRef = this.resolveOwnerReference(parsed.ownerId, parsed.owner);
     const id = crypto.randomUUID();
     this.db
       .prepare(
@@ -335,6 +623,7 @@ export class BudgetCrudRepository {
             name,
             website,
             notes,
+            owner_id,
             owner,
             annual_spend_minor,
             status,
@@ -351,7 +640,8 @@ export class BudgetCrudRepository {
         parsed.name,
         parsed.website ?? null,
         parsed.notes ?? null,
-        parsed.owner ?? null,
+        ownerRef.ownerId,
+        ownerRef.ownerName,
         parsed.annualSpendMinor,
         parsed.status,
         parsed.risk
@@ -361,6 +651,7 @@ export class BudgetCrudRepository {
 
   updateVendor(id: string, input: z.input<typeof vendorInputSchema>): void {
     const parsed = vendorInputSchema.parse(input);
+    const ownerRef = this.resolveOwnerReference(parsed.ownerId, parsed.owner);
     this.db
       .prepare(
         `
@@ -368,6 +659,7 @@ export class BudgetCrudRepository {
           SET name = ?,
               website = ?,
               notes = ?,
+              owner_id = ?,
               owner = ?,
               annual_spend_minor = ?,
               status = ?,
@@ -380,7 +672,8 @@ export class BudgetCrudRepository {
         parsed.name,
         parsed.website ?? null,
         parsed.notes ?? null,
-        parsed.owner ?? null,
+        ownerRef.ownerId,
+        ownerRef.ownerName,
         parsed.annualSpendMinor,
         parsed.status,
         parsed.risk,
@@ -396,6 +689,7 @@ export class BudgetCrudRepository {
 
   createService(input: z.input<typeof serviceInputSchema>): string {
     const parsed = serviceInputSchema.parse(input);
+    const ownerRef = this.resolveOwnerReference(parsed.ownerId, parsed.ownerTeam);
     const id = crypto.randomUUID();
     this.db
       .prepare(
@@ -405,6 +699,7 @@ export class BudgetCrudRepository {
             vendor_id,
             name,
             status,
+            owner_id,
             owner_team,
             annual_spend_minor,
             risk,
@@ -421,7 +716,8 @@ export class BudgetCrudRepository {
         parsed.vendorId,
         parsed.name,
         parsed.status,
-        parsed.ownerTeam ?? null,
+        ownerRef.ownerId,
+        ownerRef.ownerName,
         parsed.annualSpendMinor,
         parsed.risk,
         parsed.replacementStatus
@@ -431,6 +727,7 @@ export class BudgetCrudRepository {
 
   updateService(id: string, input: z.input<typeof serviceInputSchema>): void {
     const parsed = serviceInputSchema.parse(input);
+    const ownerRef = this.resolveOwnerReference(parsed.ownerId, parsed.ownerTeam);
     this.db
       .prepare(
         `
@@ -438,6 +735,7 @@ export class BudgetCrudRepository {
           SET vendor_id = ?,
               name = ?,
               status = ?,
+              owner_id = ?,
               owner_team = ?,
               annual_spend_minor = ?,
               risk = ?,
@@ -450,7 +748,8 @@ export class BudgetCrudRepository {
         parsed.vendorId,
         parsed.name,
         parsed.status,
-        parsed.ownerTeam ?? null,
+        ownerRef.ownerId,
+        ownerRef.ownerName,
         parsed.annualSpendMinor,
         parsed.risk,
         parsed.replacementStatus,
@@ -466,6 +765,7 @@ export class BudgetCrudRepository {
 
   createContract(input: z.input<typeof contractInputSchema>): string {
     const parsed = contractInputSchema.parse(input);
+    const ownerRef = this.resolveOwnerReference(parsed.ownerId, parsed.owner);
     const id = crypto.randomUUID();
     this.db
       .prepare(
@@ -479,6 +779,7 @@ export class BudgetCrudRepository {
             renewal_type,
             renewal_date,
             notice_period_days,
+            owner_id,
             owner,
             lifecycle_status,
             renewal_action,
@@ -497,7 +798,8 @@ export class BudgetCrudRepository {
         parsed.renewalType ?? null,
         parsed.renewalDate ?? null,
         parsed.noticePeriodDays ?? null,
-        parsed.owner ?? null,
+        ownerRef.ownerId,
+        ownerRef.ownerName,
         parsed.lifecycleStatus,
         parsed.renewalAction
       );
@@ -506,6 +808,7 @@ export class BudgetCrudRepository {
 
   updateContract(id: string, input: z.input<typeof contractInputSchema>): void {
     const parsed = contractInputSchema.parse(input);
+    const ownerRef = this.resolveOwnerReference(parsed.ownerId, parsed.owner);
     this.db
       .prepare(
         `
@@ -517,6 +820,7 @@ export class BudgetCrudRepository {
                renewal_type = ?,
                renewal_date = ?,
                notice_period_days = ?,
+               owner_id = ?,
                owner = ?,
                lifecycle_status = ?,
                renewal_action = ?,
@@ -532,7 +836,8 @@ export class BudgetCrudRepository {
         parsed.renewalType ?? null,
         parsed.renewalDate ?? null,
         parsed.noticePeriodDays ?? null,
-        parsed.owner ?? null,
+        ownerRef.ownerId,
+        ownerRef.ownerName,
         parsed.lifecycleStatus,
         parsed.renewalAction,
         id
@@ -1447,6 +1752,7 @@ export class BudgetCrudRepository {
             name,
             website,
             notes,
+            owner_id AS ownerId,
             owner,
             annual_spend_minor AS annualSpendMinor,
             status,
@@ -1472,6 +1778,7 @@ export class BudgetCrudRepository {
             vendor_id AS vendorId,
             name,
             status,
+            owner_id AS ownerId,
             owner_team AS ownerTeam,
             annual_spend_minor AS annualSpendMinor,
             risk,
@@ -1501,6 +1808,7 @@ export class BudgetCrudRepository {
             renewal_type AS renewalType,
             renewal_date AS renewalDate,
             notice_period_days AS noticePeriodDays,
+            owner_id AS ownerId,
             owner,
             lifecycle_status AS lifecycleStatus,
             renewal_action AS renewalAction,
