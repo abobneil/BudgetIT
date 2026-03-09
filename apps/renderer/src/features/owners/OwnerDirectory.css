@@ -1,6 +1,7 @@
 .owner-select {
   display: grid;
   gap: 0.35rem;
+  min-width: 0;
 }
 
 .owner-select__label {
@@ -8,12 +9,16 @@
 }
 
 .owner-select__row {
-  display: grid;
+  align-items: end;
+  display: flex;
+  flex-wrap: wrap;
   gap: 0.5rem;
-  grid-template-columns: minmax(0, 1fr) auto;
+  min-width: 0;
 }
 
 .owner-select__combobox {
+  flex: 1 1 14rem;
+  min-width: 0;
   position: relative;
 }
 
@@ -111,7 +116,6 @@
 }
 
 @media (max-width: 900px) {
-  .owner-select__row,
   .owner-directory__row {
     grid-template-columns: 1fr;
   }
