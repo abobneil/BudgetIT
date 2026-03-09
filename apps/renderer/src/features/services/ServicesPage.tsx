@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import {
   Button,
   Card,
@@ -25,6 +25,7 @@ import {
   PageHeader,
   StatusChip
 } from "../../ui/primitives";
+import { buildSuggestionList } from "../../lib/autocomplete";
 import { toTitleCaseLabel } from "../../ui/text/labelCase";
 import {
   createService as createServiceIpc,
@@ -214,6 +215,8 @@ export function ServicesPage() {
     () => buildCurrencyInputExample(displayCurrency),
     [displayCurrency]
   );
+  const serviceNameSuggestionsId = useId();
+  const serviceOwnerSuggestionsId = useId();
 
   const vendorChoices = useMemo(
     () =>
@@ -221,6 +224,14 @@ export function ServicesPage() {
         .map(([id, name]) => ({ id, name }))
         .sort((left, right) => left.name.localeCompare(right.name)),
     [vendorNameById]
+  );
+  const serviceNameSuggestions = useMemo(
+    () => buildSuggestionList(serviceRecords.map((service) => service.name)),
+    [serviceRecords]
+  );
+  const serviceOwnerSuggestions = useMemo(
+    () => buildSuggestionList(serviceRecords.map((service) => service.owner)),
+    [serviceRecords]
   );
 
   const loadWorkspaceData = useCallback(async () => {
@@ -904,6 +915,7 @@ export function ServicesPage() {
                 </Text>
                 <Input
                   aria-label="Service name"
+                  list={serviceNameSuggestionsId}
                   value={formState.name}
                   onChange={(_event, data) =>
                     setFormState((current) => ({ ...current, name: data.value }))
@@ -936,6 +948,7 @@ export function ServicesPage() {
                 </Text>
                 <Input
                   aria-label="Service owner"
+                  list={serviceOwnerSuggestionsId}
                   value={formState.owner}
                   onChange={(_event, data) =>
                     setFormState((current) => ({ ...current, owner: data.value }))
@@ -1031,6 +1044,16 @@ export function ServicesPage() {
               </div>
             </div>
           </section>
+          <datalist id={serviceNameSuggestionsId}>
+            {serviceNameSuggestions.map((suggestion) => (
+              <option key={suggestion} value={suggestion} />
+            ))}
+          </datalist>
+          <datalist id={serviceOwnerSuggestionsId}>
+            {serviceOwnerSuggestions.map((suggestion) => (
+              <option key={suggestion} value={suggestion} />
+            ))}
+          </datalist>
         </div>
         {formError ? <InlineError message={formError} /> : null}
       </FormDrawer>

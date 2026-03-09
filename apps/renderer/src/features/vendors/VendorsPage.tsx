@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import {
   Button,
   Card,
@@ -23,6 +23,7 @@ import {
   PageHeader,
   StatusChip
 } from "../../ui/primitives";
+import { buildSuggestionList } from "../../lib/autocomplete";
 import {
   createVendor as createVendorIpc,
   deleteVendor as deleteVendorIpc,
@@ -168,6 +169,16 @@ export function VendorsPage() {
   const annualSpendExample = useMemo(
     () => buildCurrencyInputExample(displayCurrency),
     [displayCurrency]
+  );
+  const vendorNameSuggestionsId = useId();
+  const vendorOwnerSuggestionsId = useId();
+  const vendorNameSuggestions = useMemo(
+    () => buildSuggestionList(vendors.map((vendor) => vendor.name)),
+    [vendors]
+  );
+  const vendorOwnerSuggestions = useMemo(
+    () => buildSuggestionList(vendors.map((vendor) => vendor.owner)),
+    [vendors]
   );
 
   const loadWorkspaceData = useCallback(async () => {
@@ -782,6 +793,7 @@ export function VendorsPage() {
                 </Text>
                 <Input
                   aria-label="Vendor name"
+                  list={vendorNameSuggestionsId}
                   value={formState.name}
                   onChange={(_event, data) =>
                     setFormState((current) => ({ ...current, name: data.value }))
@@ -795,6 +807,7 @@ export function VendorsPage() {
                 </Text>
                 <Input
                   aria-label="Vendor owner"
+                  list={vendorOwnerSuggestionsId}
                   value={formState.owner}
                   onChange={(_event, data) =>
                     setFormState((current) => ({ ...current, owner: data.value }))
@@ -900,6 +913,16 @@ export function VendorsPage() {
               </div>
             </div>
           </section>
+          <datalist id={vendorNameSuggestionsId}>
+            {vendorNameSuggestions.map((suggestion) => (
+              <option key={suggestion} value={suggestion} />
+            ))}
+          </datalist>
+          <datalist id={vendorOwnerSuggestionsId}>
+            {vendorOwnerSuggestions.map((suggestion) => (
+              <option key={suggestion} value={suggestion} />
+            ))}
+          </datalist>
         </div>
         {formError ? <InlineError message={formError} /> : null}
       </FormDrawer>

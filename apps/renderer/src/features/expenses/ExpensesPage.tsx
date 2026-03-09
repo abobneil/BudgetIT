@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import {
   Badge,
   Button,
@@ -34,6 +34,10 @@ import {
 } from "../../ui/primitives";
 import { toTitleCaseLabel } from "../../ui/text/labelCase";
 import { isAgGridAvailable } from "../../lib/agGrid";
+import {
+  buildSuggestionList,
+  normalizeSuggestionValue
+} from "../../lib/autocomplete";
 import {
   buildCurrencyInputExample,
   formatCurrencyInputMinor,
@@ -376,6 +380,9 @@ export function ExpensesPage() {
     () => buildCurrencyInputExample(displayCurrency),
     [displayCurrency]
   );
+  const expenseNameSuggestionsId = useId();
+  const expenseServiceSuggestionsId = useId();
+  const expenseContractSuggestionsId = useId();
 
   const vendorOptions = useMemo(
     () =>
@@ -397,6 +404,84 @@ export function ExpensesPage() {
       Object.fromEntries(vendorOptions.map((option) => [option.value, option.label])),
     [vendorOptions]
   );
+  const expenseNameSuggestions = useMemo(
+    () => buildSuggestionList(expenses.map((expense) => expense.name)),
+    [expenses]
+  );
+  const serviceSuggestions = useMemo(() => {
+    if (hasIpc) {
+      return buildSuggestionList(
+        services
+          .filter((service) => service.vendorId === formState.vendorId)
+          .map((service) => service.name)
+      );
+    }
+
+    return buildSuggestionList(
+      expenses
+        .filter((expense) => expense.vendorId === formState.vendorId)
+        .map((expense) => expense.serviceName)
+    );
+  }, [expenses, formState.vendorId, hasIpc, services]);
+  const matchedServiceId = useMemo(() => {
+    if (!hasIpc) {
+      return null;
+    }
+
+    const normalizedServiceName = normalizeSuggestionValue(formState.serviceName);
+    if (!normalizedServiceName) {
+      return null;
+    }
+
+    return (
+      services.find(
+        (service) =>
+          service.vendorId === formState.vendorId &&
+          normalizeSuggestionValue(service.name) === normalizedServiceName
+      )?.id ?? null
+    );
+  }, [formState.serviceName, formState.vendorId, hasIpc, services]);
+  const contractSuggestions = useMemo(() => {
+    if (hasIpc) {
+      const candidateServiceIds =
+        matchedServiceId !== null
+          ? [matchedServiceId]
+          : services
+              .filter((service) => service.vendorId === formState.vendorId)
+              .map((service) => service.id);
+
+      return buildSuggestionList(
+        contracts
+          .filter((contract) => candidateServiceIds.includes(contract.serviceId))
+          .map((contract) => contract.contractNumber ?? "")
+      );
+    }
+
+    const normalizedServiceName = normalizeSuggestionValue(formState.serviceName);
+    return buildSuggestionList(
+      expenses
+        .filter((expense) => {
+          if (expense.vendorId !== formState.vendorId) {
+            return false;
+          }
+          if (!normalizedServiceName) {
+            return true;
+          }
+          return (
+            normalizeSuggestionValue(expense.serviceName) === normalizedServiceName
+          );
+        })
+        .map((expense) => expense.contractNumber)
+    );
+  }, [
+    contracts,
+    expenses,
+    formState.serviceName,
+    formState.vendorId,
+    hasIpc,
+    matchedServiceId,
+    services
+  ]);
 
   const loadWorkspaceData = useCallback(async () => {
     if (!hasIpc) {
@@ -822,11 +907,11 @@ export function ExpensesPage() {
     }
 
     if (hasIpc) {
-      const normalizedServiceName = formState.serviceName.trim().toLowerCase();
+      const normalizedServiceName = normalizeSuggestionValue(formState.serviceName);
       const serviceForVendor = services.filter((entry) => entry.vendorId === formState.vendorId);
       const linkedService =
         serviceForVendor.find(
-          (entry) => entry.name.trim().toLowerCase() === normalizedServiceName
+          (entry) => normalizeSuggestionValue(entry.name) === normalizedServiceName
         ) ?? (normalizedServiceName.length === 0 ? serviceForVendor[0] : undefined);
       if (!linkedService) {
         setFormError(
@@ -835,14 +920,15 @@ export function ExpensesPage() {
         return;
       }
 
-      const normalizedContractNumber = formState.contractNumber.trim().toLowerCase();
+      const normalizedContractNumber = normalizeSuggestionValue(formState.contractNumber);
       const linkedContract =
         normalizedContractNumber.length === 0
           ? contracts.find((entry) => entry.serviceId === linkedService.id) ?? null
           : contracts.find(
               (entry) =>
                 entry.serviceId === linkedService.id &&
-                (entry.contractNumber ?? "").trim().toLowerCase() === normalizedContractNumber
+                normalizeSuggestionValue(entry.contractNumber ?? "") ===
+                  normalizedContractNumber
             ) ?? null;
       if (formState.contractNumber.trim().length > 0 && !linkedContract) {
         setFormError(
@@ -1632,6 +1718,7 @@ export function ExpensesPage() {
                 </Text>
                 <Input
                   aria-label="Expense name"
+                  list={expenseNameSuggestionsId}
                   value={formState.name}
                   onChange={(_event, data) =>
                     setFormState((current) => ({ ...current, name: data.value }))
@@ -1694,7 +1781,9 @@ export function ExpensesPage() {
                   onChange={(event) =>
                     setFormState((current) => ({
                       ...current,
-                      vendorId: event.target.value
+                      vendorId: event.target.value,
+                      serviceName: "",
+                      contractNumber: ""
                     }))
                   }
                 >
@@ -1719,9 +1808,18 @@ export function ExpensesPage() {
                 </Text>
                 <Input
                   aria-label="Expense service"
+                  list={expenseServiceSuggestionsId}
                   value={formState.serviceName}
                   onChange={(_event, data) =>
-                    setFormState((current) => ({ ...current, serviceName: data.value }))
+                    setFormState((current) => ({
+                      ...current,
+                      serviceName: data.value,
+                      contractNumber:
+                        normalizeSuggestionValue(current.serviceName) ===
+                        normalizeSuggestionValue(data.value)
+                          ? current.contractNumber
+                          : ""
+                    }))
                   }
                   placeholder="Linked service"
                 />
@@ -1732,6 +1830,7 @@ export function ExpensesPage() {
                 </Text>
                 <Input
                   aria-label="Expense contract"
+                  list={expenseContractSuggestionsId}
                   value={formState.contractNumber}
                   onChange={(_event, data) =>
                     setFormState((current) => ({ ...current, contractNumber: data.value }))
@@ -1825,6 +1924,21 @@ export function ExpensesPage() {
               </div>
             </div>
           </section>
+          <datalist id={expenseNameSuggestionsId}>
+            {expenseNameSuggestions.map((suggestion) => (
+              <option key={suggestion} value={suggestion} />
+            ))}
+          </datalist>
+          <datalist id={expenseServiceSuggestionsId}>
+            {serviceSuggestions.map((suggestion) => (
+              <option key={suggestion} value={suggestion} />
+            ))}
+          </datalist>
+          <datalist id={expenseContractSuggestionsId}>
+            {contractSuggestions.map((suggestion) => (
+              <option key={suggestion} value={suggestion} />
+            ))}
+          </datalist>
         </div>
         {formError ? <InlineError message={formError} /> : null}
       </FormDrawer>

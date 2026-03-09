@@ -144,6 +144,40 @@ describe("ExpensesPage", () => {
     15000
   );
 
+  it("offers predictive suggestions for expense names and linked records", () => {
+    renderExpensesPage();
+
+    fireEvent.click(screen.getByRole("button", { name: "Create Expense" }));
+
+    const nameInput = screen.getByLabelText("Expense name");
+    const serviceInput = screen.getByLabelText("Expense service");
+    const contractInput = screen.getByLabelText("Expense contract");
+
+    const nameListId = nameInput.getAttribute("list");
+    const serviceListId = serviceInput.getAttribute("list");
+    const contractListId = contractInput.getAttribute("list");
+
+    expect(nameListId).toBeTruthy();
+    expect(serviceListId).toBeTruthy();
+    expect(contractListId).toBeTruthy();
+
+    const getSuggestionValues = (listId: string | null) =>
+      Array.from(document.querySelectorAll(`#${listId} option`)).map((option) =>
+        option.getAttribute("value")
+      );
+
+    expect(getSuggestionValues(nameListId)).toEqual(
+      expect.arrayContaining(["Cloud Compute", "Endpoint Security", "Analytics Suite"])
+    );
+
+    fireEvent.change(screen.getByLabelText("Expense vendor"), {
+      target: { value: "vend-msft" }
+    });
+
+    expect(getSuggestionValues(serviceListId)).toEqual(["Defender"]);
+    expect(getSuggestionValues(contractListId)).toEqual(["MS-SEC-2026"]);
+  });
+
   it("applies bulk tag assignment and refreshes detail chips for selected rows", async () => {
     renderExpensesPage();
 
