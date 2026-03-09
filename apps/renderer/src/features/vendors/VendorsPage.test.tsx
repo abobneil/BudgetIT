@@ -15,8 +15,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AppShell } from "../../app/AppShell";
 import { AppRoutes } from "../../app/routes";
+import { ScenarioProvider } from "../scenarios/ScenarioContext";
 import * as ipcClient from "../../lib/ipcClient";
 import { budgetItLightTheme } from "../../ui/theme";
+import { VendorsPage } from "./VendorsPage";
+import { INITIAL_VENDOR_RECORDS } from "./vendor-data";
 
 const openHelpWindowSpy = vi.spyOn(ipcClient, "openHelpWindow");
 
@@ -35,6 +38,18 @@ function renderWorkspace(initialPath: string) {
             <AppRoutes />
           </>
         </AppShell>
+      </MemoryRouter>
+    </FluentProvider>
+  );
+}
+
+function renderVendorsPage() {
+  return render(
+    <FluentProvider theme={budgetItLightTheme}>
+      <MemoryRouter initialEntries={["/vendors"]}>
+        <ScenarioProvider>
+          <VendorsPage />
+        </ScenarioProvider>
       </MemoryRouter>
     </FluentProvider>
   );
@@ -171,4 +186,66 @@ describe("VendorsPage", () => {
     },
     15000
   );
+
+  it("shows vendor catalog suggestions in a scrollable list capped to 10 visible rows", async () => {
+    vi.spyOn(ipcClient, "isIpcAvailable").mockReturnValue(true);
+    vi.spyOn(ipcClient, "listScenarios").mockResolvedValue([
+      {
+        id: "scenario-default",
+        name: "Default",
+        approvalStatus: "draft",
+        isLocked: false,
+        parentScenarioId: null,
+        createdAt: "2026-03-08T00:00:00.000Z",
+        updatedAt: "2026-03-08T00:00:00.000Z"
+      }
+    ]);
+    vi.spyOn(ipcClient, "listVendors").mockResolvedValue(
+      INITIAL_VENDOR_RECORDS.map((vendor) => ({
+        id: vendor.id,
+        name: vendor.name,
+        website: null,
+        notes: null,
+        owner: vendor.owner,
+        annualSpendMinor: vendor.annualSpendMinor,
+        status: vendor.status,
+        risk: vendor.risk,
+        createdAt: "2026-03-08T00:00:00.000Z",
+        updatedAt: "2026-03-08T00:00:00.000Z",
+        deletedAt: null
+      }))
+    );
+    vi.spyOn(ipcClient, "listServices").mockResolvedValue([]);
+    vi.spyOn(ipcClient, "listContracts").mockResolvedValue([]);
+    vi.spyOn(ipcClient, "listTechCatalogEntries").mockResolvedValue(
+      Array.from({ length: 12 }, (_, index) => ({
+        id: `catalog-vendor-${index + 1}`,
+        name: `Catalog Vendor ${String(index + 1).padStart(2, "0")}`,
+        categories: ["software_vendor" as const],
+        website: null,
+        aliases: [],
+        notes: null
+      }))
+    );
+
+    renderVendorsPage();
+
+    fireEvent.click(await screen.findByRole("button", { name: "Create Vendor" }));
+
+    const vendorNameInput = screen.getByLabelText("Vendor name");
+    fireEvent.focus(vendorNameInput);
+    fireEvent.change(vendorNameInput, { target: { value: "Catalog Vendor" } });
+
+    const listbox = await screen.findByRole("listbox", { name: "Vendor suggestions" });
+    expect(listbox).toHaveAttribute("data-visible-limit", "10");
+    expect(within(listbox).getAllByRole("option")).toHaveLength(12);
+
+    fireEvent.mouseDown(within(listbox).getByRole("button", { name: "Catalog Vendor 01" }));
+    expect(vendorNameInput).toHaveValue("Catalog Vendor 01");
+    await waitFor(() => {
+      expect(
+        screen.queryByRole("listbox", { name: "Vendor suggestions" })
+      ).not.toBeInTheDocument();
+    });
+  });
 });

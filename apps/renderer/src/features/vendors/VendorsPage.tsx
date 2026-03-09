@@ -67,6 +67,8 @@ type VendorFormState = {
   linkedContractIdsCsv: string;
 };
 
+const MAX_VISIBLE_VENDOR_NAME_SUGGESTIONS = 10;
+
 function createDefaultFormState(currency: string = "USD"): VendorFormState {
   return {
     name: "",
@@ -172,8 +174,12 @@ export function VendorsPage() {
     () => buildCurrencyInputExample(displayCurrency),
     [displayCurrency]
   );
-  const vendorNameSuggestionsId = useId();
+  const vendorNameSuggestionsListboxId = useId();
   const vendorOwnerSuggestionsId = useId();
+  const vendorNameComboboxRef = useRef<HTMLDivElement | null>(null);
+  const vendorNameSuggestionRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  const [vendorNameSuggestionsOpen, setVendorNameSuggestionsOpen] = useState(false);
+  const [vendorNameSuggestionCursor, setVendorNameSuggestionCursor] = useState(-1);
   const vendorNameSuggestions = useMemo(
     () =>
       buildSuggestionList([
@@ -186,6 +192,12 @@ export function VendorsPage() {
     () => buildSuggestionList(vendors.map((vendor) => vendor.owner)),
     [vendors]
   );
+  const filteredVendorNameSuggestions = useMemo(() => {
+    const query = formState.name.trim().toLowerCase();
+    return vendorNameSuggestions.filter((suggestion) =>
+      query.length === 0 ? true : suggestion.toLowerCase().includes(query)
+    );
+  }, [formState.name, vendorNameSuggestions]);
 
   const loadWorkspaceData = useCallback(async () => {
     if (!hasIpc) {
@@ -283,6 +295,35 @@ export function VendorsPage() {
     );
   }, [selectedVendorId, setSearchParams]);
 
+  useEffect(() => {
+    if (!drawerOpen) {
+      setVendorNameSuggestionsOpen(false);
+      setVendorNameSuggestionCursor(-1);
+    }
+  }, [drawerOpen]);
+
+  useEffect(() => {
+    if (!vendorNameSuggestionsOpen || filteredVendorNameSuggestions.length === 0) {
+      setVendorNameSuggestionCursor(-1);
+      return;
+    }
+    setVendorNameSuggestionCursor((current) => {
+      if (current < 0) {
+        return -1;
+      }
+      return Math.min(current, filteredVendorNameSuggestions.length - 1);
+    });
+  }, [filteredVendorNameSuggestions.length, vendorNameSuggestionsOpen]);
+
+  useEffect(() => {
+    if (vendorNameSuggestionCursor < 0) {
+      return;
+    }
+    vendorNameSuggestionRefs.current[vendorNameSuggestionCursor]?.scrollIntoView({
+      block: "nearest"
+    });
+  }, [vendorNameSuggestionCursor]);
+
   const filteredVendors = useMemo(() => {
     const query = searchText.trim().toLowerCase();
     return vendors
@@ -335,6 +376,16 @@ export function VendorsPage() {
 
   function openExpenses(vendor: VendorRecord): void {
     navigate(`/expenses?vendor=${vendor.id}`);
+  }
+
+  function closeVendorNameSuggestions(): void {
+    setVendorNameSuggestionsOpen(false);
+    setVendorNameSuggestionCursor(-1);
+  }
+
+  function selectVendorNameSuggestion(suggestion: string): void {
+    setFormState((current) => ({ ...current, name: suggestion }));
+    closeVendorNameSuggestions();
   }
 
   function handleSubmitDrawer(): void {
@@ -813,15 +864,96 @@ export function VendorsPage() {
                 <Text className="vendors-form__label" size={200} weight="medium">
                   Vendor name
                 </Text>
-                <Input
-                  aria-label="Vendor name"
-                  list={vendorNameSuggestionsId}
-                  value={formState.name}
-                  onChange={(_event, data) =>
-                    setFormState((current) => ({ ...current, name: data.value }))
-                  }
-                  placeholder="Vendor name"
-                />
+                <div
+                  className="vendors-form__combobox"
+                  onBlur={(event) => {
+                    const nextTarget = event.relatedTarget as Node | null;
+                    if (!event.currentTarget.contains(nextTarget)) {
+                      closeVendorNameSuggestions();
+                    }
+                  }}
+                  ref={vendorNameComboboxRef}
+                >
+                  <Input
+                    aria-autocomplete="list"
+                    aria-controls={vendorNameSuggestionsListboxId}
+                    aria-expanded={vendorNameSuggestionsOpen}
+                    aria-label="Vendor name"
+                    role="combobox"
+                    value={formState.name}
+                    onChange={(_event, data) => {
+                      setFormState((current) => ({ ...current, name: data.value }));
+                      setVendorNameSuggestionsOpen(true);
+                      setVendorNameSuggestionCursor(-1);
+                    }}
+                    onFocus={() => {
+                      if (filteredVendorNameSuggestions.length > 0) {
+                        setVendorNameSuggestionsOpen(true);
+                      }
+                    }}
+                    onKeyDown={(event) => {
+                      if (filteredVendorNameSuggestions.length === 0) {
+                        return;
+                      }
+                      if (event.key === "ArrowDown") {
+                        event.preventDefault();
+                        setVendorNameSuggestionsOpen(true);
+                        setVendorNameSuggestionCursor((current) =>
+                          Math.min(current + 1, filteredVendorNameSuggestions.length - 1)
+                        );
+                        return;
+                      }
+                      if (event.key === "ArrowUp") {
+                        event.preventDefault();
+                        setVendorNameSuggestionsOpen(true);
+                        setVendorNameSuggestionCursor((current) => Math.max(current - 1, 0));
+                        return;
+                      }
+                      if (event.key === "Enter" && vendorNameSuggestionCursor >= 0) {
+                        event.preventDefault();
+                        selectVendorNameSuggestion(
+                          filteredVendorNameSuggestions[vendorNameSuggestionCursor]
+                        );
+                        return;
+                      }
+                      if (event.key === "Escape") {
+                        closeVendorNameSuggestions();
+                      }
+                    }}
+                    placeholder="Vendor name"
+                  />
+                  {vendorNameSuggestionsOpen && filteredVendorNameSuggestions.length > 0 ? (
+                    <ul
+                      aria-label="Vendor suggestions"
+                      className="vendors-form__suggestions"
+                      data-visible-limit={MAX_VISIBLE_VENDOR_NAME_SUGGESTIONS}
+                      id={vendorNameSuggestionsListboxId}
+                      role="listbox"
+                    >
+                      {filteredVendorNameSuggestions.map((suggestion, index) => (
+                        <li key={suggestion} role="option" aria-selected={index === vendorNameSuggestionCursor}>
+                          <button
+                            className={
+                              index === vendorNameSuggestionCursor
+                                ? "vendors-form__suggestion vendors-form__suggestion--active"
+                                : "vendors-form__suggestion"
+                            }
+                            onMouseDown={(event) => {
+                              event.preventDefault();
+                              selectVendorNameSuggestion(suggestion);
+                            }}
+                            ref={(element) => {
+                              vendorNameSuggestionRefs.current[index] = element;
+                            }}
+                            type="button"
+                          >
+                            {suggestion}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
+                </div>
               </div>
               <div className="vendors-form__field">
                 <Text className="vendors-form__label" size={200} weight="medium">
@@ -935,11 +1067,6 @@ export function VendorsPage() {
               </div>
             </div>
           </section>
-          <datalist id={vendorNameSuggestionsId}>
-            {vendorNameSuggestions.map((suggestion) => (
-              <option key={suggestion} value={suggestion} />
-            ))}
-          </datalist>
           <datalist id={vendorOwnerSuggestionsId}>
             {vendorOwnerSuggestions.map((suggestion) => (
               <option key={suggestion} value={suggestion} />

@@ -241,6 +241,446 @@
       "website": "https://www.zscaler.com",
       "aliases": [],
       "notes": "Zero-trust network access and secure web gateway platform."
+    },
+    {
+      "id": "vendor-akamai",
+      "name": "Akamai",
+      "categories": ["software_vendor"],
+      "website": "https://www.akamai.com",
+      "aliases": ["Akamai Technologies"],
+      "notes": "Application delivery, security, and edge platform services."
+    },
+    {
+      "id": "vendor-acer",
+      "name": "Acer",
+      "categories": ["hardware_vendor"],
+      "website": "https://www.acer.com",
+      "aliases": [],
+      "notes": "Client endpoint devices, displays, and related hardware."
+    },
+    {
+      "id": "vendor-arista",
+      "name": "Arista Networks",
+      "categories": ["hardware_vendor", "software_vendor"],
+      "website": "https://www.arista.com",
+      "aliases": ["Arista"],
+      "notes": "Data center, campus, and AI networking platforms."
+    },
+    {
+      "id": "vendor-asana",
+      "name": "Asana",
+      "categories": ["software_vendor"],
+      "website": "https://asana.com",
+      "aliases": [],
+      "notes": "Work management and cross-functional planning software."
+    },
+    {
+      "id": "vendor-asus",
+      "name": "ASUS",
+      "categories": ["hardware_vendor"],
+      "website": "https://www.asus.com",
+      "aliases": ["ASUSTeK"],
+      "notes": "Client devices, components, and workstation hardware."
+    },
+    {
+      "id": "vendor-atlassian",
+      "name": "Atlassian",
+      "categories": ["software_vendor"],
+      "website": "https://www.atlassian.com",
+      "aliases": [],
+      "notes": "Collaboration, project tracking, and developer workflow software."
+    },
+    {
+      "id": "vendor-box",
+      "name": "Box",
+      "categories": ["software_vendor"],
+      "website": "https://www.box.com",
+      "aliases": [],
+      "notes": "Cloud content management and secure collaboration platform."
+    },
+    {
+      "id": "vendor-check-point",
+      "name": "Check Point Software",
+      "categories": ["hardware_vendor", "software_vendor"],
+      "website": "https://www.checkpoint.com",
+      "aliases": ["Check Point"],
+      "notes": "Network, cloud, and endpoint security products."
+    },
+    {
+      "id": "vendor-cogent",
+      "name": "Cogent Communications",
+      "categories": ["isp"],
+      "website": "https://www.cogentco.com",
+      "aliases": ["Cogent"],
+      "notes": "Internet transit, wavelength, and enterprise connectivity services."
+    },
+    {
+      "id": "vendor-confluent",
+      "name": "Confluent",
+      "categories": ["software_vendor"],
+      "website": "https://www.confluent.io",
+      "aliases": [],
+      "notes": "Data streaming platform and managed Kafka services."
+    },
+    {
+      "id": "vendor-cox-business",
+      "name": "Cox Business",
+      "categories": ["isp"],
+      "website": "https://www.coxbusiness.com",
+      "aliases": ["Cox"],
+      "notes": "Business internet, voice, managed IT, and fiber services."
+    },
+    {
+      "id": "vendor-docusign",
+      "name": "DocuSign",
+      "categories": ["software_vendor"],
+      "website": "https://www.docusign.com",
+      "aliases": [],
+      "notes": "Electronic signature and agreement workflow platform."
+    },
+    {
+      "id": "vendor-dropbox",
+      "name": "Dropbox",
+      "categories": ["software_vendor"],
+      "website": "https://www.dropbox.com",
+      "aliases": [],
+      "notes": "Cloud file synchronization, sharing, and collaboration services."
+    },
+    {
+      "id": "vendor-f5",
+      "name": "F5",
+      "categories": ["hardware_vendor", "software_vendor"],
+      "website": "https://www.f5.com",
+      "aliases": ["F5 Networks"],
+      "notes": "Application delivery, load balancing, and security platforms."
+    },
+    {
+      "id": "vendor-fastly",
+      "name": "Fastly",
+      "categories": ["software_vendor"],
+      "website": "https://www.fastly.com",
+      "aliases": [],
+      "notes": "Edge cloud, content delivery, and application security services."
+    },
+    {
+      "id": "vendor-frontier-business",
+      "name": "Frontier Business",
+      "categories": ["isp"],
+      "website": "https://business.frontier.com",
+      "aliases": ["Frontier"],
+      "notes": "Business fiber internet and access connectivity services."
+    },
+    {
+      "id": "vendor-github",
+      "name": "GitHub",
+      "categories": ["software_vendor"],
+      "website": "https://github.com/about",
+      "aliases": [],
+      "notes": "Source control, developer collaboration, and DevOps platform."
+    },
+    {
+      "id": "vendor-gitlab",
+      "name": "GitLab",
+      "categories": ["software_vendor"],
+      "website": "https://about.gitlab.com",
+      "aliases": [],
+      "notes": "DevSecOps and software delivery platform."
+    },
+    {
+      "id": "vendor-google-fi",
+      "name": "Google Fi Wireless",
+      "categories": ["cellular_provider"],
+      "website": "https://fi.google.com",
+      "aliases": ["Google Fi"],
+      "notes": "Mobile voice and data service with multi-network support."
+    },
+    {
+      "id": "vendor-hubspot",
+      "name": "HubSpot",
+      "categories": ["software_vendor"],
+      "website": "https://www.hubspot.com",
+      "aliases": [],
+      "notes": "CRM, marketing, support, and revenue operations platform."
+    },
+    {
+      "id": "vendor-jamf",
+      "name": "Jamf",
+      "categories": ["software_vendor"],
+      "website": "https://www.jamf.com",
+      "aliases": [],
+      "notes": "Apple device management and security software."
+    },
+    {
+      "id": "vendor-juniper",
+      "name": "Juniper Networks",
+      "categories": ["hardware_vendor", "software_vendor"],
+      "website": "https://www.juniper.net",
+      "aliases": ["Juniper"],
+      "notes": "Routing, switching, wireless, and AI-native networking platform."
+    },
+    {
+      "id": "vendor-logitech",
+      "name": "Logitech",
+      "categories": ["hardware_vendor"],
+      "website": "https://www.logitech.com",
+      "aliases": [],
+      "notes": "Peripheral, conference room, and collaboration hardware."
+    },
+    {
+      "id": "vendor-mediacom-business",
+      "name": "Mediacom Business",
+      "categories": ["isp"],
+      "website": "https://business.mediacomcable.com",
+      "aliases": ["Mediacom"],
+      "notes": "Business internet, phone, and network access services."
+    },
+    {
+      "id": "vendor-mimecast",
+      "name": "Mimecast",
+      "categories": ["software_vendor"],
+      "website": "https://www.mimecast.com",
+      "aliases": [],
+      "notes": "Email security, resilience, and cyber awareness platform."
+    },
+    {
+      "id": "vendor-miro",
+      "name": "Miro",
+      "categories": ["software_vendor"],
+      "website": "https://miro.com",
+      "aliases": [],
+      "notes": "Visual collaboration and whiteboarding platform."
+    },
+    {
+      "id": "vendor-mongodb",
+      "name": "MongoDB",
+      "categories": ["software_vendor"],
+      "website": "https://www.mongodb.com",
+      "aliases": [],
+      "notes": "Document database and developer data platform."
+    },
+    {
+      "id": "vendor-monday",
+      "name": "monday.com",
+      "categories": ["software_vendor"],
+      "website": "https://monday.com",
+      "aliases": ["Monday"],
+      "notes": "Work management, CRM, and service workflow platform."
+    },
+    {
+      "id": "vendor-netapp",
+      "name": "NetApp",
+      "categories": ["hardware_vendor", "software_vendor"],
+      "website": "https://www.netapp.com",
+      "aliases": [],
+      "notes": "Enterprise storage, data services, and hybrid cloud platforms."
+    },
+    {
+      "id": "vendor-netskope",
+      "name": "Netskope",
+      "categories": ["software_vendor"],
+      "website": "https://www.netskope.com",
+      "aliases": [],
+      "notes": "SASE, SSE, and cloud security platform."
+    },
+    {
+      "id": "vendor-new-relic",
+      "name": "New Relic",
+      "categories": ["software_vendor"],
+      "website": "https://newrelic.com",
+      "aliases": [],
+      "notes": "Observability, telemetry, and application performance monitoring."
+    },
+    {
+      "id": "vendor-nutanix",
+      "name": "Nutanix",
+      "categories": ["software_vendor"],
+      "website": "https://www.nutanix.com",
+      "aliases": [],
+      "notes": "Hybrid multicloud infrastructure and virtualization platform."
+    },
+    {
+      "id": "vendor-optimum-business",
+      "name": "Optimum Business",
+      "categories": ["isp"],
+      "website": "https://business.optimum.com",
+      "aliases": ["Optimum"],
+      "notes": "Business internet, voice, and connectivity services."
+    },
+    {
+      "id": "vendor-pagerduty",
+      "name": "PagerDuty",
+      "categories": ["software_vendor"],
+      "website": "https://www.pagerduty.com",
+      "aliases": [],
+      "notes": "Incident response, on-call, and operations automation platform."
+    },
+    {
+      "id": "vendor-proofpoint",
+      "name": "Proofpoint",
+      "categories": ["software_vendor"],
+      "website": "https://www.proofpoint.com",
+      "aliases": [],
+      "notes": "Email security, data protection, and threat defense platform."
+    },
+    {
+      "id": "vendor-pure-storage",
+      "name": "Pure Storage",
+      "categories": ["hardware_vendor", "software_vendor"],
+      "website": "https://www.purestorage.com",
+      "aliases": [],
+      "notes": "Enterprise flash storage and data resilience platforms."
+    },
+    {
+      "id": "vendor-qualys",
+      "name": "Qualys",
+      "categories": ["software_vendor"],
+      "website": "https://www.qualys.com",
+      "aliases": [],
+      "notes": "Vulnerability management, compliance, and security operations software."
+    },
+    {
+      "id": "vendor-ringcentral",
+      "name": "RingCentral",
+      "categories": ["software_vendor"],
+      "website": "https://www.ringcentral.com",
+      "aliases": [],
+      "notes": "Cloud communications, contact center, and collaboration platform."
+    },
+    {
+      "id": "vendor-rubrik",
+      "name": "Rubrik",
+      "categories": ["software_vendor"],
+      "website": "https://www.rubrik.com",
+      "aliases": [],
+      "notes": "Cyber resilience, backup, and recovery platform."
+    },
+    {
+      "id": "vendor-sailpoint",
+      "name": "SailPoint",
+      "categories": ["software_vendor"],
+      "website": "https://www.sailpoint.com",
+      "aliases": [],
+      "notes": "Identity governance and administration platform."
+    },
+    {
+      "id": "vendor-seagate",
+      "name": "Seagate",
+      "categories": ["hardware_vendor"],
+      "website": "https://www.seagate.com",
+      "aliases": [],
+      "notes": "Data storage drives and related storage hardware."
+    },
+    {
+      "id": "vendor-sentinelone",
+      "name": "SentinelOne",
+      "categories": ["software_vendor"],
+      "website": "https://www.sentinelone.com",
+      "aliases": [],
+      "notes": "Endpoint, cloud, and AI-driven security platform."
+    },
+    {
+      "id": "vendor-smartsheet",
+      "name": "Smartsheet",
+      "categories": ["software_vendor"],
+      "website": "https://www.smartsheet.com",
+      "aliases": [],
+      "notes": "Enterprise work management and automation platform."
+    },
+    {
+      "id": "vendor-snowflake",
+      "name": "Snowflake",
+      "categories": ["software_vendor"],
+      "website": "https://www.snowflake.com",
+      "aliases": [],
+      "notes": "Cloud data warehousing, analytics, and AI data platform."
+    },
+    {
+      "id": "vendor-sonicwall",
+      "name": "SonicWall",
+      "categories": ["hardware_vendor", "software_vendor"],
+      "website": "https://www.sonicwall.com",
+      "aliases": [],
+      "notes": "Firewall, secure remote access, and network security products."
+    },
+    {
+      "id": "vendor-supermicro",
+      "name": "Supermicro",
+      "categories": ["hardware_vendor"],
+      "website": "https://www.supermicro.com",
+      "aliases": ["Super Micro Computer"],
+      "notes": "Server, storage, and AI infrastructure hardware."
+    },
+    {
+      "id": "vendor-synology",
+      "name": "Synology",
+      "categories": ["hardware_vendor", "software_vendor"],
+      "website": "https://www.synology.com",
+      "aliases": [],
+      "notes": "Network storage appliances and data management software."
+    },
+    {
+      "id": "vendor-tanium",
+      "name": "Tanium",
+      "categories": ["software_vendor"],
+      "website": "https://www.tanium.com",
+      "aliases": [],
+      "notes": "Endpoint management, visibility, and security platform."
+    },
+    {
+      "id": "vendor-veeam",
+      "name": "Veeam",
+      "categories": ["software_vendor"],
+      "website": "https://www.veeam.com",
+      "aliases": [],
+      "notes": "Backup, recovery, and data resilience software."
+    },
+    {
+      "id": "vendor-western-digital",
+      "name": "Western Digital",
+      "categories": ["hardware_vendor"],
+      "website": "https://www.westerndigital.com",
+      "aliases": ["WD"],
+      "notes": "Data storage drives and related hardware products."
+    },
+    {
+      "id": "vendor-windstream-enterprise",
+      "name": "Windstream Enterprise",
+      "categories": ["isp"],
+      "website": "https://www.windstreamenterprise.com",
+      "aliases": ["Windstream"],
+      "notes": "Managed network, SD-WAN, and connectivity services."
+    },
+    {
+      "id": "vendor-workday",
+      "name": "Workday",
+      "categories": ["software_vendor"],
+      "website": "https://www.workday.com",
+      "aliases": [],
+      "notes": "Human capital management and finance cloud platform."
+    },
+    {
+      "id": "vendor-zayo",
+      "name": "Zayo",
+      "categories": ["isp"],
+      "website": "https://www.zayo.com",
+      "aliases": [],
+      "notes": "Fiber, wavelength, and enterprise network infrastructure services."
+    },
+    {
+      "id": "vendor-zebra",
+      "name": "Zebra Technologies",
+      "categories": ["hardware_vendor", "software_vendor"],
+      "website": "https://www.zebra.com",
+      "aliases": ["Zebra"],
+      "notes": "Mobile computing, scanning, and asset intelligence solutions."
+    },
+    {
+      "id": "vendor-zoom",
+      "name": "Zoom",
+      "categories": ["software_vendor"],
+      "website": "https://www.zoom.com",
+      "aliases": ["Zoom Video Communications"],
+      "notes": "Video meetings, phone, contact center, and collaboration platform."
     }
   ]
 }
