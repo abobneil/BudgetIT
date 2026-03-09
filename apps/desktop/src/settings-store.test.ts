@@ -4,7 +4,12 @@ import path from "node:path";
 
 import { afterEach, describe, expect, it } from "vitest";
 
-import { readRuntimeSettings, writeRuntimeSettings } from "./settings-store";
+import { FileSecretVault, type SecretCipher } from "./key-vault";
+import {
+  hasPlaintextRuntimeSettingsSecrets,
+  readRuntimeSettings,
+  writeRuntimeSettings
+} from "./settings-store";
 
 const tempRoots: string[] = [];
 
@@ -12,6 +17,18 @@ function makeTempSettingsPath(): string {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "budgetit-settings-"));
   tempRoots.push(root);
   return path.join(root, "runtime-settings.json");
+}
+
+function createFakeCipher(): SecretCipher {
+  return {
+    isAvailable: () => true,
+    encrypt: (value) => Buffer.from(`enc:${value}`, "utf8"),
+    decrypt: (value) => value.toString("utf8").replace(/^enc:/, "")
+  };
+}
+
+function createWebhookVault(settingsPath: string): FileSecretVault {
+  return new FileSecretVault(path.join(path.dirname(settingsPath), "teams-webhook-url.json"), createFakeCipher());
 }
 
 describe("runtime settings persistence", () => {
@@ -58,6 +75,86 @@ describe("runtime settings persistence", () => {
       teamsEnabled: false,
       teamsWebhookUrl: ""
     });
+  });
+
+  it("stores teams webhook URLs in secure storage instead of the settings JSON", () => {
+    const settingsPath = makeTempSettingsPath();
+    const webhookVault = createWebhookVault(settingsPath);
+
+    writeRuntimeSettings(
+      settingsPath,
+      {
+        startWithWindows: false,
+        minimizeToTray: true,
+        teamsEnabled: true,
+        teamsWebhookUrl: " https://example.invalid/webhook "
+      },
+      webhookVault
+    );
+
+    const persisted = JSON.parse(fs.readFileSync(settingsPath, "utf8")) as {
+      teamsWebhookUrl: string;
+    };
+    expect(persisted.teamsWebhookUrl).toBe("");
+    expect(webhookVault.readSecret()).toBe("https://example.invalid/webhook");
+
+    const restored = readRuntimeSettings(settingsPath, webhookVault);
+    expect(restored.teamsWebhookUrl).toBe("https://example.invalid/webhook");
+  });
+
+  it("migrates legacy plaintext webhook settings into secure storage", () => {
+    const settingsPath = makeTempSettingsPath();
+    const webhookVault = createWebhookVault(settingsPath);
+    fs.writeFileSync(
+      settingsPath,
+      JSON.stringify(
+        {
+          startWithWindows: true,
+          minimizeToTray: true,
+          teamsEnabled: true,
+          teamsWebhookUrl: "https://example.invalid/webhook"
+        },
+        null,
+        2
+      ),
+      "utf8"
+    );
+
+    expect(hasPlaintextRuntimeSettingsSecrets(settingsPath)).toBe(true);
+    const restored = readRuntimeSettings(settingsPath, webhookVault);
+    writeRuntimeSettings(settingsPath, restored, webhookVault);
+
+    expect(hasPlaintextRuntimeSettingsSecrets(settingsPath)).toBe(false);
+    expect(webhookVault.readSecret()).toBe("https://example.invalid/webhook");
+  });
+
+  it("deletes stored teams webhook secrets when the URL is cleared", () => {
+    const settingsPath = makeTempSettingsPath();
+    const webhookVault = createWebhookVault(settingsPath);
+    writeRuntimeSettings(
+      settingsPath,
+      {
+        startWithWindows: true,
+        minimizeToTray: true,
+        teamsEnabled: true,
+        teamsWebhookUrl: "https://example.invalid/webhook"
+      },
+      webhookVault
+    );
+
+    writeRuntimeSettings(
+      settingsPath,
+      {
+        startWithWindows: true,
+        minimizeToTray: true,
+        teamsEnabled: false,
+        teamsWebhookUrl: ""
+      },
+      webhookVault
+    );
+
+    expect(webhookVault.readSecret()).toBeNull();
+    expect(readRuntimeSettings(settingsPath, webhookVault).teamsWebhookUrl).toBe("");
   });
 });
 

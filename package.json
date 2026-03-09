@@ -10,10 +10,13 @@
     "packages/*"
   ],
   "scripts": {
+    "prepare": "node scripts/install-git-hooks.cjs",
     "lint": "npm run lint --workspaces --if-present",
     "typecheck": "npm run build --workspace @budgetit/db && npm run typecheck --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
     "build": "npm run build --workspace @budgetit/db && npm run build --workspaces --if-present",
+    "hooks:install": "node scripts/install-git-hooks.cjs",
+    "check:secrets": "node scripts/check-secrets.cjs --working-tree --all-history",
     "help:generate": "node scripts/help-tools.cjs generate",
     "help:new-topic": "node scripts/help-tools.cjs new-topic",
     "help:check": "node scripts/help-tools.cjs check",

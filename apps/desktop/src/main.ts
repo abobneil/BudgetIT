@@ -53,7 +53,11 @@ import {
   shouldMinimizeToTrayOnClose,
   type RuntimeSettings
 } from "./lifecycle";
-import { readRuntimeSettings, writeRuntimeSettings } from "./settings-store";
+import {
+  hasPlaintextRuntimeSettingsSecrets,
+  readRuntimeSettings,
+  writeRuntimeSettings
+} from "./settings-store";
 import {
   createTeamsWorkflowChannel,
   type TeamsAlertInput,
@@ -114,6 +118,7 @@ export interface DesktopRuntime {
 
 const SETTINGS_FILE_NAME = "runtime-settings.json";
 const DATABASE_KEY_FILE_NAME = "database-key.json";
+const TEAMS_WEBHOOK_SECRET_FILE_NAME = "teams-webhook-url.json";
 const ALERT_TICK_INTERVAL_MS = 60_000;
 const DEFAULT_BACKUP_SUBDIR = path.join("BudgetIT", "backups");
 const DEFAULT_EXPORT_SUBDIR = path.join("BudgetIT", "exports");
@@ -313,6 +318,10 @@ function getDatabaseKeyPath(): string {
   return path.join(app.getPath("userData"), "secrets", DATABASE_KEY_FILE_NAME);
 }
 
+function getTeamsWebhookSecretPath(): string {
+  return path.join(app.getPath("userData"), "secrets", TEAMS_WEBHOOK_SECRET_FILE_NAME);
+}
+
 function getDatabaseDataDirectory(): string {
   return path.join(app.getPath("userData"), "data");
 }
@@ -419,7 +428,7 @@ function initializeDiagnosticsLogging(): void {
   });
 }
 
-function createDatabaseVault(secretPath: string): FileSecretVault {
+function createSecretVault(secretPath: string): FileSecretVault {
   return new FileSecretVault(secretPath, {
     isAvailable: () => safeStorage.isEncryptionAvailable(),
     encrypt: (value) => safeStorage.encryptString(value),
@@ -428,7 +437,7 @@ function createDatabaseVault(secretPath: string): FileSecretVault {
 }
 
 function initializeDatabaseAndAlerts(): void {
-  const vault = createDatabaseVault(getDatabaseKeyPath());
+  const vault = createSecretVault(getDatabaseKeyPath());
   const keyHex = resolveDatabaseKey(vault);
   databaseHandle = bootstrapEncryptedDatabase(getDatabaseDataDirectory(), keyHex);
   runMigrations(databaseHandle.db);
@@ -475,7 +484,11 @@ function getRuntimeSettingsPath(): string {
 
 function persistRuntimeSettings(nextSettings: RuntimeSettings): RuntimeSettings {
   runtimeSettings = nextSettings;
-  writeRuntimeSettings(getRuntimeSettingsPath(), runtimeSettings);
+  writeRuntimeSettings(
+    getRuntimeSettingsPath(),
+    runtimeSettings,
+    createSecretVault(getTeamsWebhookSecretPath())
+  );
   app.setLoginItemSettings(
     buildLoginItemSettings(runtimeSettings.startWithWindows, process.platform)
   );
@@ -1701,7 +1714,7 @@ function setupIpcHandlers(requestExit: () => void): void {
   });
   ipcMain.handle("db.open", async () => {
     const handle = requireDatabaseHandle();
-    const vault = createDatabaseVault(getDatabaseKeyPath());
+    const vault = createSecretVault(getDatabaseKeyPath());
     return {
       databasePath: handle.dbPath,
       keyPresent: vault.hasSecret(),
@@ -1717,7 +1730,7 @@ function setupIpcHandlers(requestExit: () => void): void {
       throw new Error("db.rekey requires a key different from the current key.");
     }
 
-    const vault = createDatabaseVault(getDatabaseKeyPath());
+    const vault = createSecretVault(getDatabaseKeyPath());
     stopSchedulerAndCloseDatabase();
     try {
       rekeyEncryptedDatabase(handle.dbPath, currentKeyHex, nextKeyHex);
@@ -4364,7 +4377,13 @@ export async function startDesktopApp(): Promise<void> {
   await app.whenReady();
   initializeDiagnosticsLogging();
 
-  runtimeSettings = readRuntimeSettings(getRuntimeSettingsPath());
+  const resolvedRuntimeSettingsPath = getRuntimeSettingsPath();
+  const teamsWebhookVault = createSecretVault(getTeamsWebhookSecretPath());
+  const migratePlaintextWebhook = hasPlaintextRuntimeSettingsSecrets(resolvedRuntimeSettingsPath);
+  runtimeSettings = readRuntimeSettings(resolvedRuntimeSettingsPath, teamsWebhookVault);
+  if (migratePlaintextWebhook) {
+    writeRuntimeSettings(resolvedRuntimeSettingsPath, runtimeSettings, teamsWebhookVault);
+  }
   app.setLoginItemSettings(
     buildLoginItemSettings(runtimeSettings.startWithWindows, process.platform)
   );

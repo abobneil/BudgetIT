@@ -34,12 +34,19 @@ Triggers:
 Behavior:
 
 - Runs a dedicated help integrity job (`help:check`) on `windows-latest`.
-- Runs quality gates on `windows-latest`, including `help:check`, `lint`, `typecheck`, `test`, and `build`.
+- Runs quality gates on `windows-latest`, including `help:check`, `check:secrets`, `lint`, `typecheck`, `test`, and `build`.
 - Runs packaging smoke jobs after quality:
   - Windows (`dist:win`, smoke checks, artifact validation)
   - Linux x64 (`dist:linux:x64`, smoke checks, artifact validation)
   - Linux arm64 (`dist:linux:arm64`, smoke checks, artifact validation) on GitHub-hosted ARM runner `ubuntu-24.04-arm`
 - Uploads platform-scoped artifacts from each packaging smoke job.
+
+## Secret scanning
+
+- `npm ci` runs `prepare`, which installs repo-local git hooks from `.githooks/`.
+- `pre-commit` runs `node scripts/check-secrets.cjs --staged`.
+- `pre-push` runs `node scripts/check-secrets.cjs --outgoing`.
+- CI runs `npm run check:secrets`, which scans the tracked working tree plus reachable git history.
 
 ## Release workflow (CD)
 

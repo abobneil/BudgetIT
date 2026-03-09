@@ -61,6 +61,9 @@ jobs:
       - name: Help Integrity Check
         run: npm run check:help-integrity
 
+      - name: Secret Scan
+        run: npm run check:secrets
+
       - name: Lint
         run: npm run lint
 

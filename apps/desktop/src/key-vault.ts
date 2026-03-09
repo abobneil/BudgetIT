@@ -53,6 +53,14 @@ export class FileSecretVault {
     };
     fs.writeFileSync(this.secretPath, JSON.stringify(payload, null, 2), "utf8");
   }
+
+  deleteSecret(): void {
+    if (!this.hasSecret()) {
+      return;
+    }
+
+    fs.rmSync(this.secretPath, { force: true });
+  }
 }
 
 export function resolveDatabaseKey(vault: FileSecretVault): string {
