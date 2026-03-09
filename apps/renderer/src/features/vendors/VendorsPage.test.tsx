@@ -187,7 +187,7 @@ describe("VendorsPage", () => {
     15000
   );
 
-  it("shows vendor catalog suggestions in a scrollable list capped to 10 visible rows", async () => {
+  it("shows vendor catalog suggestions in a scrollable list capped to 4 visible rows", async () => {
     vi.spyOn(ipcClient, "isIpcAvailable").mockReturnValue(true);
     vi.spyOn(ipcClient, "listScenarios").mockResolvedValue([
       {
@@ -237,7 +237,7 @@ describe("VendorsPage", () => {
     fireEvent.change(vendorNameInput, { target: { value: "Catalog Vendor" } });
 
     const listbox = await screen.findByRole("listbox", { name: "Vendor suggestions" });
-    expect(listbox).toHaveAttribute("data-visible-limit", "10");
+    expect(listbox).toHaveAttribute("data-visible-limit", "4");
     expect(within(listbox).getAllByRole("option")).toHaveLength(12);
 
     fireEvent.mouseDown(within(listbox).getByRole("button", { name: "Catalog Vendor 01" }));

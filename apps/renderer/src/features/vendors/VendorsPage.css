@@ -106,7 +106,7 @@
   border-radius: 0.5rem;
   background: var(--colorNeutralBackground1);
   box-shadow: var(--shadow16);
-  max-height: calc(10 * 2.5rem);
+  max-height: calc(4 * 2.5rem);
   overflow-y: auto;
 }
 

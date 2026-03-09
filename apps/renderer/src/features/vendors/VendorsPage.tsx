@@ -67,7 +67,7 @@ type VendorFormState = {
   linkedContractIdsCsv: string;
 };
 
-const MAX_VISIBLE_VENDOR_NAME_SUGGESTIONS = 10;
+const MAX_VISIBLE_VENDOR_NAME_SUGGESTIONS = 4;
 
 function createDefaultFormState(currency: string = "USD"): VendorFormState {
   return {
