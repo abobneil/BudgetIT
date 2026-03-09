@@ -3,6 +3,9 @@ import { contextBridge, ipcRenderer } from "electron";
 const fallbackInvokeChannels = [
   "settings.get",
   "settings.update",
+  "catalog.getStatus",
+  "catalog.list",
+  "catalog.sync",
   "help.open",
   "help.document.get",
   "dialog.pickFile",

@@ -1,0 +1,246 @@
+{
+  "version": 1,
+  "updatedAt": "2026-03-09T00:00:00.000Z",
+  "entries": [
+    {
+      "id": "vendor-adobe",
+      "name": "Adobe",
+      "categories": ["software_vendor"],
+      "website": "https://www.adobe.com",
+      "aliases": ["Adobe Inc."],
+      "notes": "Creative, document, and digital experience software."
+    },
+    {
+      "id": "vendor-apple",
+      "name": "Apple",
+      "categories": ["hardware_vendor"],
+      "website": "https://www.apple.com",
+      "aliases": ["Apple Inc."],
+      "notes": "Client devices and endpoint hardware ecosystem."
+    },
+    {
+      "id": "vendor-at-t-business",
+      "name": "AT&T Business",
+      "categories": ["isp"],
+      "website": "https://business.att.com",
+      "aliases": ["AT&T"],
+      "notes": "Business internet, WAN, and managed connectivity services."
+    },
+    {
+      "id": "vendor-at-t-mobility",
+      "name": "AT&T Mobility",
+      "categories": ["cellular_provider"],
+      "website": "https://www.att.com/business/wireless",
+      "aliases": ["AT&T Wireless"],
+      "notes": "Business cellular and mobile device connectivity."
+    },
+    {
+      "id": "vendor-aws",
+      "name": "AWS",
+      "categories": ["software_vendor"],
+      "website": "https://aws.amazon.com",
+      "aliases": ["Amazon Web Services"],
+      "notes": "Cloud infrastructure and managed platform services."
+    },
+    {
+      "id": "vendor-broadcom-vmware",
+      "name": "Broadcom VMware",
+      "categories": ["software_vendor"],
+      "website": "https://www.vmware.com",
+      "aliases": ["VMware"],
+      "notes": "Virtualization and private cloud software stack."
+    },
+    {
+      "id": "vendor-cisco",
+      "name": "Cisco",
+      "categories": ["hardware_vendor", "software_vendor"],
+      "website": "https://www.cisco.com",
+      "aliases": ["Cisco Systems"],
+      "notes": "Networking hardware, security, and collaboration platforms."
+    },
+    {
+      "id": "vendor-cloudflare",
+      "name": "Cloudflare",
+      "categories": ["software_vendor"],
+      "website": "https://www.cloudflare.com",
+      "aliases": [],
+      "notes": "Network edge, security, and application delivery services."
+    },
+    {
+      "id": "vendor-comcast-business",
+      "name": "Comcast Business",
+      "categories": ["isp"],
+      "website": "https://business.comcast.com",
+      "aliases": ["Comcast"],
+      "notes": "Business broadband and Ethernet services."
+    },
+    {
+      "id": "vendor-crowdstrike",
+      "name": "CrowdStrike",
+      "categories": ["software_vendor"],
+      "website": "https://www.crowdstrike.com",
+      "aliases": [],
+      "notes": "Endpoint, identity, and cloud security platform."
+    },
+    {
+      "id": "vendor-datadog",
+      "name": "Datadog",
+      "categories": ["software_vendor"],
+      "website": "https://www.datadoghq.com",
+      "aliases": [],
+      "notes": "Observability, monitoring, and security analytics."
+    },
+    {
+      "id": "vendor-dell",
+      "name": "Dell Technologies",
+      "categories": ["hardware_vendor"],
+      "website": "https://www.dell.com",
+      "aliases": ["Dell"],
+      "notes": "Servers, storage, endpoint devices, and infrastructure hardware."
+    },
+    {
+      "id": "vendor-fortinet",
+      "name": "Fortinet",
+      "categories": ["hardware_vendor", "software_vendor"],
+      "website": "https://www.fortinet.com",
+      "aliases": [],
+      "notes": "Network security appliances and related security services."
+    },
+    {
+      "id": "vendor-google-cloud",
+      "name": "Google Cloud",
+      "categories": ["software_vendor"],
+      "website": "https://cloud.google.com",
+      "aliases": ["GCP"],
+      "notes": "Cloud infrastructure, analytics, and productivity platform services."
+    },
+    {
+      "id": "vendor-hpe",
+      "name": "HPE",
+      "categories": ["hardware_vendor"],
+      "website": "https://www.hpe.com",
+      "aliases": ["Hewlett Packard Enterprise"],
+      "notes": "Enterprise compute, storage, and networking hardware."
+    },
+    {
+      "id": "vendor-lenovo",
+      "name": "Lenovo",
+      "categories": ["hardware_vendor"],
+      "website": "https://www.lenovo.com",
+      "aliases": [],
+      "notes": "Endpoint devices, workstations, and datacenter hardware."
+    },
+    {
+      "id": "vendor-lumen",
+      "name": "Lumen",
+      "categories": ["isp"],
+      "website": "https://www.lumen.com",
+      "aliases": ["Lumen Technologies", "CenturyLink"],
+      "notes": "Enterprise fiber, backbone, and WAN connectivity."
+    },
+    {
+      "id": "vendor-microsoft",
+      "name": "Microsoft",
+      "categories": ["software_vendor"],
+      "website": "https://www.microsoft.com",
+      "aliases": ["Microsoft Corporation"],
+      "notes": "Productivity, cloud, identity, and security platforms."
+    },
+    {
+      "id": "vendor-okta",
+      "name": "Okta",
+      "categories": ["software_vendor"],
+      "website": "https://www.okta.com",
+      "aliases": [],
+      "notes": "Identity and access management services."
+    },
+    {
+      "id": "vendor-oracle",
+      "name": "Oracle",
+      "categories": ["software_vendor"],
+      "website": "https://www.oracle.com",
+      "aliases": ["Oracle Corporation"],
+      "notes": "Enterprise databases, business systems, and cloud services."
+    },
+    {
+      "id": "vendor-palo-alto-networks",
+      "name": "Palo Alto Networks",
+      "categories": ["hardware_vendor", "software_vendor"],
+      "website": "https://www.paloaltonetworks.com",
+      "aliases": ["Palo Alto"],
+      "notes": "Firewall, cloud security, and security operations tooling."
+    },
+    {
+      "id": "vendor-salesforce",
+      "name": "Salesforce",
+      "categories": ["software_vendor"],
+      "website": "https://www.salesforce.com",
+      "aliases": [],
+      "notes": "CRM and customer workflow SaaS platform."
+    },
+    {
+      "id": "vendor-sap",
+      "name": "SAP",
+      "categories": ["software_vendor"],
+      "website": "https://www.sap.com",
+      "aliases": [],
+      "notes": "ERP, finance, and enterprise application platform."
+    },
+    {
+      "id": "vendor-servicenow",
+      "name": "ServiceNow",
+      "categories": ["software_vendor"],
+      "website": "https://www.servicenow.com",
+      "aliases": [],
+      "notes": "Workflow, ITSM, and enterprise operations platform."
+    },
+    {
+      "id": "vendor-spectrum-business",
+      "name": "Spectrum Business",
+      "categories": ["isp"],
+      "website": "https://business.spectrum.com",
+      "aliases": ["Charter Spectrum Business"],
+      "notes": "Business internet and transport services."
+    },
+    {
+      "id": "vendor-t-mobile-business",
+      "name": "T-Mobile for Business",
+      "categories": ["cellular_provider"],
+      "website": "https://www.t-mobile.com/business",
+      "aliases": ["T-Mobile Business"],
+      "notes": "Business cellular and mobile connectivity services."
+    },
+    {
+      "id": "vendor-uscellular-business",
+      "name": "UScellular Business",
+      "categories": ["cellular_provider"],
+      "website": "https://www.uscellular.com/business",
+      "aliases": ["UScellular"],
+      "notes": "Regional business cellular provider."
+    },
+    {
+      "id": "vendor-verizon-business",
+      "name": "Verizon Business",
+      "categories": ["isp"],
+      "website": "https://www.verizon.com/business",
+      "aliases": ["Verizon"],
+      "notes": "Business internet, WAN, and enterprise networking services."
+    },
+    {
+      "id": "vendor-verizon-wireless",
+      "name": "Verizon Wireless",
+      "categories": ["cellular_provider"],
+      "website": "https://www.verizon.com/business/products/mobile",
+      "aliases": ["Verizon Wireless Business"],
+      "notes": "Business wireless voice and data services."
+    },
+    {
+      "id": "vendor-zscaler",
+      "name": "Zscaler",
+      "categories": ["software_vendor"],
+      "website": "https://www.zscaler.com",
+      "aliases": [],
+      "notes": "Zero-trust network access and secure web gateway platform."
+    }
+  ]
+}

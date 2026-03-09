@@ -28,6 +28,7 @@ import {
   createVendor as createVendorIpc,
   deleteVendor as deleteVendorIpc,
   isIpcAvailable,
+  listTechCatalogEntries as listTechCatalogEntriesIpc,
   listContracts as listContractsIpc,
   listServices as listServicesIpc,
   listVendors as listVendorsIpc,
@@ -165,6 +166,7 @@ export function VendorsPage() {
   const [deleteVendorId, setDeleteVendorId] = useState<string | null>(null);
   const [pageMessage, setPageMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [catalogVendorNames, setCatalogVendorNames] = useState<string[]>([]);
   const lastSyncedVendorIdRef = useRef<string | null>(null);
   const annualSpendExample = useMemo(
     () => buildCurrencyInputExample(displayCurrency),
@@ -173,8 +175,12 @@ export function VendorsPage() {
   const vendorNameSuggestionsId = useId();
   const vendorOwnerSuggestionsId = useId();
   const vendorNameSuggestions = useMemo(
-    () => buildSuggestionList(vendors.map((vendor) => vendor.name)),
-    [vendors]
+    () =>
+      buildSuggestionList([
+        ...vendors.map((vendor) => vendor.name),
+        ...catalogVendorNames
+      ]),
+    [catalogVendorNames, vendors]
   );
   const vendorOwnerSuggestions = useMemo(
     () => buildSuggestionList(vendors.map((vendor) => vendor.owner)),
@@ -234,6 +240,22 @@ export function VendorsPage() {
   useEffect(() => {
     void loadWorkspaceData();
   }, [loadWorkspaceData]);
+
+  useEffect(() => {
+    if (!hasIpc) {
+      setCatalogVendorNames([]);
+      return;
+    }
+
+    void (async () => {
+      try {
+        const entries = await listTechCatalogEntriesIpc();
+        setCatalogVendorNames(entries.map((entry) => entry.name));
+      } catch {
+        setCatalogVendorNames([]);
+      }
+    })();
+  }, [hasIpc]);
 
   useEffect(() => {
     const focusedVendorId = searchParams.get("vendor");

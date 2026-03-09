@@ -7,6 +7,7 @@ describe("preload IPC bridge", () => {
     const bridge = createBudgetItBridge(async () => "ok");
 
     await expect(bridge.invoke("settings.get")).resolves.toBe("ok");
+    await expect(bridge.invoke("catalog.getStatus")).resolves.toBe("ok");
     await expect(bridge.invoke("help.open")).resolves.toBe("ok");
     await expect(bridge.invoke("help.document.get")).resolves.toBe("ok");
     await expect(bridge.invoke("dialog.pickFile")).resolves.toBe("ok");

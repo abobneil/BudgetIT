@@ -11,6 +11,33 @@ export type RuntimeSettingsResponse = RuntimeSettings & {
   lastRestoreSummary?: RestoreSummary | null;
 };
 
+export type TechCatalogCategory =
+  | "software_vendor"
+  | "hardware_vendor"
+  | "isp"
+  | "cellular_provider";
+
+export type TechCatalogEntry = {
+  id: string;
+  name: string;
+  categories: TechCatalogCategory[];
+  website: string | null;
+  aliases: string[];
+  notes: string | null;
+};
+
+export type TechCatalogStatus = {
+  sourceUrl: string;
+  checkedAt: string | null;
+  lastSyncedAt: string | null;
+  lastError: string | null;
+  entryCount: number;
+  catalogUpdatedAt: string;
+  usingFallback: boolean;
+  etag: string | null;
+  countsByCategory: Record<TechCatalogCategory, number>;
+};
+
 export type FileDialogFilter = {
   name: string;
   extensions: string[];
@@ -524,6 +551,23 @@ export const defaultSettings: RuntimeSettings = {
   teamsWebhookUrl: ""
 };
 
+const defaultTechCatalogStatus: TechCatalogStatus = {
+  sourceUrl: "",
+  checkedAt: null,
+  lastSyncedAt: null,
+  lastError: null,
+  entryCount: 0,
+  catalogUpdatedAt: "",
+  usingFallback: true,
+  etag: null,
+  countsByCategory: {
+    software_vendor: 0,
+    hardware_vendor: 0,
+    isp: 0,
+    cellular_provider: 0
+  }
+};
+
 function getBridge() {
   return window.budgetit;
 }
@@ -558,6 +602,32 @@ export async function saveSettings(settings: RuntimeSettings): Promise<RuntimeSe
     return settings;
   }
   return (await bridge.invoke("settings.update", settings)) as RuntimeSettings;
+}
+
+export async function getTechCatalogStatus(): Promise<TechCatalogStatus> {
+  const bridge = getBridge();
+  if (!bridge) {
+    return defaultTechCatalogStatus;
+  }
+  return (await bridge.invoke("catalog.getStatus")) as TechCatalogStatus;
+}
+
+export async function listTechCatalogEntries(): Promise<TechCatalogEntry[]> {
+  const bridge = getBridge();
+  if (!bridge) {
+    return [];
+  }
+  return (await bridge.invoke("catalog.list")) as TechCatalogEntry[];
+}
+
+export async function syncTechCatalog(payload: {
+  force?: boolean;
+} = {}): Promise<TechCatalogStatus> {
+  const bridge = getBridge();
+  if (!bridge) {
+    return defaultTechCatalogStatus;
+  }
+  return (await bridge.invoke("catalog.sync", payload)) as TechCatalogStatus;
 }
 
 export async function openHelpWindow(

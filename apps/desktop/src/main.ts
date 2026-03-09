@@ -88,6 +88,11 @@ import {
   type ActualImportMapping
 } from "./actuals-import";
 import {
+  MINIMAL_TECH_CATALOG,
+  TechCatalogSync,
+  loadTechCatalogDocumentFromFile
+} from "./tech-catalog";
+import {
   createDashboardHtml,
   exportDashboardReport,
   exportNlqResultsReport,
@@ -116,6 +121,8 @@ const BACKUP_HEALTH_FILE_NAME = "backup-health.json";
 const BACKUP_STALE_THRESHOLD_DAYS = 7;
 const IMPORT_TEMPLATE_FILE_NAME = "import-mappings.json";
 const AUTO_TAG_RULES_FILE_NAME = "auto-tag-rules.json";
+const TECH_CATALOG_CACHE_FILE_NAME = "tech-provider-catalog-cache.json";
+const TECH_CATALOG_ASSET_FILE_NAME = "tech-provider-catalog.json";
 const WINDOWS_APP_ICON_FILE_NAME = "app-icon.ico";
 const LINUX_APP_ICON_FILE_NAME = "app-icon.png";
 const TRAY_ICON_FILE_NAME = "tray-icon.png";
@@ -123,6 +130,8 @@ const DIAGNOSTICS_LOG_DIR_NAME = "logs";
 const DIAGNOSTICS_LOG_FILE_NAME = "desktop.log";
 const DEFAULT_SINGLE_USER_ACTOR = "single-it-user";
 const HELP_DOCUMENT_FILE_NAME = "help-system.md";
+const TECH_CATALOG_SOURCE_URL =
+  "https://raw.githubusercontent.com/abobneil/BudgetIT/main/apps/desktop/assets/tech-provider-catalog.json";
 
 const IMPORT_FIELDS = new Set([
   "scenarioId",
@@ -283,6 +292,7 @@ let lastRestoreSummary: RestoreEncryptedBackupResult | null = null;
 let backupHealthState: BackupHealthState = createEmptyBackupHealthState();
 let diagnosticsLogFilePath: string | null = null;
 let diagnosticsLoggingInitialized = false;
+let techCatalogSync: TechCatalogSync | null = null;
 const teamsChannel = createTeamsWorkflowChannel();
 
 function toIsoDate(value: Date): string {
@@ -317,6 +327,14 @@ function getImportTemplateStorePath(): string {
 
 function getAutoTagRulesPath(): string {
   return path.join(app.getPath("userData"), AUTO_TAG_RULES_FILE_NAME);
+}
+
+function getTechCatalogCachePath(): string {
+  return path.join(app.getPath("userData"), TECH_CATALOG_CACHE_FILE_NAME);
+}
+
+function getTechCatalogAssetPath(): string {
+  return path.join(__dirname, "../assets", TECH_CATALOG_ASSET_FILE_NAME);
 }
 
 function resolveMainWindowIconPath(): string | undefined {
@@ -418,6 +436,19 @@ function initializeDatabaseAndAlerts(): void {
   backupHealthState = loadBackupHealthState(getBackupHealthPath());
 }
 
+function initializeTechCatalogSync(): void {
+  const fallbackCatalog = fs.existsSync(getTechCatalogAssetPath())
+    ? loadTechCatalogDocumentFromFile(getTechCatalogAssetPath())
+    : MINIMAL_TECH_CATALOG;
+
+  techCatalogSync = new TechCatalogSync({
+    cachePath: getTechCatalogCachePath(),
+    sourceUrl: TECH_CATALOG_SOURCE_URL,
+    fallbackCatalog,
+    onWarning: (message, details) => appendDiagnosticLog("WARN", message, details)
+  });
+}
+
 function stopSchedulerAndCloseDatabase(): void {
   if (schedulerTimer) {
     clearInterval(schedulerTimer);
@@ -430,6 +461,7 @@ function stopSchedulerAndCloseDatabase(): void {
   }
 
   alertStore = null;
+  techCatalogSync = null;
 }
 
 function getRuntimeSettingsPath(): string {
@@ -460,6 +492,13 @@ function getTeamsSettings(): TeamsChannelSettings {
     enabled: runtimeSettings.teamsEnabled,
     webhookUrl: runtimeSettings.teamsWebhookUrl
   };
+}
+
+function requireTechCatalogSync(): TechCatalogSync {
+  if (!techCatalogSync) {
+    throw new Error("Tech catalog sync is not initialized.");
+  }
+  return techCatalogSync;
 }
 
 function requireAlertStore(): AlertStore {
@@ -1489,6 +1528,19 @@ function parseNotificationEndpointListPayload(payload: unknown): {
   };
 }
 
+function parseCatalogSyncPayload(payload: unknown): {
+  force: boolean;
+} {
+  if (!payload || typeof payload !== "object") {
+    return { force: true };
+  }
+
+  const value = payload as { force?: unknown };
+  return {
+    force: value.force !== false
+  };
+}
+
 function escapeCsvCell(value: unknown): string {
   if (value === null || value === undefined) {
     return "";
@@ -1634,6 +1686,14 @@ function setupIpcHandlers(requestExit: () => void): void {
   ipcMain.handle("settings.update", async (_event, payload: Partial<RuntimeSettings>) => {
     const nextSettings = mergeRuntimeSettings(runtimeSettings, payload ?? {});
     return persistRuntimeSettings(nextSettings);
+  });
+  ipcMain.handle("catalog.getStatus", async () => requireTechCatalogSync().getStatus());
+  ipcMain.handle("catalog.list", async () => requireTechCatalogSync().listEntries());
+  ipcMain.handle("catalog.sync", async (_event, payload: unknown) => {
+    const parsed = parseCatalogSyncPayload(payload);
+    return parsed.force
+      ? requireTechCatalogSync().syncNow(true)
+      : requireTechCatalogSync().syncIfDue();
   });
   ipcMain.handle("app.exit", async () => {
     requestExit();
@@ -3976,6 +4036,11 @@ function runAlertSchedulerTick(): void {
   const now = currentIsoDate();
   processAlertNotifications(store, now, publishAlert, navigateToAlert);
   monitorBackupFreshness(new Date().toISOString());
+  if (techCatalogSync) {
+    void techCatalogSync.syncIfDue().catch((error) => {
+      appendDiagnosticLog("WARN", "Tech catalog background sync failed.", error);
+    });
+  }
 }
 
 function startAlertScheduler(): void {
@@ -4310,6 +4375,7 @@ export async function startDesktopApp(): Promise<void> {
   );
 
   initializeDatabaseAndAlerts();
+  initializeTechCatalogSync();
   setupIpcHandlers(requestExit);
 
   configureApplicationMenu(requestExit);

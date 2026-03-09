@@ -20,6 +20,7 @@ import {
   getDatabaseSecurityStatus,
   getScenarioSettings,
   getSettings,
+  getTechCatalogStatus,
   isIpcAvailable,
   listApprovalRecords,
   listAuditRecords,
@@ -35,6 +36,7 @@ import {
   runDiagnostics,
   saveSettings,
   sendTeamsTestAlert,
+  syncTechCatalog,
   verifyBackup
 } from "../../lib/ipcClient";
 import { DASHBOARD_LAYOUT_STORAGE_KEY } from "../../lib/machineLocalState";
@@ -47,6 +49,7 @@ vi.mock("../../lib/ipcClient", async (importOriginal) => {
   return {
     ...actual,
     getSettings: vi.fn(),
+    getTechCatalogStatus: vi.fn(),
     isIpcAvailable: vi.fn(),
     saveSettings: vi.fn(),
     getDatabaseSecurityStatus: vi.fn(),
@@ -58,6 +61,7 @@ vi.mock("../../lib/ipcClient", async (importOriginal) => {
     listAuditRecords: vi.fn(),
     listNotificationEndpoints: vi.fn(),
     sendTeamsTestAlert: vi.fn(),
+    syncTechCatalog: vi.fn(),
     createBackup: vi.fn(),
     verifyBackup: vi.fn(),
     restoreBackup: vi.fn(),
@@ -70,11 +74,13 @@ vi.mock("../../lib/ipcClient", async (importOriginal) => {
 });
 
 const getSettingsMock = vi.mocked(getSettings);
+const getTechCatalogStatusMock = vi.mocked(getTechCatalogStatus);
 const isIpcAvailableMock = vi.mocked(isIpcAvailable);
 const saveSettingsMock = vi.mocked(saveSettings);
 const getDatabaseSecurityStatusMock = vi.mocked(getDatabaseSecurityStatus);
 const getScenarioSettingsMock = vi.mocked(getScenarioSettings);
 const sendTeamsTestAlertMock = vi.mocked(sendTeamsTestAlert);
+const syncTechCatalogMock = vi.mocked(syncTechCatalog);
 const listCostCentersMock = vi.mocked(listCostCenters);
 const listGlAccountsMock = vi.mocked(listGlAccounts);
 const listScenariosMock = vi.mocked(listScenarios);
@@ -120,11 +126,13 @@ describe("SettingsPage", () => {
   beforeEach(() => {
     window.localStorage.clear();
     getSettingsMock.mockReset();
+    getTechCatalogStatusMock.mockReset();
     isIpcAvailableMock.mockReset();
     saveSettingsMock.mockReset();
     getDatabaseSecurityStatusMock.mockReset();
     getScenarioSettingsMock.mockReset();
     sendTeamsTestAlertMock.mockReset();
+    syncTechCatalogMock.mockReset();
     listCostCentersMock.mockReset();
     listGlAccountsMock.mockReset();
     listScenariosMock.mockReset();
@@ -148,6 +156,23 @@ describe("SettingsPage", () => {
       lastRestoreSummary: null
     });
     isIpcAvailableMock.mockReturnValue(false);
+    getTechCatalogStatusMock.mockResolvedValue({
+      sourceUrl:
+        "https://raw.githubusercontent.com/abobneil/BudgetIT/main/apps/desktop/assets/tech-provider-catalog.json",
+      checkedAt: "2026-02-27T10:05:00.000Z",
+      lastSyncedAt: "2026-02-27T10:05:00.000Z",
+      lastError: null,
+      entryCount: 30,
+      catalogUpdatedAt: "2026-02-27T09:55:00.000Z",
+      usingFallback: false,
+      etag: "\"catalog-etag\"",
+      countsByCategory: {
+        software_vendor: 18,
+        hardware_vendor: 8,
+        isp: 5,
+        cellular_provider: 4
+      }
+    });
     saveSettingsMock.mockImplementation(async (settings) => settings);
     getDatabaseSecurityStatusMock.mockResolvedValue({
       databasePath: "C:\\Users\\tester\\AppData\\Roaming\\BudgetIT\\data\\budgetit.db",
@@ -183,6 +208,23 @@ describe("SettingsPage", () => {
       attempts: 1,
       statusCode: 200,
       health: { status: "healthy" }
+    });
+    syncTechCatalogMock.mockResolvedValue({
+      sourceUrl:
+        "https://raw.githubusercontent.com/abobneil/BudgetIT/main/apps/desktop/assets/tech-provider-catalog.json",
+      checkedAt: "2026-02-27T16:45:00.000Z",
+      lastSyncedAt: "2026-02-27T16:45:00.000Z",
+      lastError: null,
+      entryCount: 31,
+      catalogUpdatedAt: "2026-02-27T16:44:00.000Z",
+      usingFallback: false,
+      etag: "\"catalog-etag-2\"",
+      countsByCategory: {
+        software_vendor: 19,
+        hardware_vendor: 8,
+        isp: 5,
+        cellular_provider: 4
+      }
     });
     createBackupMock.mockResolvedValue({
       backupPath: "C:\\Backups\\BudgetIT\\budgetit-backup.db",
@@ -282,6 +324,26 @@ describe("SettingsPage", () => {
     });
     expect(screen.getByRole("switch", { name: "Start on system login" })).not.toBeChecked();
     expect(screen.getByRole("switch", { name: "Minimize to tray on close" })).not.toBeChecked();
+  });
+
+  it("shows tech catalog status and supports force sync", async () => {
+    isIpcAvailableMock.mockReturnValue(true);
+
+    renderSettingsPage();
+    await screen.findByText("Settings Center");
+
+    expect(screen.getByText(/Repo-backed provider catalog/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Entries: 30/)
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Force Sync Catalog" }));
+
+    await waitFor(() => {
+      expect(syncTechCatalogMock).toHaveBeenCalledWith({ force: true });
+    });
+    expect(screen.getByText(/Entries: 31/)).toBeInTheDocument();
+    expect(screen.getByText(/Last synced: 2026-02-27T16:45:00.000Z/)).toBeInTheDocument();
   });
 
   it("browses backup destination directory and populates the create-backup input", async () => {

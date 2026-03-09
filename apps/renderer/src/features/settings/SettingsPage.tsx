@@ -22,6 +22,7 @@ import {
   getDatabaseSecurityStatus,
   getScenarioSettings,
   getSettings,
+  getTechCatalogStatus,
   isIpcAvailable,
   listApprovalRecords,
   listAuditRecords,
@@ -36,6 +37,7 @@ import {
   runDiagnostics,
   saveSettings,
   sendTeamsTestAlert,
+  syncTechCatalog,
   updateScenarioSettings,
   updateCostCenter,
   updateGlAccount,
@@ -47,7 +49,8 @@ import {
   type GlAccountRecord,
   type MaintenanceDiagnosticsResult,
   type NotificationEndpointRecord,
-  type RuntimeSettings
+  type RuntimeSettings,
+  type TechCatalogStatus
 } from "../../lib/ipcClient";
 import { ConfirmDialog, InlineError, LoadingState, PageHeader } from "../../ui/primitives";
 import { useScenarioContext } from "../scenarios/ScenarioContext";
@@ -86,6 +89,7 @@ export function SettingsPage() {
   const [backupVerifyResult, setBackupVerifyResult] = useState<BackupVerifyResult | null>(null);
   const [securityStatus, setSecurityStatus] = useState<DatabaseSecurityStatus | null>(null);
   const [diagnostics, setDiagnostics] = useState<MaintenanceDiagnosticsResult | null>(null);
+  const [catalogStatus, setCatalogStatus] = useState<TechCatalogStatus | null>(null);
   const [scenarioSettings, setScenarioSettings] = useState<{
     fiscalYearStartMonth: string;
     horizonMonths: string;
@@ -118,6 +122,7 @@ export function SettingsPage() {
   const [openRekeyDialog, setOpenRekeyDialog] = useState(false);
   const [openMaterializeDialog, setOpenMaterializeDialog] = useState(false);
   const [openDiagnosticsDialog, setOpenDiagnosticsDialog] = useState(false);
+  const [syncingCatalog, setSyncingCatalog] = useState(false);
 
   const sectionDirty = useMemo(
     () => computeSettingsSectionDirtyState(baselineSettings, draftSettings),
@@ -239,6 +244,16 @@ export function SettingsPage() {
     }
   }
 
+  async function loadTechCatalog(): Promise<void> {
+    try {
+      const nextStatus = await getTechCatalogStatus();
+      setCatalogStatus(nextStatus);
+    } catch (loadError) {
+      const detail = loadError instanceof Error ? loadError.message : String(loadError);
+      pushError(`Failed to load tech catalog status: ${detail}`);
+    }
+  }
+
   async function loadSettingsCenter(): Promise<void> {
     setLoading(true);
     setError(null);
@@ -262,7 +277,8 @@ export function SettingsPage() {
         loadScenarioPlanningSettings(),
         loadFinanceReferences(),
         loadAuditEvidence(),
-        loadNotificationEvidence()
+        loadNotificationEvidence(),
+        loadTechCatalog()
       ]);
       pushStatus("Settings loaded.", "info");
     } catch (loadError) {
@@ -356,6 +372,26 @@ export function SettingsPage() {
       });
     } finally {
       setSendingTeamsTest(false);
+    }
+  }
+
+  async function handleForceCatalogSync(): Promise<void> {
+    setError(null);
+    setStatus(null);
+    setSyncingCatalog(true);
+    try {
+      const nextStatus = await syncTechCatalog({ force: true });
+      setCatalogStatus(nextStatus);
+      if (nextStatus.lastError) {
+        pushStatus(`Catalog sync completed with warning: ${nextStatus.lastError}`, "warning");
+      } else {
+        pushStatus("Tech catalog synced.");
+      }
+    } catch (syncError) {
+      const detail = syncError instanceof Error ? syncError.message : String(syncError);
+      pushError(`Tech catalog sync failed: ${detail}`);
+    } finally {
+      setSyncingCatalog(false);
     }
   }
 
@@ -711,6 +747,38 @@ export function SettingsPage() {
               {sendingTeamsTest ? "Sending..." : "Send Teams Test"}
             </Button>
           </div>
+        </Card>
+
+        <Card className="settings-card">
+          <Title3>Tech Catalog</Title3>
+          <Text size={200}>
+            Repo-backed provider catalog for software, hardware, ISP, and cellular vendors.
+          </Text>
+          <Text>{`Source: ${catalogStatus?.sourceUrl || "Desktop sync unavailable."}`}</Text>
+          <Text>{`Entries: ${catalogStatus?.entryCount ?? 0}`}</Text>
+          <Text>{`Catalog updated: ${catalogStatus?.catalogUpdatedAt || "unknown"}`}</Text>
+          <Text>{`Last checked: ${catalogStatus?.checkedAt ?? "never"}`}</Text>
+          <Text>{`Last synced: ${catalogStatus?.lastSyncedAt ?? "never"}`}</Text>
+          <Text>{`Using fallback catalog: ${catalogStatus?.usingFallback ? "yes" : "no"}`}</Text>
+          <Text>{`Software vendors: ${
+            catalogStatus?.countsByCategory.software_vendor ?? 0
+          } | Hardware vendors: ${
+            catalogStatus?.countsByCategory.hardware_vendor ?? 0
+          } | ISPs: ${catalogStatus?.countsByCategory.isp ?? 0} | Cellular: ${
+            catalogStatus?.countsByCategory.cellular_provider ?? 0
+          }`}</Text>
+          {catalogStatus?.lastError ? (
+            <Text>{`Last sync warning: ${catalogStatus.lastError}`}</Text>
+          ) : (
+            <Text size={200}>Catalog checks run automatically every 24 hours.</Text>
+          )}
+          <Button
+            appearance="secondary"
+            disabled={!isIpcAvailable() || syncingCatalog}
+            onClick={() => void handleForceCatalogSync()}
+          >
+            {syncingCatalog ? "Syncing..." : "Force Sync Catalog"}
+          </Button>
         </Card>
 
         <Card className="settings-card settings-card--full">

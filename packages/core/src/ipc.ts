@@ -1,6 +1,9 @@
 export const INVOKE_CHANNELS = [
   "settings.get",
   "settings.update",
+  "catalog.getStatus",
+  "catalog.list",
+  "catalog.sync",
   "help.open",
   "help.document.get",
   "dialog.pickFile",

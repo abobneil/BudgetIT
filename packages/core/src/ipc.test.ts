@@ -5,6 +5,7 @@ import { assertAllowedInvokeChannel, isAllowedInvokeChannel } from "./ipc";
 describe("IPC channel allowlist", () => {
   it("accepts configured channels", () => {
     expect(isAllowedInvokeChannel("settings.get")).toBe(true);
+    expect(isAllowedInvokeChannel("catalog.getStatus")).toBe(true);
     expect(isAllowedInvokeChannel("help.open")).toBe(true);
     expect(isAllowedInvokeChannel("dialog.pickFile")).toBe(true);
     expect(isAllowedInvokeChannel("dialog.pickDirectory")).toBe(true);
