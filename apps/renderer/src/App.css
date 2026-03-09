@@ -24,6 +24,7 @@ body {
   --status-danger: #dc2626;
   --status-info: #2563eb;
   --status-muted: #6b7280;
+  --dialog-window-shadow: 0 0 6px rgba(0, 0, 0, 0.1), 0 0 28px rgba(0, 0, 0, 0.16);
 }
 
 .budgetit-theme--light {
@@ -37,10 +38,16 @@ body {
   --status-danger: #ef4444;
   --status-info: #60a5fa;
   --status-muted: #9ca3af;
+  --dialog-window-shadow: 0 0 8px rgba(0, 0, 0, 0.28), 0 0 32px rgba(0, 0, 0, 0.42);
 }
 
 .budgetit-theme--highContrast {
   color-scheme: dark;
+  --dialog-window-shadow: 0 0 0 1px rgba(255, 255, 255, 0.92), 0 0 22px rgba(0, 0, 0, 0.65);
+}
+
+.fui-DialogSurface {
+  box-shadow: var(--dialog-window-shadow) !important;
 }
 
 code,
