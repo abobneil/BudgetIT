@@ -98,7 +98,20 @@ describe("Scenarios and global scenario context", () => {
   });
 
   it("updates dashboard and reports queries when the global scenario selector changes", async () => {
-    renderWorkspace("/dashboard");
+    renderWorkspace("/scenarios");
+
+    await screen.findByText("Scenarios Workspace");
+    fireEvent.change(screen.getByLabelText("New scenario name"), {
+      target: { value: "Growth" }
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Create Scenario" }));
+    await screen.findByTestId("scenario-row-scenario-growth");
+
+    fireEvent.click(screen.getByRole("link", { name: "Dashboard" }));
+
+    fireEvent.change(screen.getByLabelText("Scenario selector"), {
+      target: { value: "baseline" }
+    });
 
     await waitFor(() => {
       expect(queryReportMock).toHaveBeenCalledWith({
@@ -108,13 +121,13 @@ describe("Scenarios and global scenario context", () => {
     });
 
     fireEvent.change(screen.getByLabelText("Scenario selector"), {
-      target: { value: "growth" }
+      target: { value: "scenario-growth" }
     });
 
     await waitFor(() => {
       expect(queryReportMock).toHaveBeenCalledWith({
         query: "dashboard.summary",
-        scenarioId: "growth"
+        scenarioId: "scenario-growth"
       });
     });
 
@@ -125,7 +138,7 @@ describe("Scenarios and global scenario context", () => {
       expect(queryReportMock.mock.calls.length).toBeGreaterThan(callsAfterDashboardUpdate);
     });
     expect(queryReportMock.mock.calls.at(-1)?.[0]).toMatchObject({
-      scenarioId: "growth"
+      scenarioId: "scenario-growth"
     });
     expect(screen.getByTestId("reports-scenario-context")).toHaveTextContent("Growth");
   });

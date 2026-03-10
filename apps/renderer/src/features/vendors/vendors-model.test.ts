@@ -14,7 +14,11 @@ describe("vendors model", () => {
   });
 
   it("applies archive/delete guard rules from dependency state", () => {
-    const activeWithDependencies = evaluateVendorGuards(INITIAL_VENDOR_RECORDS[0]);
+    const activeWithDependencies = evaluateVendorGuards({
+      ...INITIAL_VENDOR_RECORDS[0],
+      linkedServiceIds: ["svc-cloud-platform"],
+      linkedContractIds: ["ctr-cloud-ops"]
+    });
     expect(activeWithDependencies.canArchive).toBe(true);
     expect(activeWithDependencies.canDelete).toBe(false);
     expect(activeWithDependencies.deleteReason).toMatch(/Cannot delete vendor/i);

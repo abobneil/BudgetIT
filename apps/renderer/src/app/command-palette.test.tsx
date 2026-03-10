@@ -106,14 +106,14 @@ describe("command palette and keyboard navigation", () => {
     renderWorkspace("/dashboard");
 
     fireEvent.change(screen.getByLabelText("Global search"), {
-      target: { value: "Expense: Endpoint Security" }
+      target: { value: "Vendor: AWS" }
     });
     fireEvent.keyDown(screen.getByLabelText("Global search"), { key: "Enter" });
 
     await waitFor(() => {
-      expect(screen.getByTestId("page-title")).toHaveTextContent("Expenses");
+      expect(screen.getByTestId("page-title")).toHaveTextContent("Vendors");
     });
-    expect(await screen.findByText("Opened Expense: Endpoint Security.")).toBeInTheDocument();
+    expect(await screen.findByText("Opened Vendor: AWS.")).toBeInTheDocument();
   });
 
   it("shows recoverable error feedback when command execution fails", async () => {
