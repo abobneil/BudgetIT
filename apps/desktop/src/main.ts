@@ -18,6 +18,7 @@ import {
   restoreEncryptedBackup,
   runMigrations,
   type AlertEventRecord,
+  type DatabaseResetResult,
   type FilterSpec,
   type ReportDatasetFilters,
   type ReportPresetQuery,
@@ -822,6 +823,25 @@ function parseDbRekeyPayload(payload: unknown): {
     throw new Error("db.rekey newKeyHex must be a 64-character hex key.");
   }
   return { newKeyHex: normalized };
+}
+
+function parseDbResetPayload(payload: unknown): {
+  backupDestinationDir: string;
+} {
+  const defaultDestination = path.join(app.getPath("documents"), DEFAULT_BACKUP_SUBDIR);
+  if (!payload || typeof payload !== "object") {
+    return { backupDestinationDir: defaultDestination };
+  }
+
+  const value = payload as { backupDestinationDir?: unknown };
+  if (
+    typeof value.backupDestinationDir !== "string" ||
+    value.backupDestinationDir.trim().length === 0
+  ) {
+    return { backupDestinationDir: defaultDestination };
+  }
+
+  return { backupDestinationDir: value.backupDestinationDir.trim() };
 }
 
 export function parseHelpOpenPayload(payload: unknown): {
@@ -1743,6 +1763,38 @@ function setupIpcHandlers(requestExit: () => void): void {
     return {
       ok: true,
       rotatedAt: new Date().toISOString()
+    };
+  });
+  ipcMain.handle("db.reset", async (_event, payload: unknown) => {
+    const parsed = parseDbResetPayload(payload);
+    const handle = requireDatabaseHandle();
+    const createdBackup = await createEncryptedBackup({
+      sourceDbPath: handle.dbPath,
+      dbKeyHex: handle.keyHex,
+      destinationDir: parsed.backupDestinationDir
+    });
+    persistBackupHealthState(
+      recordBackupCreated(backupHealthState, {
+        checkedAt: createdBackup.manifest.createdAt,
+        backupPath: createdBackup.backupPath,
+        manifestPath: createdBackup.manifestPath
+      })
+    );
+
+    const reset = getCrudRepository().resetDatabasePreservingVendors();
+    lastRestoreSummary = null;
+
+    return {
+      ...reset,
+      ok: true,
+      backupPath: createdBackup.backupPath,
+      manifestPath: createdBackup.manifestPath,
+      backupCreatedAt: createdBackup.manifest.createdAt
+    } satisfies DatabaseResetResult & {
+      ok: true;
+      backupPath: string;
+      manifestPath: string;
+      backupCreatedAt: string;
     };
   });
   ipcMain.handle("backup.create", async (_event, payload: unknown) => {

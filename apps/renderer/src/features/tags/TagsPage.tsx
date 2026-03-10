@@ -42,29 +42,7 @@ type TaggedEntity = {
   assignments: TagAssignments;
 };
 
-const INITIAL_TAGGED_ITEMS: TaggedEntity[] = [
-  {
-    id: "expense-cloud",
-    name: "Cloud Compute",
-    assignments: {
-      "dim-cost-center": ["tag-engineering"],
-      "dim-environment": ["tag-prod"]
-    }
-  },
-  {
-    id: "expense-endpoint",
-    name: "Endpoint Security",
-    assignments: {}
-  },
-  {
-    id: "expense-analytics",
-    name: "Analytics Suite",
-    assignments: {
-      "dim-cost-center": ["tag-finance"],
-      "dim-initiative": ["tag-growth"]
-    }
-  }
-];
+const INITIAL_TAGGED_ITEMS: TaggedEntity[] = [];
 
 function toTagId(label: string): string {
   return `tag-${label

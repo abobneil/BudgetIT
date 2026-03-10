@@ -39,22 +39,6 @@ export const DEFAULT_SCENARIOS: ScenarioRecord[] = [
     locked: false,
     parentScenarioId: null,
     createdAt: "2026-01-01T00:00:00.000Z"
-  },
-  {
-    id: "cost-cut",
-    name: "Cost Cut",
-    status: "draft",
-    locked: false,
-    parentScenarioId: "baseline",
-    createdAt: "2026-01-15T00:00:00.000Z"
-  },
-  {
-    id: "growth",
-    name: "Growth",
-    status: "reviewed",
-    locked: false,
-    parentScenarioId: "baseline",
-    createdAt: "2026-01-20T00:00:00.000Z"
   }
 ];
 

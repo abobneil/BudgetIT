@@ -24,8 +24,8 @@ export const INITIAL_VENDOR_RECORDS: VendorRecord[] = [
     annualSpendMinor: 1820000,
     status: "active",
     risk: "high",
-    linkedServiceIds: ["svc-identity-sso"],
-    linkedContractIds: ["ctr-sso-main", "ctr-sso-addon"]
+    linkedServiceIds: [],
+    linkedContractIds: []
   },
   {
     id: "vend-aws",
@@ -35,8 +35,8 @@ export const INITIAL_VENDOR_RECORDS: VendorRecord[] = [
     annualSpendMinor: 5240000,
     status: "active",
     risk: "medium",
-    linkedServiceIds: ["svc-cloud-platform"],
-    linkedContractIds: ["ctr-cloud-ops"]
+    linkedServiceIds: [],
+    linkedContractIds: []
   },
   {
     id: "vend-msft",
@@ -46,7 +46,7 @@ export const INITIAL_VENDOR_RECORDS: VendorRecord[] = [
     annualSpendMinor: 1310000,
     status: "watch",
     risk: "high",
-    linkedServiceIds: ["svc-endpoint-security"],
+    linkedServiceIds: [],
     linkedContractIds: []
   },
   {

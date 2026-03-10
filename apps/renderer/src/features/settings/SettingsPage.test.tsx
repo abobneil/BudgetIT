@@ -32,6 +32,7 @@ import {
   pickDirectoryPath,
   pickFilePath,
   rekeyDatabase,
+  resetDatabase,
   restoreBackup,
   runDiagnostics,
   saveSettings,
@@ -68,6 +69,7 @@ vi.mock("../../lib/ipcClient", async (importOriginal) => {
     pickDirectoryPath: vi.fn(),
     pickFilePath: vi.fn(),
     rekeyDatabase: vi.fn(),
+    resetDatabase: vi.fn(),
     materializeForecast: vi.fn(),
     runDiagnostics: vi.fn()
   };
@@ -93,6 +95,7 @@ const restoreBackupMock = vi.mocked(restoreBackup);
 const pickDirectoryPathMock = vi.mocked(pickDirectoryPath);
 const pickFilePathMock = vi.mocked(pickFilePath);
 const rekeyDatabaseMock = vi.mocked(rekeyDatabase);
+const resetDatabaseMock = vi.mocked(resetDatabase);
 const materializeForecastMock = vi.mocked(materializeForecast);
 const runDiagnosticsMock = vi.mocked(runDiagnostics);
 
@@ -145,6 +148,7 @@ describe("SettingsPage", () => {
     pickDirectoryPathMock.mockReset();
     pickFilePathMock.mockReset();
     rekeyDatabaseMock.mockReset();
+    resetDatabaseMock.mockReset();
     materializeForecastMock.mockReset();
     runDiagnosticsMock.mockReset();
 
@@ -251,6 +255,20 @@ describe("SettingsPage", () => {
     rekeyDatabaseMock.mockResolvedValue({
       ok: true,
       rotatedAt: "2026-02-27T16:30:00.000Z"
+    });
+    resetDatabaseMock.mockResolvedValue({
+      ok: true,
+      resetAt: "2026-02-27T16:32:00.000Z",
+      preservedVendorCount: 5,
+      preservedOwnerCount: 3,
+      cleared: {
+        service: 4,
+        contract: 3,
+        expense_line: 12
+      },
+      backupPath: "C:\\Backups\\BudgetIT\\budgetit-reset-backup.db",
+      manifestPath: "C:\\Backups\\BudgetIT\\budgetit-reset-backup.manifest.json",
+      backupCreatedAt: "2026-02-27T16:31:00.000Z"
     });
     materializeForecastMock.mockResolvedValue({
       ok: true,
@@ -437,6 +455,37 @@ describe("SettingsPage", () => {
     expect(screen.getByLabelText("Verify manifest path")).toHaveValue(
       "C:\\Backups\\BudgetIT\\verify.manifest.json"
     );
+  });
+
+  it("backs up then resets the database from settings", async () => {
+    isIpcAvailableMock.mockReturnValue(true);
+
+    renderSettingsPage();
+    await screen.findByText("Settings Center");
+
+    fireEvent.change(screen.getByLabelText("Backup destination directory"), {
+      target: { value: "C:\\Backups\\BudgetIT" }
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Backup Then Reset" }));
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Backup Then Reset" }));
+
+    await waitFor(() => {
+      expect(resetDatabaseMock).toHaveBeenCalledWith({
+        backupDestinationDir: "C:\\Backups\\BudgetIT"
+      });
+    });
+    expect(screen.getByLabelText("Restore backup path")).toHaveValue(
+      "C:\\Backups\\BudgetIT\\budgetit-reset-backup.db"
+    );
+    expect(screen.getByLabelText("Restore manifest path")).toHaveValue(
+      "C:\\Backups\\BudgetIT\\budgetit-reset-backup.manifest.json"
+    );
+    expect(
+      screen.getByText(
+        /Database reset complete\. Backup saved to C:\\Backups\\BudgetIT\\budgetit-reset-backup\.db\. Preserved 5 vendor\(s\)\./
+      )
+    ).toBeInTheDocument();
   });
 
   it("persists startup/tray changes and shows restore as-of banner in routed workspace flow", async () => {

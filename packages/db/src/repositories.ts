@@ -277,6 +277,13 @@ export type GlAccountRecord = {
   updatedAt: string;
 };
 
+export type DatabaseResetResult = {
+  resetAt: string;
+  preservedVendorCount: number;
+  preservedOwnerCount: number;
+  cleared: Record<string, number>;
+};
+
 export type OwnerOptionRecord = {
   id: string;
   name: string;
@@ -2166,6 +2173,147 @@ export class BudgetCrudRepository {
 
   deleteGlAccount(code: string): void {
     this.db.prepare("DELETE FROM gl_account WHERE code = ?").run(code);
+  }
+
+  resetDatabasePreservingVendors(): DatabaseResetResult {
+    const resetAt = nowIso();
+    const run = this.db.transaction(() => {
+      const preservedVendorCount = (
+        this.db.prepare("SELECT COUNT(*) AS count FROM vendor").get() as { count: number }
+      ).count;
+      const preservedOwnerCount = (
+        this.db
+          .prepare(
+            `
+              SELECT COUNT(*) AS count
+              FROM owner_directory
+              WHERE id IN (
+                SELECT DISTINCT owner_id
+                FROM vendor
+                WHERE owner_id IS NOT NULL
+              )
+            `
+          )
+          .get() as { count: number }
+      ).count;
+
+      const cleared: Record<string, number> = {};
+      const deleteFromTable = (tableName: string, whereClause?: string): void => {
+        const result = this.db.prepare(`DELETE FROM ${tableName}${whereClause ? ` ${whereClause}` : ""}`).run();
+        cleared[tableName] = result.changes;
+      };
+
+      deleteFromTable("replacement_candidate");
+      deleteFromTable("service_plan");
+      deleteFromTable("unmatched_actual_review");
+      deleteFromTable("showback_line");
+      deleteFromTable("showback_statement");
+      deleteFromTable("approval_record");
+      deleteFromTable("notification_endpoint");
+      deleteFromTable("attachment");
+      deleteFromTable("spend_transaction");
+      deleteFromTable("occurrence");
+      deleteFromTable("recurrence_rule");
+      deleteFromTable("expense_line");
+      deleteFromTable("contract");
+      deleteFromTable("service");
+      deleteFromTable("tag_assignment");
+      deleteFromTable("tag");
+      deleteFromTable("dimension");
+      deleteFromTable("alert_event");
+      deleteFromTable("alert_rule");
+      deleteFromTable("cost_center");
+      deleteFromTable("gl_account");
+      deleteFromTable("audit_log");
+
+      const deleteScenarioSettings = this.db
+        .prepare("DELETE FROM scenario_settings WHERE scenario_id <> 'baseline'")
+        .run();
+      cleared.scenario_settings = deleteScenarioSettings.changes;
+
+      const deleteScenarios = this.db
+        .prepare("DELETE FROM scenario WHERE id <> 'baseline'")
+        .run();
+      cleared.scenario = deleteScenarios.changes;
+
+      const deleteUnusedOwners = this.db
+        .prepare(
+          `
+            DELETE FROM owner_directory
+            WHERE id NOT IN (
+              SELECT DISTINCT owner_id
+              FROM vendor
+              WHERE owner_id IS NOT NULL
+            )
+          `
+        )
+        .run();
+      cleared.owner_directory = deleteUnusedOwners.changes;
+
+      this.db
+        .prepare(
+          `
+            INSERT INTO scenario (
+              id,
+              name,
+              parent_scenario_id,
+              approval_status,
+              is_locked,
+              created_at,
+              updated_at
+            ) VALUES ('baseline', 'Baseline', NULL, 'approved', 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+            ON CONFLICT(id) DO UPDATE SET
+              name = excluded.name,
+              parent_scenario_id = excluded.parent_scenario_id,
+              approval_status = excluded.approval_status,
+              is_locked = excluded.is_locked,
+              updated_at = CURRENT_TIMESTAMP
+          `
+        )
+        .run();
+
+      this.db
+        .prepare(
+          `
+            INSERT INTO scenario_settings (
+              scenario_id,
+              fiscal_year_start_month,
+              horizon_months,
+              default_currency,
+              created_at,
+              updated_at
+            ) VALUES ('baseline', 1, 24, 'USD', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+            ON CONFLICT(scenario_id) DO UPDATE SET
+              fiscal_year_start_month = 1,
+              horizon_months = 24,
+              default_currency = 'USD',
+              updated_at = CURRENT_TIMESTAMP
+          `
+        )
+        .run();
+
+      this.db
+        .prepare(
+          `
+            UPDATE meta
+            SET last_mutation_at = ?,
+                forecast_stale = 1,
+                forecast_generated_at = NULL,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = 1
+          `
+        )
+        .run(resetAt);
+
+      return {
+        resetAt,
+        preservedVendorCount,
+        preservedOwnerCount,
+        cleared
+      };
+    });
+
+    return run();
   }
 }
 

@@ -33,6 +33,7 @@ import {
   pickDirectoryPath,
   pickFilePath,
   rekeyDatabase,
+  resetDatabase,
   restoreBackup,
   runDiagnostics,
   saveSettings,
@@ -45,6 +46,7 @@ import {
   type ApprovalRecord,
   type BackupVerifyResult,
   type CostCenterRecord,
+  type DatabaseResetResult,
   type DatabaseSecurityStatus,
   type GlAccountRecord,
   type MaintenanceDiagnosticsResult,
@@ -65,7 +67,7 @@ import "./SettingsPage.css";
 const DEFAULT_BACKUP_DESTINATION = "";
 
 export function SettingsPage() {
-  const { selectedScenarioId } = useScenarioContext();
+  const { selectedScenarioId, selectScenario } = useScenarioContext();
   const { notify } = useFeedback();
   const [baselineSettings, setBaselineSettings] = useState<RuntimeSettings>(defaultSettings);
   const [draftSettings, setDraftSettings] = useState<RuntimeSettings>(defaultSettings);
@@ -75,6 +77,7 @@ export function SettingsPage() {
   const [sendingTeamsTest, setSendingTeamsTest] = useState(false);
   const [backupBusy, setBackupBusy] = useState(false);
   const [restoringBackup, setRestoringBackup] = useState(false);
+  const [resettingDatabase, setResettingDatabase] = useState(false);
   const [rekeyBusy, setRekeyBusy] = useState(false);
   const [maintenanceBusy, setMaintenanceBusy] = useState<"materialize" | "diagnostics" | null>(
     null
@@ -120,6 +123,7 @@ export function SettingsPage() {
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [openRekeyDialog, setOpenRekeyDialog] = useState(false);
+  const [openResetDialog, setOpenResetDialog] = useState(false);
   const [openMaterializeDialog, setOpenMaterializeDialog] = useState(false);
   const [openDiagnosticsDialog, setOpenDiagnosticsDialog] = useState(false);
   const [syncingCatalog, setSyncingCatalog] = useState(false);
@@ -177,9 +181,9 @@ export function SettingsPage() {
     }
   }
 
-  async function loadScenarioPlanningSettings(): Promise<void> {
+  async function loadScenarioPlanningSettings(targetScenarioId: string = selectedScenarioId): Promise<void> {
     try {
-      const current = await getScenarioSettings({ scenarioId: selectedScenarioId });
+      const current = await getScenarioSettings({ scenarioId: targetScenarioId });
       setScenarioSettings({
         fiscalYearStartMonth: String(current.fiscalYearStartMonth),
         horizonMonths: String(current.horizonMonths),
@@ -205,10 +209,10 @@ export function SettingsPage() {
     }
   }
 
-  async function loadAuditEvidence(): Promise<void> {
+  async function loadAuditEvidence(targetScenarioId: string = selectedScenarioId): Promise<void> {
     try {
       const [approvals, audit] = await Promise.all([
-        listApprovalRecords({ scenarioId: selectedScenarioId, limit: 20 }),
+        listApprovalRecords({ scenarioId: targetScenarioId, limit: 20 }),
         listAuditRecords({ limit: 20 })
       ]);
       setApprovalRecords(approvals);
@@ -468,6 +472,40 @@ export function SettingsPage() {
       pushError(`Backup restore failed: ${detail}`);
     } finally {
       setRestoringBackup(false);
+    }
+  }
+
+  async function handleResetDatabaseConfirm(): Promise<void> {
+    setError(null);
+    setStatus(null);
+    setOpenResetDialog(false);
+    setResettingDatabase(true);
+    try {
+      const result: DatabaseResetResult = await resetDatabase({
+        backupDestinationDir: backupDestination.trim() || undefined
+      });
+      setBackupPathInput(result.backupPath);
+      setManifestPathInput(result.manifestPath);
+      setVerifyBackupPathInput(result.backupPath);
+      setVerifyManifestPathInput(result.manifestPath);
+      setBackupVerifyResult(null);
+      setRestoreSummary(null);
+      setDiagnostics(null);
+      selectScenario("baseline");
+      await Promise.all([
+        loadScenarioPlanningSettings("baseline"),
+        loadFinanceReferences(),
+        loadAuditEvidence("baseline"),
+        loadNotificationEvidence()
+      ]);
+      pushStatus(
+        `Database reset complete. Backup saved to ${result.backupPath}. Preserved ${result.preservedVendorCount} vendor(s).`
+      );
+    } catch (resetError) {
+      const detail = resetError instanceof Error ? resetError.message : String(resetError);
+      pushError(`Database reset failed: ${detail}`);
+    } finally {
+      setResettingDatabase(false);
     }
   }
 
@@ -943,6 +981,27 @@ export function SettingsPage() {
                 </Button>
               </div>
             </section>
+
+            <section className="settings-backup__section">
+              <div className="settings-backup__section-header">
+                <Text weight="semibold">Backup then reset database</Text>
+                <Text size={200}>
+                  Creates a fresh backup, clears the current database, and preserves vendor records.
+                </Text>
+              </div>
+              <div className="settings-card__actions">
+                <Text size={200}>
+                  Uses the destination directory above when provided, otherwise the default backup folder.
+                </Text>
+                <Button
+                  appearance="secondary"
+                  disabled={!isIpcAvailable() || resettingDatabase || backupBusy || restoringBackup}
+                  onClick={() => setOpenResetDialog(true)}
+                >
+                  {resettingDatabase ? "Resetting..." : "Backup Then Reset"}
+                </Button>
+              </div>
+            </section>
           </div>
 
           {restoreSummary ? (
@@ -1179,6 +1238,14 @@ export function SettingsPage() {
         onOpenChange={setOpenRekeyDialog}
         onConfirm={() => void handleRekeyConfirm()}
         confirmLabel="Rotate Key"
+      />
+      <ConfirmDialog
+        open={openResetDialog}
+        title="Backup and reset database?"
+        message="This creates a backup, clears the current database, and keeps vendor records. Services, contracts, expenses, tags, scenarios, approvals, and other database content will be removed."
+        onOpenChange={setOpenResetDialog}
+        onConfirm={() => void handleResetDatabaseConfirm()}
+        confirmLabel="Backup Then Reset"
       />
       <ConfirmDialog
         open={openMaterializeDialog}

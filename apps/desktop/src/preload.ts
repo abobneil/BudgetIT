@@ -13,6 +13,7 @@ const fallbackInvokeChannels = [
   "app.exit",
   "db.open",
   "db.rekey",
+  "db.reset",
   "backup.create",
   "backup.restore",
   "backup.verify",

@@ -81,6 +81,7 @@ import {
   buildVendorFilterOptions,
   matchesVendorFilter
 } from "../vendors/vendor-filter-model";
+import { INITIAL_VENDOR_RECORDS } from "../vendors/vendor-data";
 import {
   generateRecurrencePreview,
   type RecurrencePreviewRule
@@ -115,74 +116,7 @@ const STATUS_OPTIONS: ExpenseStatus[] = [
   "cancelled"
 ];
 
-const INITIAL_EXPENSES: ExpenseRecord[] = [
-  {
-    id: "exp-1",
-    name: "Cloud Compute",
-    amountMinor: 240000,
-    status: "approved",
-    vendorId: "vend-aws",
-    vendorName: "AWS",
-    serviceId: "svc-aws-core",
-    serviceName: "AWS",
-    contractId: "ctr-aws-2026-base",
-    contractNumber: "AWS-2026-BASE",
-    tags: ["infra", "production"],
-    tagAssignments: {
-      "dim-cost-center": ["tag-engineering"],
-      "dim-environment": ["tag-prod"]
-    },
-    recurrenceRule: {
-      frequency: "monthly",
-      interval: 1,
-      dayOfMonth: 31,
-      anchorDate: "2026-01-31"
-    }
-  },
-  {
-    id: "exp-2",
-    name: "Endpoint Security",
-    amountMinor: 84000,
-    status: "planned",
-    vendorId: "vend-msft",
-    vendorName: "Microsoft",
-    serviceId: "svc-msft-defender",
-    serviceName: "Defender",
-    contractId: "ctr-ms-sec-2026",
-    contractNumber: "MS-SEC-2026",
-    tags: ["security"],
-    tagAssignments: {},
-    recurrenceRule: {
-      frequency: "monthly",
-      interval: 1,
-      dayOfMonth: 15,
-      anchorDate: "2026-01-15"
-    }
-  },
-  {
-    id: "exp-3",
-    name: "Analytics Suite",
-    amountMinor: 125000,
-    status: "committed",
-    vendorId: "vend-datadog",
-    vendorName: "Datadog",
-    serviceId: "svc-datadog-looker",
-    serviceName: "Looker",
-    contractId: "ctr-look-anl-01",
-    contractNumber: "LOOK-ANL-01",
-    tags: ["bi", "finance"],
-    tagAssignments: {
-      "dim-cost-center": ["tag-finance"],
-      "dim-initiative": ["tag-growth"]
-    },
-    recurrenceRule: {
-      frequency: "quarterly",
-      interval: 1,
-      dayOfMonth: 30,
-      anchorDate: "2026-02-01"
-    }
-  }
-];
+const INITIAL_EXPENSES: ExpenseRecord[] = [];
 
 type ExpenseFormState = {
   name: string;
@@ -198,7 +132,10 @@ type ExpenseFormState = {
   recurrenceAnchorDate: string;
 };
 
-function createDefaultFormState(vendorId = "vend-aws", currency: string = "USD"): ExpenseFormState {
+function createDefaultFormState(
+  vendorId: string = INITIAL_VENDOR_RECORDS[0]?.id ?? "",
+  currency: string = "USD"
+): ExpenseFormState {
   return {
     name: "",
     amountMinor: formatCurrencyInputMinor(0, currency),
@@ -362,7 +299,10 @@ export function ExpensesPage() {
   const [drawerMode, setDrawerMode] = useState<"create" | "edit">("create");
   const [editingExpenseId, setEditingExpenseId] = useState<string | null>(null);
   const [formState, setFormState] = useState<ExpenseFormState>(() =>
-    createDefaultFormState(INITIAL_EXPENSES[0]?.vendorId ?? "vend-aws", displayCurrency)
+    createDefaultFormState(
+      INITIAL_EXPENSES[0]?.vendorId ?? INITIAL_VENDOR_RECORDS[0]?.id ?? "",
+      displayCurrency
+    )
   );
   const [formError, setFormError] = useState<string | null>(null);
   const [deleteExpenseId, setDeleteExpenseId] = useState<string | null>(null);
@@ -392,10 +332,17 @@ export function ExpensesPage() {
               vendorId: vendor.id,
               vendorName: vendor.name
             }))
-          : expenses.map((expense) => ({
-              vendorId: expense.vendorId,
-              vendorName: expense.vendorName
-            }))
+          : (
+              expenses.length > 0
+                ? expenses.map((expense) => ({
+                    vendorId: expense.vendorId,
+                    vendorName: expense.vendorName
+                  }))
+                : INITIAL_VENDOR_RECORDS.map((vendor) => ({
+                    vendorId: vendor.id,
+                    vendorName: vendor.name
+                  }))
+            )
       ),
     [expenses, hasIpc, vendors]
   );
@@ -620,7 +567,10 @@ export function ExpensesPage() {
       setDrawerMode("create");
       setEditingExpenseId(null);
       setFormState(
-        createDefaultFormState(vendorOptions[0]?.value ?? "vend-aws", displayCurrency)
+        createDefaultFormState(
+          vendorOptions[0]?.value ?? INITIAL_VENDOR_RECORDS[0]?.id ?? "",
+          displayCurrency
+        )
       );
       setFormError(null);
       setDrawerOpen(true);
@@ -865,7 +815,12 @@ export function ExpensesPage() {
   function openCreateDrawer(): void {
     setDrawerMode("create");
     setEditingExpenseId(null);
-    setFormState(createDefaultFormState(vendorOptions[0]?.value ?? "vend-aws", displayCurrency));
+    setFormState(
+      createDefaultFormState(
+        vendorOptions[0]?.value ?? INITIAL_VENDOR_RECORDS[0]?.id ?? "",
+        displayCurrency
+      )
+    );
     setFormError(null);
     setDrawerOpen(true);
   }

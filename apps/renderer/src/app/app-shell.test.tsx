@@ -331,23 +331,23 @@ describe("AppShell", () => {
 
     const globalSearch = screen.getByLabelText("Global search");
     fireEvent.change(globalSearch, {
-      target: { value: "Endpoint Security" }
+      target: { value: "Okta" }
     });
 
     await waitFor(() => {
-      expect(getGlobalSearchOptionValues()).toContain("Expense: Endpoint Security");
+      expect(getGlobalSearchOptionValues()).toContain("Vendor: Okta");
     });
 
     fireEvent.change(globalSearch, {
-      target: { value: "Expense: Endpoint Security" }
+      target: { value: "Vendor: Okta" }
     });
     fireEvent.keyDown(globalSearch, { key: "Enter" });
 
     await waitFor(() => {
       expect(screen.getByTestId("current-location")).toHaveTextContent(
-        buildExpenseRoute("exp-2", "baseline")
+        buildVendorRoute("vend-okta")
       );
-      expect(screen.getByTestId("page-title")).toHaveTextContent("Expenses");
+      expect(screen.getByTestId("page-title")).toHaveTextContent("Vendors");
     });
   });
 

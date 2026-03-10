@@ -83,6 +83,17 @@ export type DbRekeyResult = {
   rotatedAt: string;
 };
 
+export type DatabaseResetResult = {
+  ok: boolean;
+  resetAt: string;
+  preservedVendorCount: number;
+  preservedOwnerCount: number;
+  cleared: Record<string, number>;
+  backupPath: string;
+  manifestPath: string;
+  backupCreatedAt: string;
+};
+
 export type MaintenanceMaterializeResult = {
   ok: boolean;
   generatedCount: number;
@@ -789,6 +800,12 @@ export async function rekeyDatabase(payload?: {
   newKeyHex?: string;
 }): Promise<DbRekeyResult> {
   return invokeIpc<DbRekeyResult>("db.rekey", payload);
+}
+
+export async function resetDatabase(payload?: {
+  backupDestinationDir?: string;
+}): Promise<DatabaseResetResult> {
+  return invokeIpc<DatabaseResetResult>("db.reset", payload);
 }
 
 export async function previewImport(input: {

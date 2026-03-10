@@ -183,7 +183,7 @@ export function ServicesPage() {
     }))
   );
   const [vendorNameById, setVendorNameById] = useState<Record<string, string>>(
-    Object.fromEntries(SERVICE_RECORDS.map((entry) => [entry.vendorId, entry.vendorName]))
+    Object.fromEntries(INITIAL_VENDOR_RECORDS.map((entry) => [entry.id, entry.name]))
   );
   const [contractById, setContractById] = useState<Record<string, { id: string; contractNumber: string; providerName: string }>>(
     () =>

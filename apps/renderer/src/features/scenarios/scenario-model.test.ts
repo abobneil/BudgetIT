@@ -86,16 +86,16 @@ describe("scenario model", () => {
     const storage = new MemoryStorage();
     const state: ScenarioState = {
       scenarios: DEFAULT_SCENARIO_STATE.scenarios,
-      selectedScenarioId: "growth"
+      selectedScenarioId: "baseline"
     };
 
     persistScenarioState(state, storage);
     expect(storage.getItem(getScenarioStorageKey())).toBe(
-      JSON.stringify({ selectedScenarioId: "growth" })
+      JSON.stringify({ selectedScenarioId: "baseline" })
     );
 
     const loaded = loadScenarioState(storage);
-    expect(loaded.selectedScenarioId).toBe("growth");
+    expect(loaded.selectedScenarioId).toBe("baseline");
 
     storage.setItem(
       getScenarioStorageKey(),
@@ -108,12 +108,16 @@ describe("scenario model", () => {
   });
 
   it("prefers parent or a remaining scenario when choosing fallback selection after delete", () => {
-    expect(
-      getScenarioFallbackSelectionAfterDelete(DEFAULT_SCENARIO_STATE.scenarios, "growth")
-    ).toBe("baseline");
-
     const scenarios: ScenarioState["scenarios"] = [
       ...DEFAULT_SCENARIO_STATE.scenarios,
+      {
+        id: "cost-cut",
+        name: "Cost Cut",
+        status: "draft",
+        locked: false,
+        parentScenarioId: "baseline",
+        createdAt: "2026-01-15T00:00:00.000Z"
+      },
       {
         id: "scenario-a",
         name: "Scenario A",
@@ -125,5 +129,6 @@ describe("scenario model", () => {
     ];
 
     expect(getScenarioFallbackSelectionAfterDelete(scenarios, "cost-cut")).toBe("baseline");
+    expect(getScenarioFallbackSelectionAfterDelete(scenarios, "scenario-a")).toBe("baseline");
   });
 });

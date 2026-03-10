@@ -12,7 +12,6 @@ import {
 } from "@fluentui/react-components";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 
-import { CONTRACT_RECORDS, SERVICE_RECORDS } from "../features/services/service-contract-data";
 import { INITIAL_VENDOR_RECORDS } from "../features/vendors/vendor-data";
 import { useScenarioContext } from "../features/scenarios/ScenarioContext";
 import {
@@ -59,37 +58,7 @@ const FALLBACK_GLOBAL_SEARCH_ENTRIES: GlobalSearchEntry[] = [
     label: `Vendor: ${vendor.name}`,
     route: buildVendorRoute(vendor.id),
     keywords: [vendor.name, "vendor"]
-  })),
-  ...SERVICE_RECORDS.map((service) => ({
-    id: `service-${service.id}`,
-    label: `Service: ${service.name}`,
-    route: buildServiceRoute(service.id),
-    keywords: [service.name, service.vendorName, "service"]
-  })),
-  ...CONTRACT_RECORDS.map((contract) => ({
-    id: `contract-${contract.id}`,
-    label: `Contract: ${contract.contractNumber}`,
-    route: buildContractRoute(contract.id),
-    keywords: [contract.contractNumber, contract.providerName, "contract"]
-  })),
-  {
-    id: "expense-exp-1",
-    label: "Expense: Cloud Compute",
-    route: buildExpenseRoute("exp-1", "baseline"),
-    keywords: ["cloud", "expense"]
-  },
-  {
-    id: "expense-exp-2",
-    label: "Expense: Endpoint Security",
-    route: buildExpenseRoute("exp-2", "baseline"),
-    keywords: ["security", "expense"]
-  },
-  {
-    id: "expense-exp-3",
-    label: "Expense: Analytics Suite",
-    route: buildExpenseRoute("exp-3", "baseline"),
-    keywords: ["analytics", "expense"]
-  }
+  }))
 ];
 
 function filterGlobalSearchEntries(
