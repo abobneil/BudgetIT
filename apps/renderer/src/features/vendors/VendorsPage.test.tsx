@@ -264,6 +264,11 @@ function renderVendorsPage() {
   );
 }
 
+async function openVendorRowMenu(row: HTMLElement): Promise<void> {
+  fireEvent.click(within(row).getByRole("button", { name: "More" }));
+  await screen.findByRole("menu");
+}
+
 async function addOwnerFromField(label: string, ownerName: string): Promise<void> {
   const input = screen.getByLabelText(label);
   fireEvent.focus(input);
@@ -402,7 +407,8 @@ describe("VendorsPage", () => {
       throw new Error("Expected AWS vendor row.");
     }
 
-    fireEvent.click(within(awsRow).getByRole("button", { name: "Open Services" }));
+    await openVendorRowMenu(awsRow);
+    fireEvent.click(screen.getByRole("menuitem", { name: "Open Services" }));
     await waitFor(() => {
       expect(screen.getByTestId("page-title")).toHaveTextContent("Services");
     });
@@ -420,7 +426,8 @@ describe("VendorsPage", () => {
     if (!awsRowAgain) {
       throw new Error("Expected AWS vendor row after returning to vendors.");
     }
-    fireEvent.click(within(awsRowAgain).getByRole("button", { name: "Open Expenses" }));
+    await openVendorRowMenu(awsRowAgain);
+    fireEvent.click(screen.getByRole("menuitem", { name: "Open Expenses" }));
     await waitFor(() => {
       expect(screen.getByTestId("page-title")).toHaveTextContent("Expenses");
     });
@@ -457,14 +464,16 @@ describe("VendorsPage", () => {
         throw new Error("Expected AWS vendor row.");
       }
 
-      fireEvent.click(within(awsRow).getByRole("button", { name: "Delete" }));
+      await openVendorRowMenu(awsRow);
+      fireEvent.click(screen.getByRole("menuitem", { name: "Delete" }));
       expect(
         await screen.findByText(
           "Cannot delete vendor while linked services or contracts exist."
         )
       ).toBeInTheDocument();
 
-      fireEvent.click(within(awsRow).getByRole("button", { name: "Archive" }));
+      await openVendorRowMenu(awsRow);
+      fireEvent.click(screen.getByRole("menuitem", { name: "Archive" }));
       const archiveDialog = await screen.findByRole("dialog");
       fireEvent.click(
         within(archiveDialog).getByRole("button", { name: "Archive", hidden: true })
@@ -476,7 +485,8 @@ describe("VendorsPage", () => {
       if (!refreshedAwsRow) {
         throw new Error("Expected AWS vendor row after archive.");
       }
-      fireEvent.click(within(refreshedAwsRow).getByRole("button", { name: "Open Services" }));
+      await openVendorRowMenu(refreshedAwsRow);
+      fireEvent.click(screen.getByRole("menuitem", { name: "Open Services" }));
       await waitFor(() => {
         expect(screen.getByTestId("page-title")).toHaveTextContent("Services");
       });
@@ -554,5 +564,15 @@ describe("VendorsPage", () => {
     const vendorsTable = screen.getByRole("table", { name: "Vendors table" });
     expect(within(vendorsTable).getByText("Okta")).toBeInTheDocument();
     expect(within(vendorsTable).queryByText("AWS")).not.toBeInTheDocument();
+  });
+
+  it("shows an empty state when IPC returns no vendors", async () => {
+    vendors = [];
+    owners = [];
+
+    renderVendorsPage();
+
+    expect(await screen.findByText("No vendors yet")).toBeInTheDocument();
+    expect(screen.queryByText("Okta")).not.toBeInTheDocument();
   });
 });

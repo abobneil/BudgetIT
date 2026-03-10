@@ -204,7 +204,7 @@ describe("budget CRUD repository", () => {
     }
   });
 
-  it("resets database state while preserving vendors and vendor-linked owners", () => {
+  it("resets database state including vendors and owners", () => {
     const dataDir = createTempDir();
     const boot = bootstrapEncryptedDatabase(dataDir);
     try {
@@ -477,13 +477,12 @@ describe("budget CRUD repository", () => {
         )
         .run(serviceId);
 
-      const result = repo.resetDatabasePreservingVendors();
+      const result = repo.resetDatabase();
 
-      expect(result.preservedVendorCount).toBe(1);
-      expect(result.preservedOwnerCount).toBe(1);
-      expect(repo.listVendors()).toHaveLength(1);
-      expect(repo.listOwners()).toHaveLength(1);
-      expect(repo.listOwners()[0]?.id).toBe(vendorOwner.id);
+      expect(result.preservedVendorCount).toBe(0);
+      expect(result.preservedOwnerCount).toBe(0);
+      expect(repo.listVendors()).toHaveLength(0);
+      expect(repo.listOwners()).toHaveLength(0);
       expect(repo.listServices()).toHaveLength(0);
       expect(repo.listContracts()).toHaveLength(0);
       expect(repo.listExpenseLines("baseline")).toHaveLength(0);
@@ -521,6 +520,8 @@ describe("budget CRUD repository", () => {
         showback_line: 0,
         attachment: 0,
         audit_log: 0,
+        vendor: 0,
+        owner_directory: 0,
         scenario: 1,
         scenario_settings: 1
       };

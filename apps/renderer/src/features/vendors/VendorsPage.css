@@ -22,8 +22,9 @@
 
 .vendors-row__actions {
   display: flex;
-  flex-wrap: wrap;
+  align-items: center;
   gap: 0.35rem;
+  justify-content: flex-end;
 }
 
 .vendors-detail {

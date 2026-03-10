@@ -399,6 +399,21 @@ describe("AppShell", () => {
     }
   });
 
+  it("does not repopulate fallback vendor search entries when live IPC data is empty", async () => {
+    isIpcAvailableMock.mockReturnValue(true);
+    listVendorsMock.mockResolvedValue([]);
+    listServicesMock.mockResolvedValue([]);
+    listContractsMock.mockResolvedValue([]);
+    listExpensesMock.mockResolvedValue([]);
+
+    renderSearchShell();
+
+    await waitFor(() => {
+      expect(listVendorsMock).toHaveBeenCalledTimes(1);
+      expect(getGlobalSearchOptionValues()).toEqual([]);
+    });
+  });
+
   it("navigates to a scenario-aware expense route from live global search", async () => {
     isIpcAvailableMock.mockReturnValue(true);
 

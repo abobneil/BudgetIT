@@ -260,10 +260,10 @@ export function AppShell({ children }: PropsWithChildren) {
           })
         ];
 
-        setGlobalSearchSource(entries.length > 0 ? entries : FALLBACK_GLOBAL_SEARCH_ENTRIES);
+        setGlobalSearchSource(entries);
       } catch {
         if (!cancelled) {
-          setGlobalSearchSource(FALLBACK_GLOBAL_SEARCH_ENTRIES);
+          setGlobalSearchSource([]);
         }
       }
     })();

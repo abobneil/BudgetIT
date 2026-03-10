@@ -498,9 +498,7 @@ export function SettingsPage() {
         loadAuditEvidence("baseline"),
         loadNotificationEvidence()
       ]);
-      pushStatus(
-        `Database reset complete. Backup saved to ${result.backupPath}. Preserved ${result.preservedVendorCount} vendor(s).`
-      );
+      pushStatus(`Database reset complete. Backup saved to ${result.backupPath}.`);
     } catch (resetError) {
       const detail = resetError instanceof Error ? resetError.message : String(resetError);
       pushError(`Database reset failed: ${detail}`);
@@ -986,7 +984,7 @@ export function SettingsPage() {
               <div className="settings-backup__section-header">
                 <Text weight="semibold">Backup then reset database</Text>
                 <Text size={200}>
-                  Creates a fresh backup, clears the current database, and preserves vendor records.
+                  Creates a fresh backup and clears the current database, including vendors.
                 </Text>
               </div>
               <div className="settings-card__actions">
@@ -1242,7 +1240,7 @@ export function SettingsPage() {
       <ConfirmDialog
         open={openResetDialog}
         title="Backup and reset database?"
-        message="This creates a backup, clears the current database, and keeps vendor records. Services, contracts, expenses, tags, scenarios, approvals, and other database content will be removed."
+        message="This creates a backup and clears the current database, including vendors, services, contracts, expenses, tags, scenarios, approvals, and other database content."
         onOpenChange={setOpenResetDialog}
         onConfirm={() => void handleResetDatabaseConfirm()}
         confirmLabel="Backup Then Reset"

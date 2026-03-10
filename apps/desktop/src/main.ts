@@ -1781,7 +1781,7 @@ function setupIpcHandlers(requestExit: () => void): void {
       })
     );
 
-    const reset = getCrudRepository().resetDatabasePreservingVendors();
+    const reset = getCrudRepository().resetDatabase();
     lastRestoreSummary = null;
 
     return {

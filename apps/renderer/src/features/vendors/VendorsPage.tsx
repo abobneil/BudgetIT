@@ -3,6 +3,11 @@ import {
   Button,
   Card,
   Input,
+  Menu,
+  MenuItem,
+  MenuList,
+  MenuPopover,
+  MenuTrigger,
   Select,
   Table,
   TableBody,
@@ -156,13 +161,13 @@ export function VendorsPage() {
   const hasIpc = isIpcAvailable();
   const { selectedScenarioId } = useScenarioContext();
   const displayCurrency = useScenarioCurrency(selectedScenarioId);
-  const [vendors, setVendors] = useState<VendorRecord[]>(INITIAL_VENDOR_RECORDS);
+  const [vendors, setVendors] = useState<VendorRecord[]>(hasIpc ? [] : INITIAL_VENDOR_RECORDS);
   const [searchText, setSearchText] = useState("");
   const [sortKey, setSortKey] = useState<VendorSortKey>("name");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
   const [ownerFilter, setOwnerFilter] = useState<string>("all");
   const [selectedVendorId, setSelectedVendorId] = useState<string>(
-    searchParams.get("vendor") ?? INITIAL_VENDOR_RECORDS[0]?.id ?? ""
+    searchParams.get("vendor") ?? (hasIpc ? "" : (INITIAL_VENDOR_RECORDS[0]?.id ?? ""))
   );
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerMode, setDrawerMode] = useState<"create" | "edit">("create");
@@ -177,11 +182,13 @@ export function VendorsPage() {
   const [loading, setLoading] = useState(false);
   const [catalogVendorNames, setCatalogVendorNames] = useState<string[]>([]);
   const [owners, setOwners] = useState(() =>
-    buildOwnerOptions({
-      vendors: INITIAL_VENDOR_RECORDS,
-      services: Object.values(SERVICE_BY_ID),
-      contracts: Object.values(CONTRACT_BY_ID)
-    })
+    hasIpc
+      ? []
+      : buildOwnerOptions({
+          vendors: INITIAL_VENDOR_RECORDS,
+          services: Object.values(SERVICE_BY_ID),
+          contracts: Object.values(CONTRACT_BY_ID)
+        })
   );
   const lastSyncedVendorIdRef = useRef<string | null>(null);
   const annualSpendExample = useMemo(
@@ -281,7 +288,9 @@ export function VendorsPage() {
       }));
       setVendors(mapped);
       setOwners(ownerRows);
-      if (mapped.length > 0 && !mapped.some((vendor) => vendor.id === selectedVendorId)) {
+      if (mapped.length === 0) {
+        setSelectedVendorId("");
+      } else if (!mapped.some((vendor) => vendor.id === selectedVendorId)) {
         setSelectedVendorId(mapped[0].id);
       }
     } catch (error) {
@@ -324,14 +333,16 @@ export function VendorsPage() {
   }, [searchParams, vendors]);
 
   useEffect(() => {
-    if (!selectedVendorId) {
-      return;
-    }
-    lastSyncedVendorIdRef.current = selectedVendorId;
     setSearchParams(
       (current) => {
         const next = new URLSearchParams(current);
-        next.set("vendor", selectedVendorId);
+        if (selectedVendorId) {
+          lastSyncedVendorIdRef.current = selectedVendorId;
+          next.set("vendor", selectedVendorId);
+        } else {
+          lastSyncedVendorIdRef.current = null;
+          next.delete("vendor");
+        }
         return next;
       },
       { replace: true }
@@ -390,6 +401,7 @@ export function VendorsPage() {
     filteredVendors.find((vendor) => vendor.id === selectedVendorId) ??
     filteredVendors[0] ??
     null;
+  const hasActiveFilters = searchText.trim().length > 0 || ownerFilter !== "all";
 
   function toggleSort(nextSortKey: VendorSortKey): void {
     if (sortKey === nextSortKey) {
@@ -781,8 +793,12 @@ export function VendorsPage() {
         <section>
           {filteredVendors.length === 0 ? (
             <EmptyState
-              title="No vendors match filters"
-              description="Adjust search terms or create a vendor to populate this workspace."
+              title={hasActiveFilters ? "No vendors match filters" : "No vendors yet"}
+              description={
+                hasActiveFilters
+                  ? "Adjust search terms or owner filters."
+                  : "Create a vendor to populate this workspace."
+              }
             />
           ) : (
             <Table aria-label="Vendors table">
@@ -838,17 +854,7 @@ export function VendorsPage() {
                         <div className="vendors-row__actions">
                           <Button
                             size="small"
-                            appearance="secondary"
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              setSelectedVendorId(vendor.id);
-                            }}
-                          >
-                            Review
-                          </Button>
-                          <Button
-                            size="small"
-                            appearance="secondary"
+                            appearance={selected ? "primary" : "secondary"}
                             onClick={(event) => {
                               event.stopPropagation();
                               openEditDrawer(vendor);
@@ -856,46 +862,55 @@ export function VendorsPage() {
                           >
                             Edit
                           </Button>
-                          <Button
-                            size="small"
-                            appearance="secondary"
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              openServices(vendor);
-                            }}
-                          >
-                            Open Services
-                          </Button>
-                          <Button
-                            size="small"
-                            appearance="secondary"
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              openExpenses(vendor);
-                            }}
-                          >
-                            Open Expenses
-                          </Button>
-                          <Button
-                            size="small"
-                            appearance="secondary"
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              requestArchive(vendor);
-                            }}
-                          >
-                            Archive
-                          </Button>
-                          <Button
-                            size="small"
-                            appearance="secondary"
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              requestDelete(vendor);
-                            }}
-                          >
-                            Delete
-                          </Button>
+                          <Menu>
+                            <MenuTrigger disableButtonEnhancement>
+                              <Button
+                                size="small"
+                                appearance="secondary"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                }}
+                              >
+                                More
+                              </Button>
+                            </MenuTrigger>
+                            <MenuPopover>
+                              <MenuList>
+                                <MenuItem
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    openServices(vendor);
+                                  }}
+                                >
+                                  Open Services
+                                </MenuItem>
+                                <MenuItem
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    openExpenses(vendor);
+                                  }}
+                                >
+                                  Open Expenses
+                                </MenuItem>
+                                <MenuItem
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    requestArchive(vendor);
+                                  }}
+                                >
+                                  Archive
+                                </MenuItem>
+                                <MenuItem
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    requestDelete(vendor);
+                                  }}
+                                >
+                                  Delete
+                                </MenuItem>
+                              </MenuList>
+                            </MenuPopover>
+                          </Menu>
                         </div>
                       </TableCell>
                     </TableRow>

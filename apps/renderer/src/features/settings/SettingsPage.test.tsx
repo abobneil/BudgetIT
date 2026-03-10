@@ -259,8 +259,8 @@ describe("SettingsPage", () => {
     resetDatabaseMock.mockResolvedValue({
       ok: true,
       resetAt: "2026-02-27T16:32:00.000Z",
-      preservedVendorCount: 5,
-      preservedOwnerCount: 3,
+      preservedVendorCount: 0,
+      preservedOwnerCount: 0,
       cleared: {
         service: 4,
         contract: 3,
@@ -483,7 +483,7 @@ describe("SettingsPage", () => {
     );
     expect(
       screen.getByText(
-        /Database reset complete\. Backup saved to C:\\Backups\\BudgetIT\\budgetit-reset-backup\.db\. Preserved 5 vendor\(s\)\./
+        /Database reset complete\. Backup saved to C:\\Backups\\BudgetIT\\budgetit-reset-backup\.db\./
       )
     ).toBeInTheDocument();
   });

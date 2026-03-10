@@ -2175,28 +2175,9 @@ export class BudgetCrudRepository {
     this.db.prepare("DELETE FROM gl_account WHERE code = ?").run(code);
   }
 
-  resetDatabasePreservingVendors(): DatabaseResetResult {
+  resetDatabase(): DatabaseResetResult {
     const resetAt = nowIso();
     const run = this.db.transaction(() => {
-      const preservedVendorCount = (
-        this.db.prepare("SELECT COUNT(*) AS count FROM vendor").get() as { count: number }
-      ).count;
-      const preservedOwnerCount = (
-        this.db
-          .prepare(
-            `
-              SELECT COUNT(*) AS count
-              FROM owner_directory
-              WHERE id IN (
-                SELECT DISTINCT owner_id
-                FROM vendor
-                WHERE owner_id IS NOT NULL
-              )
-            `
-          )
-          .get() as { count: number }
-      ).count;
-
       const cleared: Record<string, number> = {};
       const deleteFromTable = (tableName: string, whereClause?: string): void => {
         const result = this.db.prepare(`DELETE FROM ${tableName}${whereClause ? ` ${whereClause}` : ""}`).run();
@@ -2217,6 +2198,7 @@ export class BudgetCrudRepository {
       deleteFromTable("expense_line");
       deleteFromTable("contract");
       deleteFromTable("service");
+      deleteFromTable("vendor");
       deleteFromTable("tag_assignment");
       deleteFromTable("tag");
       deleteFromTable("dimension");
@@ -2236,19 +2218,8 @@ export class BudgetCrudRepository {
         .run();
       cleared.scenario = deleteScenarios.changes;
 
-      const deleteUnusedOwners = this.db
-        .prepare(
-          `
-            DELETE FROM owner_directory
-            WHERE id NOT IN (
-              SELECT DISTINCT owner_id
-              FROM vendor
-              WHERE owner_id IS NOT NULL
-            )
-          `
-        )
-        .run();
-      cleared.owner_directory = deleteUnusedOwners.changes;
+      const deleteOwners = this.db.prepare("DELETE FROM owner_directory").run();
+      cleared.owner_directory = deleteOwners.changes;
 
       this.db
         .prepare(
@@ -2307,8 +2278,8 @@ export class BudgetCrudRepository {
 
       return {
         resetAt,
-        preservedVendorCount,
-        preservedOwnerCount,
+        preservedVendorCount: 0,
+        preservedOwnerCount: 0,
         cleared
       };
     });
