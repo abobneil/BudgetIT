@@ -388,6 +388,10 @@ export function ContractsPage() {
     navigate(`/reports?replacementContractId=${contractId}`);
   }
 
+  function openRenewalReview(contractId: string, serviceId: string): void {
+    navigate(`/renewals?contract=${contractId}&service=${serviceId}`);
+  }
+
   function openCreateDrawer(): void {
     const defaultService = serviceChoices[0]?.value ?? contractRecords[0]?.linkedServiceIds[0] ?? "";
     setDrawerMode("create");
@@ -930,8 +934,9 @@ export function ContractsPage() {
                   size="small"
                   appearance="primary"
                   onClick={() =>
-                    setMessage(
-                      `Renewal review started for ${selectedContract.contractNumber}.`
+                    openRenewalReview(
+                      selectedContract.id,
+                      selectedContract.linkedServiceIds[0] ?? ""
                     )
                   }
                 >

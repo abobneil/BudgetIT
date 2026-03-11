@@ -420,6 +420,47 @@ export type ContractRecord = {
   deletedAt: string | null;
 };
 
+export type RenewalDecisionAction =
+  | "renew"
+  | "renegotiate"
+  | "replace"
+  | "retire"
+  | "do_not_renew"
+  | "defer";
+
+export type RenewalDecisionRecord = {
+  id: string;
+  scenarioId: string;
+  serviceId: string;
+  contractId: string | null;
+  action: RenewalDecisionAction;
+  effectiveDate: string;
+  expectedAmountMinor: number;
+  currency: string;
+  notes: string | null;
+  assumptions: string | null;
+  materializedExpenseLineId: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type RenewalWorkbenchItem = {
+  scenarioId: string;
+  serviceId: string;
+  serviceName: string;
+  serviceStatus: string;
+  vendorName: string;
+  contractId: string | null;
+  contractNumber: string | null;
+  renewalDate: string | null;
+  noticeDeadline: string | null;
+  lifecycleStatus: string;
+  noticePeriodDays: number | null;
+  currentAmountMinor: number;
+  currency: string;
+  decision: RenewalDecisionRecord | null;
+};
+
 export type OwnerOptionRecord = {
   id: string;
   name: string;
@@ -1034,6 +1075,26 @@ export async function listContracts(payload?: {
   includeDeleted?: boolean;
 }): Promise<ContractRecord[]> {
   return invokeIpc<ContractRecord[]>("contracts.list", payload);
+}
+
+export async function listRenewalWorkbench(payload: {
+  scenarioId: string;
+}): Promise<RenewalWorkbenchItem[]> {
+  return invokeIpc<RenewalWorkbenchItem[]>("renewals.workbench.list", payload);
+}
+
+export async function upsertRenewalDecision(payload: {
+  scenarioId: string;
+  serviceId: string;
+  contractId?: string | null;
+  action: RenewalDecisionAction;
+  effectiveDate: string;
+  expectedAmountMinor: number;
+  currency: string;
+  notes?: string | null;
+  assumptions?: string | null;
+}): Promise<RenewalDecisionRecord> {
+  return invokeIpc<RenewalDecisionRecord>("renewals.decision.upsert", payload);
 }
 
 export async function createContract(payload: {

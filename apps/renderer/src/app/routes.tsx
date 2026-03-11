@@ -10,6 +10,7 @@ import { HelpPage } from "../features/help/HelpPage";
 import { ImportPage } from "../features/import/ImportPage";
 import { NlqPage } from "../features/nlq/NlqPage";
 import { ReportsPage } from "../features/reports/ReportsPage";
+import { RenewalsPage } from "../features/renewals/RenewalsPage";
 import { ScenariosPage } from "../features/scenarios/ScenariosPage";
 import { ServicesPage } from "../features/services/ServicesPage";
 import { SettingsPage } from "../features/settings/SettingsPage";
@@ -88,6 +89,13 @@ export const APP_ROUTES: AppRouteConfig[] = [
     label: "Import",
     nav: true,
     element: <ImportPage />
+  },
+  {
+    key: "renewals",
+    path: "/renewals",
+    label: "Renewals",
+    nav: true,
+    element: <RenewalsPage />
   },
   {
     key: "reports",

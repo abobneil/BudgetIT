@@ -52,6 +52,13 @@ export {
   type UnmatchedActualTransaction
 } from "./variance";
 export {
+  listRenewalWorkbenchItems,
+  upsertRenewalDecision,
+  type RenewalDecisionAction,
+  type RenewalDecisionRecord,
+  type RenewalWorkbenchItem
+} from "./renewal-planning";
+export {
   computeWeightedScore,
   createAttachmentReference,
   createServicePlan,

@@ -23,6 +23,8 @@ export const INVOKE_CHANNELS = [
   "import.commit",
   "import.templates.list",
   "import.templates.delete",
+  "renewals.workbench.list",
+  "renewals.decision.upsert",
   "reports.query",
   "report.preview",
   "export.report",

@@ -28,6 +28,7 @@ import {
   listContracts,
   listExpenses,
   listOwners,
+  listRenewalWorkbench,
   listServices,
   listUnmatchedActuals,
   listVendors,
@@ -40,6 +41,7 @@ import {
   retireOwner,
   reviewUnmatchedActual,
   type ServiceRecord,
+  upsertRenewalDecision,
   updateContract,
   type VendorRecord,
   updateService
@@ -64,6 +66,7 @@ vi.mock("../../lib/ipcClient", async (importOriginal) => {
     listContracts: vi.fn(),
     listExpenses: vi.fn(),
     listOwners: vi.fn(),
+    listRenewalWorkbench: vi.fn(),
     listServices: vi.fn(),
     listUnmatchedActuals: vi.fn(),
     listVendors: vi.fn(),
@@ -74,6 +77,7 @@ vi.mock("../../lib/ipcClient", async (importOriginal) => {
     queryReport: vi.fn(),
     retireOwner: vi.fn(),
     reviewUnmatchedActual: vi.fn(),
+    upsertRenewalDecision: vi.fn(),
     updateContract: vi.fn(),
     updateService: vi.fn()
   };
@@ -91,6 +95,7 @@ const listAlertsMock = vi.mocked(listAlerts);
 const listContractsMock = vi.mocked(listContracts);
 const listExpensesMock = vi.mocked(listExpenses);
 const listOwnersMock = vi.mocked(listOwners);
+const listRenewalWorkbenchMock = vi.mocked(listRenewalWorkbench);
 const listServicesMock = vi.mocked(listServices);
 const listUnmatchedActualsMock = vi.mocked(listUnmatchedActuals);
 const listVendorsMock = vi.mocked(listVendors);
@@ -101,6 +106,7 @@ const previewReportMock = vi.mocked(previewReport);
 const queryReportMock = vi.mocked(queryReport);
 const retireOwnerMock = vi.mocked(retireOwner);
 const reviewUnmatchedActualMock = vi.mocked(reviewUnmatchedActual);
+const upsertRenewalDecisionMock = vi.mocked(upsertRenewalDecision);
 const updateContractMock = vi.mocked(updateContract);
 const updateServiceMock = vi.mocked(updateService);
 
@@ -353,6 +359,24 @@ describe("service and contract workspaces", () => {
     listContractsMock.mockImplementation(async () => contracts);
     listExpensesMock.mockResolvedValue(BASE_EXPENSES);
     listOwnersMock.mockImplementation(async () => owners);
+    listRenewalWorkbenchMock.mockResolvedValue([
+      {
+        scenarioId: "baseline",
+        serviceId: "svc-cloud-platform",
+        serviceName: "Cloud Platform",
+        serviceStatus: "active",
+        vendorName: "AWS",
+        contractId: "ctr-cloud-ops",
+        contractNumber: "CTR-CLOUD-OPS-07",
+        renewalDate: "2026-12-31",
+        noticeDeadline: "2026-12-01",
+        lifecycleStatus: "active",
+        noticePeriodDays: 30,
+        currentAmountMinor: 240000,
+        currency: "USD",
+        decision: null
+      }
+    ]);
     listAlertsMock.mockResolvedValue([]);
     onAlertNavigateMock.mockReturnValue(() => undefined);
     listUnmatchedActualsMock.mockResolvedValue({
@@ -441,6 +465,21 @@ describe("service and contract workspaces", () => {
       ok: true,
       transactionId: "txn-1",
       disposition: "matched"
+    });
+    upsertRenewalDecisionMock.mockResolvedValue({
+      id: "renew-1",
+      scenarioId: "baseline",
+      serviceId: "svc-cloud-platform",
+      contractId: "ctr-cloud-ops",
+      action: "renew",
+      effectiveDate: "2026-12-31",
+      expectedAmountMinor: 220000,
+      currency: "USD",
+      notes: null,
+      assumptions: null,
+      materializedExpenseLineId: "exp-renewal",
+      createdAt: "2026-03-08T00:00:00.000Z",
+      updatedAt: "2026-03-08T00:00:00.000Z"
     });
     createExpenseFromUnmatchedActualMock.mockResolvedValue({
       ok: true,
@@ -615,6 +654,19 @@ describe("service and contract workspaces", () => {
       expect(screen.getByTestId("page-title")).toHaveTextContent("Reports");
     });
     expect(screen.getByTestId("reports-scenario-context")).toHaveTextContent("Baseline");
+  });
+
+  it("opens the renewal workbench from contracts workspace", async () => {
+    renderWorkspace("/contracts?contract=ctr-cloud-ops");
+
+    await screen.findByText("Contract Detail");
+    fireEvent.click(screen.getByRole("button", { name: "Start Renewal Review" }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("page-title")).toHaveTextContent("Renewals");
+    });
+    expect(await screen.findByText("Renewal Workbench")).toBeInTheDocument();
+    expect(screen.getByText("CTR-CLOUD-OPS-07")).toBeInTheDocument();
   });
 
   it("opens the service form guide from the drawer", async () => {

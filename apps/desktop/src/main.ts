@@ -10,6 +10,7 @@ import {
   buildMonthlyVarianceDataset,
   createEncryptedBackup,
   getReplacementPlanDetail,
+  listRenewalWorkbenchItems,
   listUnmatchedActualTransactions,
   materializeScenarioOccurrences,
   parseNlqToFilterSpec,
@@ -17,11 +18,13 @@ import {
   rekeyEncryptedDatabase,
   restoreEncryptedBackup,
   runMigrations,
+  upsertRenewalDecision,
   type AlertEventRecord,
   type DatabaseResetResult,
   type FilterSpec,
   type ReportDatasetFilters,
   type ReportPresetQuery,
+  type RenewalDecisionAction,
   type RestoreEncryptedBackupResult
 } from "@budgetit/db";
 import {
@@ -1021,6 +1024,56 @@ function parseImportPayload(payload: unknown): {
       typeof value.requireFinanceMetadata === "boolean"
         ? value.requireFinanceMetadata
         : undefined
+  };
+}
+
+function parseRenewalWorkbenchPayload(payload: unknown): {
+  scenarioId: string;
+} {
+  const value = requireObjectPayload(payload, "renewals.workbench.list requires payload.");
+  return {
+    scenarioId: getRequiredString(value, "scenarioId", "renewals.workbench.list requires scenarioId.")
+  };
+}
+
+function parseRenewalDecisionPayload(payload: unknown): {
+  scenarioId: string;
+  serviceId: string;
+  contractId: string | null;
+  action: RenewalDecisionAction;
+  effectiveDate: string;
+  expectedAmountMinor: number;
+  currency: string;
+  notes?: string | null;
+  assumptions?: string | null;
+} {
+  const value = requireObjectPayload(payload, "renewals.decision.upsert requires payload.");
+  const action = getRequiredString(value, "action", "renewals.decision.upsert requires action.");
+  const allowedActions: RenewalDecisionAction[] = [
+    "renew",
+    "renegotiate",
+    "replace",
+    "retire",
+    "do_not_renew",
+    "defer"
+  ];
+  if (!allowedActions.includes(action as RenewalDecisionAction)) {
+    throw new Error("renewals.decision.upsert requires a valid action.");
+  }
+  const expectedAmountMinor = getOptionalNumber(value, "expectedAmountMinor");
+  if (expectedAmountMinor === undefined) {
+    throw new Error("renewals.decision.upsert requires expectedAmountMinor.");
+  }
+  return {
+    scenarioId: getRequiredString(value, "scenarioId", "renewals.decision.upsert requires scenarioId."),
+    serviceId: getRequiredString(value, "serviceId", "renewals.decision.upsert requires serviceId."),
+    contractId: getOptionalNullableString(value, "contractId") ?? null,
+    action: action as RenewalDecisionAction,
+    effectiveDate: getRequiredString(value, "effectiveDate", "renewals.decision.upsert requires effectiveDate."),
+    expectedAmountMinor,
+    currency: getRequiredString(value, "currency", "renewals.decision.upsert requires currency."),
+    notes: getOptionalNullableString(value, "notes"),
+    assumptions: getOptionalNullableString(value, "assumptions")
   };
 }
 
@@ -2118,6 +2171,24 @@ function setupIpcHandlers(requestExit: () => void): void {
       ...committed,
       suggestions
     };
+  });
+  ipcMain.handle("renewals.workbench.list", async (_event, payload: unknown) => {
+    const parsed = parseRenewalWorkbenchPayload(payload);
+    return listRenewalWorkbenchItems(requireDatabaseHandle().db, parsed.scenarioId);
+  });
+  ipcMain.handle("renewals.decision.upsert", async (_event, payload: unknown) => {
+    const parsed = parseRenewalDecisionPayload(payload);
+    const handle = requireDatabaseHandle();
+    const saved = upsertRenewalDecision(handle.db, parsed);
+    const settings = new BudgetCrudRepository(handle.db).getScenarioSettings(parsed.scenarioId);
+    materializeScenarioOccurrences(handle.db, parsed.scenarioId, settings.horizonMonths);
+    writeAuditLog({
+      action: "renewals.decision.upsert",
+      entityType: "renewal_decision",
+      entityId: saved.id,
+      after: saved
+    });
+    return saved;
   });
   ipcMain.handle("reports.query", async (_event, payload: unknown) => {
     const parsed = parseReportsQueryPayload(payload);

@@ -199,6 +199,23 @@ export const replacementCandidate = sqliteTable("replacement_candidate", {
   updatedAt: text("updated_at").notNull()
 });
 
+export const renewalDecision = sqliteTable("renewal_decision", {
+  id: text("id").primaryKey(),
+  scenarioId: text("scenario_id").notNull(),
+  serviceId: text("service_id").notNull(),
+  contractId: text("contract_id"),
+  action: text("action").notNull(),
+  effectiveDate: text("effective_date").notNull(),
+  expectedAmountMinor: integer("expected_amount_minor").notNull(),
+  currency: text("currency").notNull(),
+  notes: text("notes"),
+  assumptions: text("assumptions"),
+  sourceSnapshotJson: text("source_snapshot_json").notNull(),
+  materializedExpenseLineId: text("materialized_expense_line_id"),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull()
+});
+
 export const alertRule = sqliteTable("alert_rule", {
   id: text("id").primaryKey(),
   scenarioId: text("scenario_id").notNull(),

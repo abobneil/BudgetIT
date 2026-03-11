@@ -17,3 +17,13 @@ export function buildExpenseRoute(expenseId: string, scenarioId: string): string
   });
   return `/expenses?${params.toString()}`;
 }
+
+export function buildRenewalRoute(contractId: string, serviceId?: string): string {
+  const params = new URLSearchParams({
+    contract: contractId
+  });
+  if (serviceId) {
+    params.set("service", serviceId);
+  }
+  return `/renewals?${params.toString()}`;
+}

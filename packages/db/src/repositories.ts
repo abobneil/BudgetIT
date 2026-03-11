@@ -1205,6 +1205,7 @@ export class BudgetCrudRepository {
         )
         .run(scenarioId);
       this.db.prepare("DELETE FROM service_plan WHERE scenario_id = ?").run(scenarioId);
+      this.db.prepare("DELETE FROM renewal_decision WHERE scenario_id = ?").run(scenarioId);
       this.db.prepare("DELETE FROM alert_event WHERE scenario_id = ?").run(scenarioId);
       this.db.prepare("DELETE FROM alert_rule WHERE scenario_id = ?").run(scenarioId);
       this.db.prepare("DELETE FROM occurrence WHERE scenario_id = ?").run(scenarioId);
@@ -1490,6 +1491,94 @@ export class BudgetCrudRepository {
           recurrence.day_of_month,
           recurrence.month_of_year,
           recurrence.anchor_date
+        );
+      }
+
+      const sourceRenewalDecisions = this.db
+        .prepare(
+          `
+            SELECT
+              id,
+              service_id,
+              contract_id,
+              action,
+              effective_date,
+              expected_amount_minor,
+              currency,
+              notes,
+              assumptions,
+              source_snapshot_json,
+              materialized_expense_line_id
+            FROM renewal_decision
+            WHERE scenario_id = ?
+          `
+        )
+        .all(sourceScenarioId) as Array<{
+        id: string;
+        service_id: string;
+        contract_id: string | null;
+        action: string;
+        effective_date: string;
+        expected_amount_minor: number;
+        currency: string;
+        notes: string | null;
+        assumptions: string | null;
+        source_snapshot_json: string;
+        materialized_expense_line_id: string | null;
+      }>;
+
+      const insertRenewalDecision = this.db.prepare(
+        `
+          INSERT INTO renewal_decision (
+            id,
+            scenario_id,
+            service_id,
+            contract_id,
+            action,
+            effective_date,
+            expected_amount_minor,
+            currency,
+            notes,
+            assumptions,
+            source_snapshot_json,
+            materialized_expense_line_id,
+            created_at,
+            updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        `
+      );
+
+      for (const decision of sourceRenewalDecisions) {
+        let snapshotJson = decision.source_snapshot_json;
+        try {
+          const parsed = JSON.parse(decision.source_snapshot_json) as Array<{
+            expenseLineId: string;
+            originalEndDate: string | null;
+          }>;
+          snapshotJson = JSON.stringify(
+            parsed.map((entry) => ({
+              ...entry,
+              expenseLineId: expenseMap.get(entry.expenseLineId) ?? entry.expenseLineId
+            }))
+          );
+        } catch {
+          snapshotJson = decision.source_snapshot_json;
+        }
+        insertRenewalDecision.run(
+          crypto.randomUUID(),
+          newScenarioId,
+          decision.service_id,
+          decision.contract_id,
+          decision.action,
+          decision.effective_date,
+          decision.expected_amount_minor,
+          decision.currency,
+          decision.notes,
+          decision.assumptions,
+          snapshotJson,
+          decision.materialized_expense_line_id
+            ? (expenseMap.get(decision.materialized_expense_line_id) ?? null)
+            : null
         );
       }
     });
@@ -2186,6 +2275,7 @@ export class BudgetCrudRepository {
 
       deleteFromTable("replacement_candidate");
       deleteFromTable("service_plan");
+      deleteFromTable("renewal_decision");
       deleteFromTable("unmatched_actual_review");
       deleteFromTable("showback_line");
       deleteFromTable("showback_statement");

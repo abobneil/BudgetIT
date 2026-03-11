@@ -21,6 +21,10 @@ Manage contract terms, renewal windows, and linked services.
   - Open related alert
   - Open replacement workspace
   - Start renewal review
+- Start renewal review:
+  - Opens the Renewal Workbench for the active scenario.
+  - Record the intended action, effective date, expected future cost, and planning notes before saving.
+  - Saving a decision updates scenario forecast inputs so downstream comparison reflects the planned renewal outcome.
 - The detail panel is where you confirm whether the contract record supports a keep, renegotiate, or exit decision.
 
 ### Create/Edit Contract form

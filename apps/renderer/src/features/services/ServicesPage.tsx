@@ -449,6 +449,11 @@ export function ServicesPage() {
     navigate(`/reports?replacementServiceId=${serviceId}`);
   }
 
+  function openRenewalReview(serviceId: string): void {
+    const contractId = selectedService?.linkedContractIds[0] ?? "";
+    navigate(`/renewals?service=${serviceId}${contractId ? `&contract=${contractId}` : ""}`);
+  }
+
   function openCreateDrawer(): void {
     const defaultVendorId = vendorChoices[0]?.id ?? serviceRecords[0]?.vendorId ?? "";
     setDrawerMode("create");
@@ -1025,9 +1030,9 @@ export function ServicesPage() {
                   <Button
                     size="small"
                     appearance="secondary"
-                    onClick={() => openAlert(selectedService.id)}
+                    onClick={() => openRenewalReview(selectedService.id)}
                   >
-                    Open Related Alert
+                    Open Renewal Workbench
                   </Button>
                 </div>
               ) : null}
