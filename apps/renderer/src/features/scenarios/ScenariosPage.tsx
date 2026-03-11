@@ -74,16 +74,32 @@ export function ScenariosPage() {
       expenseCount: number;
       totalMinor: number;
       classifiedExpenseCount: number;
+      savings: {
+        recurringSavingsMinor: number;
+        avoidedFutureCostMinor: number;
+        oneTimeCostMinor: number;
+        netSavingsMinor: number;
+      };
     };
     comparison: {
       expenseCount: number;
       totalMinor: number;
       classifiedExpenseCount: number;
+      savings: {
+        recurringSavingsMinor: number;
+        avoidedFutureCostMinor: number;
+        oneTimeCostMinor: number;
+        netSavingsMinor: number;
+      };
     };
     delta: {
       expenseCount: number;
       totalMinor: number;
       classifiedExpenseCount: number;
+      recurringSavingsMinor: number;
+      avoidedFutureCostMinor: number;
+      oneTimeCostMinor: number;
+      netSavingsMinor: number;
     };
     generatedAt: string;
   }>(null);
@@ -202,16 +218,32 @@ export function ScenariosPage() {
             expenseCount: number;
             totalMinor: number;
             classifiedExpenseCount: number;
+            savings: {
+              recurringSavingsMinor: number;
+              avoidedFutureCostMinor: number;
+              oneTimeCostMinor: number;
+              netSavingsMinor: number;
+            };
           };
           comparison: {
             expenseCount: number;
             totalMinor: number;
             classifiedExpenseCount: number;
+            savings: {
+              recurringSavingsMinor: number;
+              avoidedFutureCostMinor: number;
+              oneTimeCostMinor: number;
+              netSavingsMinor: number;
+            };
           };
           delta: {
             expenseCount: number;
             totalMinor: number;
             classifiedExpenseCount: number;
+            recurringSavingsMinor: number;
+            avoidedFutureCostMinor: number;
+            oneTimeCostMinor: number;
+            netSavingsMinor: number;
           };
           generatedAt: string;
         };
@@ -306,6 +338,9 @@ export function ScenariosPage() {
           <Text>{`Baseline ${comparisonResult.baselineScenarioId}: ${comparisonResult.baseline.expenseCount} expenses, ${formatCurrencyMinor(comparisonResult.baseline.totalMinor, displayCurrency)}, ${comparisonResult.baseline.classifiedExpenseCount} classified`}</Text>
           <Text>{`Selected ${comparisonResult.comparisonScenarioId}: ${comparisonResult.comparison.expenseCount} expenses, ${formatCurrencyMinor(comparisonResult.comparison.totalMinor, displayCurrency)}, ${comparisonResult.comparison.classifiedExpenseCount} classified`}</Text>
           <Text>{`Delta: ${comparisonResult.delta.expenseCount} expenses, ${formatCurrencyMinor(comparisonResult.delta.totalMinor, displayCurrency)}, ${comparisonResult.delta.classifiedExpenseCount} classified`}</Text>
+          <Text>{`Baseline savings: recurring ${formatCurrencyMinor(comparisonResult.baseline.savings.recurringSavingsMinor, displayCurrency)}, avoided ${formatCurrencyMinor(comparisonResult.baseline.savings.avoidedFutureCostMinor, displayCurrency)}, one-time ${formatCurrencyMinor(comparisonResult.baseline.savings.oneTimeCostMinor, displayCurrency)}, net ${formatCurrencyMinor(comparisonResult.baseline.savings.netSavingsMinor, displayCurrency)}`}</Text>
+          <Text>{`Selected savings: recurring ${formatCurrencyMinor(comparisonResult.comparison.savings.recurringSavingsMinor, displayCurrency)}, avoided ${formatCurrencyMinor(comparisonResult.comparison.savings.avoidedFutureCostMinor, displayCurrency)}, one-time ${formatCurrencyMinor(comparisonResult.comparison.savings.oneTimeCostMinor, displayCurrency)}, net ${formatCurrencyMinor(comparisonResult.comparison.savings.netSavingsMinor, displayCurrency)}`}</Text>
+          <Text>{`Savings delta: recurring ${formatCurrencyMinor(comparisonResult.delta.recurringSavingsMinor, displayCurrency)}, avoided ${formatCurrencyMinor(comparisonResult.delta.avoidedFutureCostMinor, displayCurrency)}, one-time ${formatCurrencyMinor(comparisonResult.delta.oneTimeCostMinor, displayCurrency)}, net ${formatCurrencyMinor(comparisonResult.delta.netSavingsMinor, displayCurrency)}`}</Text>
         </Card>
       ) : null}
       {comparisonError ? <InlineError message={comparisonError} /> : null}

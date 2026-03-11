@@ -8,6 +8,7 @@ import { bootstrapEncryptedDatabase } from "./encrypted-db";
 import { materializeScenarioOccurrences, markForecastStale } from "./forecast-engine";
 import { runMigrations } from "./migrations";
 import { buildDashboardDataset, buildReportPresetDataset } from "./reporting";
+import { upsertRenewalDecision } from "./renewal-planning";
 import {
   createServicePlan,
   setReplacementSelection,
@@ -167,20 +168,35 @@ describe("dashboard reporting datasets", () => {
         servicePlanId: planB,
         nextStatus: "reviewed"
       });
+      upsertRenewalDecision(boot.db, {
+        scenarioId: "baseline",
+        serviceId,
+        contractId,
+        action: "renegotiate",
+        effectiveDate: "2026-05-01",
+        expectedAmountMinor: 12_000,
+        currency: "USD",
+        oneTimeCostMinor: 1_000,
+        savingsCategory: "renegotiation",
+        savingsRationale: "Vendor agreed to lower renewal pricing."
+      });
 
       const dashboard = buildDashboardDataset(boot.db, "baseline");
 
       expect(dashboard.spendTrend.length).toBeGreaterThan(0);
       expect(dashboard.variance.length).toBe(dashboard.spendTrend.length);
       expect(dashboard.renewals).toEqual([{ month: "2026-05", count: 1 }]);
-      expect(dashboard.taggingCompleteness.totalExpenseLines).toBe(2);
+      expect(dashboard.taggingCompleteness.totalExpenseLines).toBe(3);
       expect(dashboard.taggingCompleteness.taggedExpenseLines).toBe(1);
-      expect(dashboard.taggingCompleteness.completenessRatio).toBe(0.5);
+      expect(dashboard.taggingCompleteness.completenessRatio).toBeCloseTo(1 / 3);
       expect(dashboard.replacementStatus.totalPlans).toBe(2);
       expect(dashboard.replacementStatus.byStatus.some((row) => row.status === "approved")).toBe(
         true
       );
-      expect(dashboard.narrativeBlocks.length).toBe(4);
+      expect(dashboard.narrativeBlocks.length).toBe(5);
+      expect(
+        dashboard.narrativeBlocks.some((block) => block.title === "Savings Outlook")
+      ).toBe(true);
 
       const forecastTotal = dashboard.spendTrend.reduce((sum, row) => sum + row.forecastMinor, 0);
       const varianceForecastTotal = dashboard.variance.reduce(

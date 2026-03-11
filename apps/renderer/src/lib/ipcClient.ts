@@ -483,6 +483,14 @@ export type RenewalDecisionAction =
   | "do_not_renew"
   | "defer";
 
+export type RenewalSavingsCategory =
+  | "retirement"
+  | "non_renewal"
+  | "replacement"
+  | "consolidation"
+  | "renegotiation"
+  | "other";
+
 export type RenewalDecisionRecord = {
   id: string;
   scenarioId: string;
@@ -490,7 +498,13 @@ export type RenewalDecisionRecord = {
   contractId: string | null;
   action: RenewalDecisionAction;
   effectiveDate: string;
+  currentAmountMinor: number;
   expectedAmountMinor: number;
+  recurringSavingsMinor: number;
+  avoidedFutureCostMinor: number;
+  oneTimeCostMinor: number;
+  savingsCategory: RenewalSavingsCategory | null;
+  savingsRationale: string | null;
   currency: string;
   notes: string | null;
   assumptions: string | null;
@@ -1146,6 +1160,9 @@ export async function upsertRenewalDecision(payload: {
   effectiveDate: string;
   expectedAmountMinor: number;
   currency: string;
+  oneTimeCostMinor?: number;
+  savingsCategory?: RenewalSavingsCategory | null;
+  savingsRationale?: string | null;
   notes?: string | null;
   assumptions?: string | null;
 }): Promise<RenewalDecisionRecord> {

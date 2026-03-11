@@ -82,15 +82,23 @@ describe("renewal planning", () => {
         effectiveDate: "2026-07-01",
         expectedAmountMinor: 7_500,
         currency: "USD",
+        oneTimeCostMinor: 1_200,
+        savingsCategory: "renegotiation",
+        savingsRationale: "Lower rate with upfront migration work",
         notes: "Vendor agreed to lower rate",
         assumptions: "Headcount steady through FY26"
       });
 
       const items = listRenewalWorkbenchItems(boot.db, "baseline");
       expect(saved.action).toBe("renegotiate");
+      expect(saved.currentAmountMinor).toBe(10_000);
+      expect(saved.recurringSavingsMinor).toBe(2_500);
+      expect(saved.oneTimeCostMinor).toBe(1_200);
+      expect(saved.savingsCategory).toBe("renegotiation");
       expect(items).toHaveLength(1);
       expect(items[0]?.noticeDeadline).toBe("2026-06-01");
       expect(items[0]?.decision?.expectedAmountMinor).toBe(7_500);
+      expect(items[0]?.decision?.savingsRationale).toContain("migration");
       expect(items[0]?.decision?.notes).toContain("lower rate");
     } finally {
       boot.db.close();

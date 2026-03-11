@@ -3,6 +3,7 @@ import crypto from "node:crypto";
 import type Database from "better-sqlite3-multiple-ciphers";
 
 import { BudgetCrudRepository } from "./repositories";
+import type { RenewalSavingsCategory } from "./savings-attribution";
 
 export type RenewalDecisionAction =
   | "renew"
@@ -12,6 +13,15 @@ export type RenewalDecisionAction =
   | "do_not_renew"
   | "defer";
 
+const RENEWAL_SAVINGS_CATEGORIES = new Set<RenewalSavingsCategory>([
+  "retirement",
+  "non_renewal",
+  "replacement",
+  "consolidation",
+  "renegotiation",
+  "other"
+]);
+
 export type RenewalDecisionRecord = {
   id: string;
   scenarioId: string;
@@ -19,7 +29,13 @@ export type RenewalDecisionRecord = {
   contractId: string | null;
   action: RenewalDecisionAction;
   effectiveDate: string;
+  currentAmountMinor: number;
   expectedAmountMinor: number;
+  recurringSavingsMinor: number;
+  avoidedFutureCostMinor: number;
+  oneTimeCostMinor: number;
+  savingsCategory: RenewalSavingsCategory | null;
+  savingsRationale: string | null;
   currency: string;
   notes: string | null;
   assumptions: string | null;
@@ -49,6 +65,53 @@ type SourceExpenseSnapshot = Array<{
   expenseLineId: string;
   originalEndDate: string | null;
 }>;
+
+export function defaultSavingsCategoryForAction(
+  action: RenewalDecisionAction
+): RenewalSavingsCategory {
+  if (action === "retire") {
+    return "retirement";
+  }
+  if (action === "do_not_renew") {
+    return "non_renewal";
+  }
+  if (action === "replace") {
+    return "replacement";
+  }
+  if (action === "renegotiate") {
+    return "renegotiation";
+  }
+  return "other";
+}
+
+export function computeRenewalSavingsBreakdown(input: {
+  action: RenewalDecisionAction;
+  currentAmountMinor: number;
+  expectedAmountMinor: number;
+  oneTimeCostMinor?: number;
+}): {
+  recurringSavingsMinor: number;
+  avoidedFutureCostMinor: number;
+  oneTimeCostMinor: number;
+} {
+  const currentAmountMinor = Math.max(0, input.currentAmountMinor);
+  const expectedAmountMinor = Math.max(0, input.expectedAmountMinor);
+  const oneTimeCostMinor = Math.max(0, input.oneTimeCostMinor ?? 0);
+
+  if (input.action === "retire" || input.action === "do_not_renew") {
+    return {
+      recurringSavingsMinor: 0,
+      avoidedFutureCostMinor: currentAmountMinor,
+      oneTimeCostMinor
+    };
+  }
+
+  return {
+    recurringSavingsMinor: Math.max(0, currentAmountMinor - expectedAmountMinor),
+    avoidedFutureCostMinor: 0,
+    oneTimeCostMinor
+  };
+}
 
 type ExpenseTemplate = {
   id: string;
@@ -127,7 +190,13 @@ function loadDecision(
           contract_id AS contractId,
           action,
           effective_date AS effectiveDate,
+          current_amount_minor AS currentAmountMinor,
           expected_amount_minor AS expectedAmountMinor,
+          recurring_savings_minor AS recurringSavingsMinor,
+          avoided_future_cost_minor AS avoidedFutureCostMinor,
+          one_time_cost_minor AS oneTimeCostMinor,
+          savings_category AS savingsCategory,
+          savings_rationale AS savingsRationale,
           currency,
           notes,
           assumptions,
@@ -240,7 +309,13 @@ function toDecisionRecord(
     contractId: row.contractId,
     action: row.action,
     effectiveDate: row.effectiveDate,
+    currentAmountMinor: row.currentAmountMinor,
     expectedAmountMinor: row.expectedAmountMinor,
+    recurringSavingsMinor: row.recurringSavingsMinor,
+    avoidedFutureCostMinor: row.avoidedFutureCostMinor,
+    oneTimeCostMinor: row.oneTimeCostMinor,
+    savingsCategory: row.savingsCategory ?? null,
+    savingsRationale: row.savingsRationale ?? null,
     currency: row.currency,
     notes: row.notes,
     assumptions: row.assumptions,
@@ -272,7 +347,13 @@ export function listRenewalWorkbenchItems(
           d.id AS decisionId,
           d.action AS decisionAction,
           d.effective_date AS decisionEffectiveDate,
+          d.current_amount_minor AS decisionCurrentAmountMinor,
           d.expected_amount_minor AS decisionExpectedAmountMinor,
+          d.recurring_savings_minor AS decisionRecurringSavingsMinor,
+          d.avoided_future_cost_minor AS decisionAvoidedFutureCostMinor,
+          d.one_time_cost_minor AS decisionOneTimeCostMinor,
+          d.savings_category AS decisionSavingsCategory,
+          d.savings_rationale AS decisionSavingsRationale,
           d.currency AS decisionCurrency,
           d.notes AS decisionNotes,
           d.assumptions AS decisionAssumptions,
@@ -339,7 +420,13 @@ export function listRenewalWorkbenchItems(
     decisionId: string | null;
     decisionAction: RenewalDecisionAction | null;
     decisionEffectiveDate: string | null;
+    decisionCurrentAmountMinor: number | null;
     decisionExpectedAmountMinor: number | null;
+    decisionRecurringSavingsMinor: number | null;
+    decisionAvoidedFutureCostMinor: number | null;
+    decisionOneTimeCostMinor: number | null;
+    decisionSavingsCategory: RenewalSavingsCategory | null;
+    decisionSavingsRationale: string | null;
     decisionCurrency: string | null;
     decisionNotes: string | null;
     decisionAssumptions: string | null;
@@ -370,7 +457,13 @@ export function listRenewalWorkbenchItems(
           contractId: row.contractId,
           action: row.decisionAction ?? "renew",
           effectiveDate: row.decisionEffectiveDate ?? row.renewalDate ?? "",
+          currentAmountMinor: row.decisionCurrentAmountMinor ?? row.currentAmountMinor ?? 0,
           expectedAmountMinor: row.decisionExpectedAmountMinor ?? 0,
+          recurringSavingsMinor: row.decisionRecurringSavingsMinor ?? 0,
+          avoidedFutureCostMinor: row.decisionAvoidedFutureCostMinor ?? 0,
+          oneTimeCostMinor: row.decisionOneTimeCostMinor ?? 0,
+          savingsCategory: row.decisionSavingsCategory ?? null,
+          savingsRationale: row.decisionSavingsRationale,
           currency: row.decisionCurrency ?? row.currency ?? "USD",
           notes: row.decisionNotes,
           assumptions: row.decisionAssumptions,
@@ -474,8 +567,13 @@ function materializeDecisionChanges(
     expectedAmountMinor: number;
     currency: string;
   }
-): { materializedExpenseLineId: string | null; sourceSnapshot: SourceExpenseSnapshot } {
+): {
+  materializedExpenseLineId: string | null;
+  sourceSnapshot: SourceExpenseSnapshot;
+  currentAmountMinor: number;
+} {
   const sourceExpenses = listSourceExpenses(db, input.scenarioId, input.serviceId, input.contractId);
+  const currentAmountMinor = sourceExpenses.reduce((sum, expense) => sum + expense.amountMinor, 0);
   const sourceSnapshot: SourceExpenseSnapshot = [];
   for (const expense of sourceExpenses) {
     const endDateRow = db
@@ -506,7 +604,8 @@ function materializeDecisionChanges(
   if (input.action === "retire" || input.action === "do_not_renew") {
     return {
       materializedExpenseLineId: null,
-      sourceSnapshot
+      sourceSnapshot,
+      currentAmountMinor
     };
   }
 
@@ -546,7 +645,8 @@ function materializeDecisionChanges(
 
   return {
     materializedExpenseLineId,
-    sourceSnapshot
+    sourceSnapshot,
+    currentAmountMinor
   };
 }
 
@@ -560,6 +660,9 @@ export function upsertRenewalDecision(
     effectiveDate: string;
     expectedAmountMinor: number;
     currency: string;
+    oneTimeCostMinor?: number;
+    savingsCategory?: RenewalSavingsCategory | null;
+    savingsRationale?: string | null;
     notes?: string | null;
     assumptions?: string | null;
   }
@@ -572,6 +675,19 @@ export function upsertRenewalDecision(
   }
   if (!/^[A-Z]{3}$/.test(input.currency)) {
     throw new Error("currency must be a valid ISO 4217 code.");
+  }
+  if (
+    input.oneTimeCostMinor !== undefined &&
+    (!Number.isFinite(input.oneTimeCostMinor) || input.oneTimeCostMinor < 0)
+  ) {
+    throw new Error("oneTimeCostMinor must be a non-negative integer.");
+  }
+  if (
+    input.savingsCategory !== undefined &&
+    input.savingsCategory !== null &&
+    !RENEWAL_SAVINGS_CATEGORIES.has(input.savingsCategory)
+  ) {
+    throw new Error(`Invalid savingsCategory: ${input.savingsCategory}`);
   }
 
   const repo = new BudgetCrudRepository(db);
@@ -589,6 +705,13 @@ export function upsertRenewalDecision(
       expectedAmountMinor: input.expectedAmountMinor,
       currency: input.currency
     });
+    const savingsCategory = input.savingsCategory ?? defaultSavingsCategoryForAction(input.action);
+    const savingsBreakdown = computeRenewalSavingsBreakdown({
+      action: input.action,
+      currentAmountMinor: materialized.currentAmountMinor,
+      expectedAmountMinor: input.expectedAmountMinor,
+      oneTimeCostMinor: input.oneTimeCostMinor ?? 0
+    });
 
     const id = existing?.id ?? crypto.randomUUID();
     db.prepare(
@@ -600,7 +723,13 @@ export function upsertRenewalDecision(
           contract_id,
           action,
           effective_date,
+          current_amount_minor,
           expected_amount_minor,
+          recurring_savings_minor,
+          avoided_future_cost_minor,
+          one_time_cost_minor,
+          savings_category,
+          savings_rationale,
           currency,
           notes,
           assumptions,
@@ -608,11 +737,17 @@ export function upsertRenewalDecision(
           materialized_expense_line_id,
           created_at,
           updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
         ON CONFLICT(id) DO UPDATE SET
           action = excluded.action,
           effective_date = excluded.effective_date,
+          current_amount_minor = excluded.current_amount_minor,
           expected_amount_minor = excluded.expected_amount_minor,
+          recurring_savings_minor = excluded.recurring_savings_minor,
+          avoided_future_cost_minor = excluded.avoided_future_cost_minor,
+          one_time_cost_minor = excluded.one_time_cost_minor,
+          savings_category = excluded.savings_category,
+          savings_rationale = excluded.savings_rationale,
           currency = excluded.currency,
           notes = excluded.notes,
           assumptions = excluded.assumptions,
@@ -627,7 +762,13 @@ export function upsertRenewalDecision(
       contractId,
       input.action,
       input.effectiveDate,
+      materialized.currentAmountMinor,
       input.expectedAmountMinor,
+      savingsBreakdown.recurringSavingsMinor,
+      savingsBreakdown.avoidedFutureCostMinor,
+      savingsBreakdown.oneTimeCostMinor,
+      savingsCategory,
+      input.savingsRationale ?? null,
       input.currency,
       input.notes ?? null,
       input.assumptions ?? null,

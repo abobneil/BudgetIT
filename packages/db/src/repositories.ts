@@ -1503,7 +1503,13 @@ export class BudgetCrudRepository {
               contract_id,
               action,
               effective_date,
+              current_amount_minor,
               expected_amount_minor,
+              recurring_savings_minor,
+              avoided_future_cost_minor,
+              one_time_cost_minor,
+              savings_category,
+              savings_rationale,
               currency,
               notes,
               assumptions,
@@ -1519,7 +1525,13 @@ export class BudgetCrudRepository {
         contract_id: string | null;
         action: string;
         effective_date: string;
+        current_amount_minor: number;
         expected_amount_minor: number;
+        recurring_savings_minor: number;
+        avoided_future_cost_minor: number;
+        one_time_cost_minor: number;
+        savings_category: string | null;
+        savings_rationale: string | null;
         currency: string;
         notes: string | null;
         assumptions: string | null;
@@ -1536,7 +1548,13 @@ export class BudgetCrudRepository {
             contract_id,
             action,
             effective_date,
+            current_amount_minor,
             expected_amount_minor,
+            recurring_savings_minor,
+            avoided_future_cost_minor,
+            one_time_cost_minor,
+            savings_category,
+            savings_rationale,
             currency,
             notes,
             assumptions,
@@ -1571,7 +1589,13 @@ export class BudgetCrudRepository {
           decision.contract_id,
           decision.action,
           decision.effective_date,
+          decision.current_amount_minor,
           decision.expected_amount_minor,
+          decision.recurring_savings_minor,
+          decision.avoided_future_cost_minor,
+          decision.one_time_cost_minor,
+          decision.savings_category,
+          decision.savings_rationale,
           decision.currency,
           decision.notes,
           decision.assumptions,

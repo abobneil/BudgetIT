@@ -59,6 +59,14 @@ export {
   type RenewalWorkbenchItem
 } from "./renewal-planning";
 export {
+  diffScenarioSavings,
+  summarizeScenarioSavings,
+  type RenewalSavingsCategory,
+  type ScenarioSavingsDelta,
+  type ScenarioSavingsCategorySummary,
+  type ScenarioSavingsSummary
+} from "./savings-attribution";
+export {
   computeWeightedScore,
   createAttachmentReference,
   createServicePlan,

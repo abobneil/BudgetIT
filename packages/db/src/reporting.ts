@@ -1,5 +1,6 @@
 import { buildMonthlyVarianceDataset, type MonthlyVarianceRow } from "./variance";
 import type Database from "better-sqlite3-multiple-ciphers";
+import { summarizeScenarioSavings } from "./savings-attribution";
 
 export type SpendTrendRow = {
   month: string;
@@ -344,10 +345,15 @@ function buildNarratives(input: {
   renewals: RenewalRow[];
   taggingCompleteness: TaggingCompleteness;
   replacementStatus: ReplacementStatusSummary;
+  savings: ReturnType<typeof summarizeScenarioSavings>;
 }): NarrativeBlock[] {
   const totalForecast = input.spendTrend.reduce((sum, row) => sum + row.forecastMinor, 0);
   const totalActual = input.spendTrend.reduce((sum, row) => sum + row.actualMinor, 0);
   const delta = totalActual - totalForecast;
+  const topSavingsCategories = input.savings.byCategory
+    .slice(0, 2)
+    .map((row) => `${row.category} ${formatMinorWithCurrencyCode(row.netSavingsMinor, input.currency)}`)
+    .join("; ");
 
   return [
     {
@@ -369,6 +375,14 @@ function buildNarratives(input: {
       id: "replacement-summary",
       title: "Replacement Status",
       body: `${input.replacementStatus.replacementRequiredOpen} replacement-required plans remain without a selected replacement.`
+    },
+    {
+      id: "savings-summary",
+      title: "Savings Outlook",
+      body:
+        input.savings.outcomeCount === 0
+          ? "No explicit savings outcomes are recorded for this scenario yet."
+          : `Net savings ${formatMinorWithCurrencyCode(input.savings.netSavingsMinor, input.currency)} from ${input.savings.outcomeCount} decision outcome(s). Recurring ${formatMinorWithCurrencyCode(input.savings.recurringSavingsMinor, input.currency)}, avoided ${formatMinorWithCurrencyCode(input.savings.avoidedFutureCostMinor, input.currency)}, one-time ${formatMinorWithCurrencyCode(input.savings.oneTimeCostMinor, input.currency)}. ${topSavingsCategories}`.trim()
     }
   ];
 }
@@ -384,6 +398,7 @@ export function buildDashboardDataset(
   const growth = buildGrowthSeries(spendTrend);
   const taggingCompleteness = queryTaggingCompleteness(db, scenarioId);
   const replacementStatus = queryReplacementStatus(db, scenarioId);
+  const savings = summarizeScenarioSavings(db, scenarioId);
   const currency = getScenarioCurrency(db, scenarioId);
   const metaRow = db
     .prepare("SELECT forecast_stale FROM meta WHERE id = 1")
@@ -406,7 +421,8 @@ export function buildDashboardDataset(
       spendTrend,
       renewals,
       taggingCompleteness,
-      replacementStatus
+      replacementStatus,
+      savings
     })
   };
 

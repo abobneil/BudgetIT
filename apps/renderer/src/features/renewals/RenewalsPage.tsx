@@ -22,6 +22,7 @@ import {
   openHelpWindow,
   upsertRenewalDecision,
   type RenewalDecisionAction,
+  type RenewalSavingsCategory,
   type RenewalWorkbenchItem
 } from "../../lib/ipcClient";
 import { formatCurrencyMinor, useScenarioCurrency } from "../../lib/currency";
@@ -37,6 +38,26 @@ function resolveDefaultAction(item: RenewalWorkbenchItem): RenewalDecisionAction
 
 function resolveDefaultEffectiveDate(item: RenewalWorkbenchItem): string {
   return item.decision?.effectiveDate ?? item.renewalDate ?? "";
+}
+
+function defaultSavingsCategoryForAction(action: RenewalDecisionAction): RenewalSavingsCategory {
+  if (action === "retire") {
+    return "retirement";
+  }
+  if (action === "do_not_renew") {
+    return "non_renewal";
+  }
+  if (action === "replace") {
+    return "replacement";
+  }
+  if (action === "renegotiate") {
+    return "renegotiation";
+  }
+  return "other";
+}
+
+function resolveDefaultSavingsCategory(item: RenewalWorkbenchItem): RenewalSavingsCategory {
+  return item.decision?.savingsCategory ?? defaultSavingsCategoryForAction(resolveDefaultAction(item));
 }
 
 export function RenewalsPage() {
@@ -55,6 +76,9 @@ export function RenewalsPage() {
   const [action, setAction] = useState<RenewalDecisionAction>("renew");
   const [effectiveDate, setEffectiveDate] = useState("");
   const [expectedAmount, setExpectedAmount] = useState("0.00");
+  const [oneTimeCost, setOneTimeCost] = useState("0.00");
+  const [savingsCategory, setSavingsCategory] = useState<RenewalSavingsCategory>("other");
+  const [savingsRationale, setSavingsRationale] = useState("");
   const [notes, setNotes] = useState("");
   const [assumptions, setAssumptions] = useState("");
 
@@ -106,6 +130,9 @@ export function RenewalsPage() {
     setAction(resolveDefaultAction(selectedItem));
     setEffectiveDate(resolveDefaultEffectiveDate(selectedItem));
     setExpectedAmount(((selectedItem.decision?.expectedAmountMinor ?? selectedItem.currentAmountMinor) / 100).toFixed(2));
+    setOneTimeCost(((selectedItem.decision?.oneTimeCostMinor ?? 0) / 100).toFixed(2));
+    setSavingsCategory(resolveDefaultSavingsCategory(selectedItem));
+    setSavingsRationale(selectedItem.decision?.savingsRationale ?? "");
     setNotes(selectedItem.decision?.notes ?? "");
     setAssumptions(selectedItem.decision?.assumptions ?? "");
   }, [selectedItem]);
@@ -115,12 +142,17 @@ export function RenewalsPage() {
       return;
     }
     const parsedMinor = Math.round(Number.parseFloat(expectedAmount || "0") * 100);
+    const parsedOneTimeCostMinor = Math.round(Number.parseFloat(oneTimeCost || "0") * 100);
     if (!effectiveDate) {
       setError("Effective date is required.");
       return;
     }
     if (Number.isNaN(parsedMinor) || parsedMinor < 0) {
       setError("Expected future cost must be zero or a positive amount.");
+      return;
+    }
+    if (Number.isNaN(parsedOneTimeCostMinor) || parsedOneTimeCostMinor < 0) {
+      setError("Transition cost must be zero or a positive amount.");
       return;
     }
     setSaving(true);
@@ -134,6 +166,9 @@ export function RenewalsPage() {
         effectiveDate,
         expectedAmountMinor: parsedMinor,
         currency: selectedItem.currency || displayCurrency,
+        oneTimeCostMinor: parsedOneTimeCostMinor,
+        savingsCategory,
+        savingsRationale,
         notes,
         assumptions
       });
@@ -243,7 +278,11 @@ export function RenewalsPage() {
                   <Select
                     aria-label="Renewal planned action"
                     value={action}
-                    onChange={(event) => setAction(event.target.value as RenewalDecisionAction)}
+                    onChange={(event) => {
+                      const nextAction = event.target.value as RenewalDecisionAction;
+                      setAction(nextAction);
+                      setSavingsCategory(defaultSavingsCategoryForAction(nextAction));
+                    }}
                   >
                     <option value="renew">Renew</option>
                     <option value="renegotiate">Renegotiate</option>
@@ -283,6 +322,46 @@ export function RenewalsPage() {
                     aria-label="Renewal currency"
                     value={selectedItem.currency}
                     readOnly
+                  />
+                </div>
+                <div>
+                  <Text size={200} weight="medium">
+                    Transition cost
+                  </Text>
+                  <Input
+                    aria-label="Renewal transition cost"
+                    inputMode="decimal"
+                    value={oneTimeCost}
+                    onChange={(_event, data) => setOneTimeCost(data.value)}
+                  />
+                </div>
+                <div>
+                  <Text size={200} weight="medium">
+                    Savings category
+                  </Text>
+                  <Select
+                    aria-label="Renewal savings category"
+                    value={savingsCategory}
+                    onChange={(event) =>
+                      setSavingsCategory(event.target.value as RenewalSavingsCategory)
+                    }
+                  >
+                    <option value="retirement">Retirement</option>
+                    <option value="non_renewal">Non-Renewal</option>
+                    <option value="replacement">Replacement</option>
+                    <option value="consolidation">Consolidation</option>
+                    <option value="renegotiation">Renegotiation</option>
+                    <option value="other">Other</option>
+                  </Select>
+                </div>
+                <div className="renewals-form-grid__full">
+                  <Text size={200} weight="medium">
+                    Savings rationale
+                  </Text>
+                  <Textarea
+                    aria-label="Renewal savings rationale"
+                    value={savingsRationale}
+                    onChange={(_event, data) => setSavingsRationale(data.value)}
                   />
                 </div>
                 <div className="renewals-form-grid__full">

@@ -9,6 +9,7 @@ import {
   buildReportPresetDataset,
   buildMonthlyVarianceDataset,
   createEncryptedBackup,
+  diffScenarioSavings,
   findReplacementPlanByScenarioService,
   getReplacementPlanDetail,
   listRenewalWorkbenchItems,
@@ -20,6 +21,7 @@ import {
   restoreEncryptedBackup,
   runMigrations,
   setReplacementSelection,
+  summarizeScenarioSavings,
   transitionServicePlan,
   upsertReplacementCandidate,
   upsertRenewalDecision,
@@ -194,6 +196,14 @@ const SERVICE_PLAN_REASON_CODES = [
   "eol",
   "consolidation",
   "performance",
+  "other"
+] as const;
+const RENEWAL_SAVINGS_CATEGORIES = [
+  "retirement",
+  "non_renewal",
+  "replacement",
+  "consolidation",
+  "renegotiation",
   "other"
 ] as const;
 const RENEWAL_TYPES = ["auto", "manual", "none"] as const;
@@ -1063,6 +1073,9 @@ function parseRenewalDecisionPayload(payload: unknown): {
   effectiveDate: string;
   expectedAmountMinor: number;
   currency: string;
+  oneTimeCostMinor?: number;
+  savingsCategory?: "retirement" | "non_renewal" | "replacement" | "consolidation" | "renegotiation" | "other" | null;
+  savingsRationale?: string | null;
   notes?: string | null;
   assumptions?: string | null;
 } {
@@ -1091,6 +1104,21 @@ function parseRenewalDecisionPayload(payload: unknown): {
     effectiveDate: getRequiredString(value, "effectiveDate", "renewals.decision.upsert requires effectiveDate."),
     expectedAmountMinor,
     currency: getRequiredString(value, "currency", "renewals.decision.upsert requires currency."),
+    oneTimeCostMinor: getOptionalNumber(value, "oneTimeCostMinor"),
+    savingsCategory: getOptionalNullableEnumValue(
+      value,
+      "savingsCategory",
+      RENEWAL_SAVINGS_CATEGORIES
+    ) as
+      | "retirement"
+      | "non_renewal"
+      | "replacement"
+      | "consolidation"
+      | "renegotiation"
+      | "other"
+      | null
+      | undefined,
+    savingsRationale: getOptionalNullableString(value, "savingsRationale"),
     notes: getOptionalNullableString(value, "notes"),
     assumptions: getOptionalNullableString(value, "assumptions")
   };
@@ -2462,16 +2490,25 @@ function setupIpcHandlers(requestExit: () => void): void {
         totalMinor: 0,
         classifiedExpenseCount: 0
       };
+      const baselineSavings = summarizeScenarioSavings(handle.db, baselineScenarioId);
+      const comparisonSavings = summarizeScenarioSavings(handle.db, comparisonScenarioId);
       return {
         baselineScenarioId,
         comparisonScenarioId,
-        baseline,
-        comparison,
+        baseline: {
+          ...baseline,
+          savings: baselineSavings
+        },
+        comparison: {
+          ...comparison,
+          savings: comparisonSavings
+        },
         delta: {
           expenseCount: comparison.expenseCount - baseline.expenseCount,
           totalMinor: comparison.totalMinor - baseline.totalMinor,
           classifiedExpenseCount:
-            comparison.classifiedExpenseCount - baseline.classifiedExpenseCount
+            comparison.classifiedExpenseCount - baseline.classifiedExpenseCount,
+          ...diffScenarioSavings(baselineSavings, comparisonSavings)
         },
         generatedAt: new Date().toISOString()
       };

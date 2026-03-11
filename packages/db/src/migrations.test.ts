@@ -42,13 +42,15 @@ describe("migration runner", () => {
         "007_alert_snooze.sql",
         "008_replacement_scorecards.sql",
         "009_single_user_gap_closure.sql",
-        "010_owner_directory.sql"
+        "010_owner_directory.sql",
+        "011_renewal_decisions.sql",
+        "012_renewal_decision_savings.sql"
       ]);
 
       const metaRow = boot.db
         .prepare("SELECT schema_version, last_mutation_at, forecast_stale FROM meta WHERE id = 1")
         .get() as { schema_version: number; last_mutation_at: string; forecast_stale: number };
-      expect(metaRow.schema_version).toBe(10);
+      expect(metaRow.schema_version).toBe(12);
       expect(metaRow.forecast_stale).toBe(1);
       expect(metaRow.last_mutation_at.length).toBeGreaterThan(0);
     } finally {
@@ -87,7 +89,9 @@ describe("migration runner", () => {
         "007_alert_snooze.sql",
         "008_replacement_scorecards.sql",
         "009_single_user_gap_closure.sql",
-        "010_owner_directory.sql"
+        "010_owner_directory.sql",
+        "011_renewal_decisions.sql",
+        "012_renewal_decision_savings.sql"
       ]);
 
       const indexRow = boot.db
@@ -172,7 +176,11 @@ describe("migration runner", () => {
         .run();
 
       const applied = runMigrations(boot.db);
-      expect(applied).toEqual(["010_owner_directory.sql"]);
+      expect(applied).toEqual([
+        "010_owner_directory.sql",
+        "011_renewal_decisions.sql",
+        "012_renewal_decision_savings.sql"
+      ]);
 
       const owners = boot.db
         .prepare("SELECT name, normalized_name FROM owner_directory ORDER BY name")
