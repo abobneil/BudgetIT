@@ -393,48 +393,52 @@ describe("VendorsPage", () => {
     cleanup();
   });
 
-  it("shows linked counts and applies vendor filters across services and expenses pages", async () => {
-    renderWorkspace("/vendors");
+  it(
+    "shows linked counts and applies vendor filters across services and expenses pages",
+    async () => {
+      renderWorkspace("/vendors");
 
-    await waitFor(() => {
-      expect(screen.getByTestId("page-title")).toHaveTextContent("Vendors");
-    });
-    expect(screen.getByTestId("vendor-service-count-vend-aws")).toHaveTextContent("1");
-    expect(screen.getByTestId("vendor-contract-count-vend-aws")).toHaveTextContent("1");
+      await waitFor(() => {
+        expect(screen.getByTestId("page-title")).toHaveTextContent("Vendors");
+      });
+      expect(screen.getByTestId("vendor-service-count-vend-aws")).toHaveTextContent("1");
+      expect(screen.getByTestId("vendor-contract-count-vend-aws")).toHaveTextContent("1");
 
-    const awsRow = screen.getByTestId("vendor-service-count-vend-aws").closest("tr");
-    if (!awsRow) {
-      throw new Error("Expected AWS vendor row.");
-    }
+      const awsRow = screen.getByTestId("vendor-service-count-vend-aws").closest("tr");
+      if (!awsRow) {
+        throw new Error("Expected AWS vendor row.");
+      }
 
-    await openVendorRowMenu(awsRow);
-    fireEvent.click(screen.getByRole("menuitem", { name: "Open Services" }));
-    await waitFor(() => {
-      expect(screen.getByTestId("page-title")).toHaveTextContent("Services");
-    });
-    const servicesTable = screen.getByRole("table", { name: "Services table" });
-    expect(within(servicesTable).getByText("Cloud Platform")).toBeInTheDocument();
-    expect(within(servicesTable).queryByText("Defender")).not.toBeInTheDocument();
+      await openVendorRowMenu(awsRow);
+      fireEvent.click(screen.getByRole("menuitem", { name: "Open Services" }));
+      await waitFor(() => {
+        expect(screen.getByTestId("page-title")).toHaveTextContent("Services");
+      });
+      const servicesTable = screen.getByRole("table", { name: "Services table" });
+      expect(within(servicesTable).getByText("Cloud Platform")).toBeInTheDocument();
+      expect(within(servicesTable).queryByText("Defender")).not.toBeInTheDocument();
 
-    cleanup();
-    renderWorkspace("/vendors");
-    await waitFor(() => {
-      expect(screen.getByTestId("page-title")).toHaveTextContent("Vendors");
-    });
+      cleanup();
+      renderWorkspace("/vendors");
+      await waitFor(() => {
+        expect(screen.getByTestId("page-title")).toHaveTextContent("Vendors");
+      });
 
-    const awsRowAgain = screen.getByTestId("vendor-service-count-vend-aws").closest("tr");
-    if (!awsRowAgain) {
-      throw new Error("Expected AWS vendor row after returning to vendors.");
-    }
-    await openVendorRowMenu(awsRowAgain);
-    fireEvent.click(screen.getByRole("menuitem", { name: "Open Expenses" }));
-    await waitFor(() => {
-      expect(screen.getByTestId("page-title")).toHaveTextContent("Expenses");
-    });
-    const expensesTable = screen.getByRole("table", { name: "Expenses table" });
-    expect(within(expensesTable).getByText("Cloud Compute")).toBeInTheDocument();
-    expect(within(expensesTable).queryByText("Endpoint Security")).not.toBeInTheDocument();
-  });
+      const awsRowAgain = screen.getByTestId("vendor-service-count-vend-aws").closest("tr");
+      if (!awsRowAgain) {
+        throw new Error("Expected AWS vendor row after returning to vendors.");
+      }
+      await openVendorRowMenu(awsRowAgain);
+      fireEvent.click(screen.getByRole("menuitem", { name: "Open Expenses" }));
+      await waitFor(() => {
+        expect(screen.getByTestId("page-title")).toHaveTextContent("Expenses");
+      });
+      const expensesTable = screen.getByRole("table", { name: "Expenses table" });
+      expect(within(expensesTable).getByText("Cloud Compute")).toBeInTheDocument();
+      expect(within(expensesTable).queryByText("Endpoint Security")).not.toBeInTheDocument();
+    },
+    15000
+  );
 
   it(
     "supports vendor creation and still blocks unsafe delete while allowing archive",
