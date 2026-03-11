@@ -16,7 +16,7 @@ export const IMPORT_WIZARD_STEPS: ImportWizardStep[] = [
 ];
 
 export type ImportWizardDraft = {
-  mode: "expenses" | "actuals";
+  mode: "baseline" | "expenses" | "actuals";
   filePath: string;
   templateName: string;
   templatePack: "" | "aws-cur" | "azure-cost" | "gcp-billing";
@@ -52,6 +52,9 @@ export function canAdvanceStep(
     return draft.filePath.trim().length > 0;
   }
   if (step === "mapping") {
+    if (draft.mode === "baseline") {
+      return true;
+    }
     return draft.templateName.trim().length > 0 || draft.templatePack.length > 0;
   }
   if (step === "preview") {
@@ -99,7 +102,7 @@ export function previousStep(step: ImportWizardStep): ImportWizardStep {
 }
 
 export function buildImportPayload(draft: ImportWizardDraft): {
-  mode: "expenses" | "actuals";
+  mode: "baseline" | "expenses" | "actuals";
   filePath: string;
   templateName: string;
   templatePack?: "aws-cur" | "azure-cost" | "gcp-billing";

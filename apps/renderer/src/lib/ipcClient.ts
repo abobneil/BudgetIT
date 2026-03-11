@@ -200,6 +200,28 @@ export type AlertNavigatePayload = {
 
 export type ImportField =
   | "scenarioId"
+  | "vendorName"
+  | "vendorWebsite"
+  | "vendorNotes"
+  | "vendorOwner"
+  | "vendorAnnualSpend"
+  | "vendorStatus"
+  | "vendorRisk"
+  | "serviceName"
+  | "serviceOwner"
+  | "serviceAnnualSpend"
+  | "serviceStatus"
+  | "serviceRisk"
+  | "serviceReplacementStatus"
+  | "contractNumber"
+  | "contractStartDate"
+  | "contractEndDate"
+  | "contractRenewalType"
+  | "contractRenewalDate"
+  | "contractNoticePeriodDays"
+  | "contractOwner"
+  | "contractLifecycleStatus"
+  | "contractRenewalAction"
   | "serviceId"
   | "contractId"
   | "name"
@@ -214,6 +236,21 @@ export type ImportField =
   | "dayOfMonth"
   | "monthOfYear"
   | "anchorDate"
+  | "expenseName"
+  | "expenseStatus"
+  | "expenseAmount"
+  | "expenseCurrency"
+  | "expenseStartDate"
+  | "expenseEndDate"
+  | "expenseFrequency"
+  | "expenseInterval"
+  | "expenseDayOfMonth"
+  | "expenseMonthOfYear"
+  | "expenseAnchorDate"
+  | "expenseCapexOpex"
+  | "expenseGlAccountCode"
+  | "expenseCostCenterCode"
+  | "expenseFundingSource"
   | "capexOpex"
   | "glAccountCode"
   | "costCenterCode"
@@ -233,6 +270,26 @@ export type ImportPreviewResult = {
   duplicateCount: number;
   templateApplied: string | null;
   templateSaved: string | null;
+  rowSummaries?: Array<{
+    rowNumber: number;
+    scenarioId: string;
+    vendorName: string;
+    serviceName: string;
+    contractNumber: string | null;
+    expenseName: string | null;
+    actions: {
+      vendor: string;
+      service: string;
+      contract: string;
+      expense: string;
+    };
+  }>;
+  entityCounts?: {
+    vendors: { created: number; updated: number; unchanged: number };
+    services: { created: number; updated: number; unchanged: number };
+    contracts: { created: number; updated: number; unchanged: number };
+    expenses: { created: number; updated: number; unchanged: number };
+  };
   errors: ImportRowError[];
 };
 
@@ -243,6 +300,8 @@ export type ImportCommitResult = {
   duplicateCount: number;
   insertedCount: number;
   skippedDuplicateCount: number;
+  rowSummaries?: ImportPreviewResult["rowSummaries"];
+  entityCounts?: ImportPreviewResult["entityCounts"];
   matchedCount?: number;
   unmatchedCount?: number;
   matchRate?: number;
@@ -809,7 +868,7 @@ export async function resetDatabase(payload?: {
 }
 
 export async function previewImport(input: {
-  mode: "expenses" | "actuals";
+  mode: "baseline" | "expenses" | "actuals";
   filePath: string;
   templateName?: string;
   templatePack?: "aws-cur" | "azure-cost" | "gcp-billing";
@@ -821,7 +880,7 @@ export async function previewImport(input: {
 }
 
 export async function commitImport(input: {
-  mode: "expenses" | "actuals";
+  mode: "baseline" | "expenses" | "actuals";
   filePath: string;
   templateName?: string;
   templatePack?: "aws-cur" | "azure-cost" | "gcp-billing";

@@ -81,6 +81,12 @@ import {
   type AutoTagSuggestion
 } from "./auto-tagging";
 import {
+  commitBaselineImport,
+  getBaselineImportFields,
+  previewBaselineImport,
+  type BaselineImportColumnMapping
+} from "./baseline-import";
+import {
   commitExpenseImport,
   deleteImportTemplate,
   listImportTemplates,
@@ -160,7 +166,8 @@ const IMPORT_FIELDS = new Set([
   "capexOpex",
   "glAccountCode",
   "costCenterCode",
-  "fundingSource"
+  "fundingSource",
+  ...getBaselineImportFields()
 ]);
 
 const VENDOR_STATUSES = ["active", "watch", "archived"] as const;
@@ -950,7 +957,7 @@ export function parsePickDirectoryDialogPayload(payload: unknown): {
 }
 
 function parseImportPayload(payload: unknown): {
-  mode: "expenses" | "actuals";
+  mode: "baseline" | "expenses" | "actuals";
   filePath: string;
   mapping?: Record<string, string>;
   templateName?: string;
@@ -1002,7 +1009,8 @@ function parseImportPayload(payload: unknown): {
       : undefined;
 
   return {
-    mode: value.mode === "actuals" ? "actuals" : "expenses",
+    mode:
+      value.mode === "baseline" ? "baseline" : value.mode === "actuals" ? "actuals" : "expenses",
     filePath: value.filePath,
     mapping,
     templateName,
@@ -2008,6 +2016,12 @@ function setupIpcHandlers(requestExit: () => void): void {
   ipcMain.handle("import.preview", async (_event, payload: unknown) => {
     const parsed = parseImportPayload(payload);
     const handle = requireDatabaseHandle();
+    if (parsed.mode === "baseline") {
+      return previewBaselineImport(handle.db, {
+        filePath: parsed.filePath,
+        mapping: parsed.mapping as BaselineImportColumnMapping | undefined
+      });
+    }
     if (parsed.mode === "actuals") {
       return previewActualsImport(handle.db, {
         filePath: parsed.filePath,
@@ -2028,6 +2042,27 @@ function setupIpcHandlers(requestExit: () => void): void {
   ipcMain.handle("import.commit", async (_event, payload: unknown) => {
     const parsed = parseImportPayload(payload);
     const handle = requireDatabaseHandle();
+    if (parsed.mode === "baseline") {
+      const result = commitBaselineImport(handle.db, {
+        filePath: parsed.filePath,
+        mapping: parsed.mapping as BaselineImportColumnMapping | undefined
+      });
+      writeAuditLog({
+        action: "import.commit",
+        entityType: "import_job",
+        entityId: crypto.randomUUID(),
+        after: {
+          mode: "baseline",
+          filePath: parsed.filePath,
+          totalRows: result.totalRows,
+          insertedCount: result.insertedCount,
+          duplicateCount: result.duplicateCount,
+          rejectedCount: result.rejectedCount,
+          entityCounts: result.entityCounts
+        }
+      });
+      return result;
+    }
     if (parsed.mode === "actuals") {
       const result = commitActualsImport(handle.db, {
         filePath: parsed.filePath,

@@ -1,7 +1,7 @@
-Guided import for expenses and actuals.
+Guided import for baseline inventory, expenses, and actuals.
 
 ### 5 steps
-1. Mode (`expenses` or `actuals`)
+1. Mode (`baseline`, `expenses`, or `actuals`)
 2. File (source path)
 3. Mapping template
 4. Preview
@@ -12,8 +12,13 @@ Guided import for expenses and actuals.
   - Use for planned or recurring budget lines you want BudgetIT to manage directly.
 - `actuals`:
   - Use for observed transactions that should be matched back to planned spend.
+- `baseline`:
+  - Use for first-run or refresh intake of vendors, services, contracts, and linked expenses in one file.
+  - Historical terms and renewal dates are allowed when they still matter for planning cycles.
+  - Preview shows whether each entity will be created, updated, or left unchanged before commit.
 - New-user default:
-  - Start with `expenses` when building the planning baseline.
+  - Start with `baseline` when loading the current inventory model for the first time.
+  - Use `expenses` when you only need to add or revise planning lines after the baseline exists.
   - Use `actuals` after the baseline exists and reconciliation matters.
 
 ### Mapping step controls
@@ -23,6 +28,8 @@ Guided import for expenses and actuals.
 - Save template
 - Enforce finance metadata
 - Template library (refresh, use template, delete template)
+- Baseline auto-mapping note:
+  - `baseline` mode auto-detects common vendor/service/contract/expense headers and stages relational links during preview.
 - Template name:
   - Use when you want the mapping reused for future files with the same layout.
 - Cloud template pack:
@@ -43,6 +50,10 @@ Guided import for expenses and actuals.
   - Mode = `actuals`
   - Cloud template pack = provider-specific pack if the export format is standard
   - Enforce finance metadata = on if reporting depends on GL or Cost Center quality before commit
+- Example 3: importing a baseline inventory workbook
+  - Mode = `baseline`
+  - Include vendor, service, contract, and expense columns in the same row set
+  - Use preview to confirm create/update behavior before committing
 
 ### Preview step
 - Accepted / Rejected / Duplicate counts
@@ -53,6 +64,7 @@ Guided import for expenses and actuals.
 - `Accepted` means the row can proceed.
 - `Rejected` means the row must be corrected or excluded.
 - `Duplicate` means the file repeated data BudgetIT already considers the same within the run.
+- `Upsert` means BudgetIT will update an existing linked entity instead of creating a duplicate vendor, service, contract, or expense.
 - Do not treat a clean preview as optional; it is the safest place to catch shape and mapping errors before commit.
 
 ### Commit step

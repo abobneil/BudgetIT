@@ -54,7 +54,12 @@ type TagSuggestion = {
   selected: boolean;
 };
 
-const PREVIEW_ROWS_BY_MODE: Record<"expenses" | "actuals", PreviewRow[]> = {
+const PREVIEW_ROWS_BY_MODE: Record<"baseline" | "expenses" | "actuals", PreviewRow[]> = {
+  baseline: [
+    { rowNumber: 1, name: "Microsoft -> M365 E5", amount: "Create vendor/service/contract", status: "accepted" },
+    { rowNumber: 2, name: "Okta -> Workforce Identity", amount: "Update contract + expense", status: "duplicate" },
+    { rowNumber: 3, name: "Cisco -> Legacy Phones", amount: "Missing service name", status: "rejected" }
+  ],
   expenses: [
     { rowNumber: 1, name: "Cloud Compute", amount: "$2,400.00", status: "accepted" },
     { rowNumber: 2, name: "Endpoint Security", amount: "$840.00", status: "duplicate" },
@@ -109,7 +114,16 @@ export function ImportPage() {
     }
     return filterImportErrors(draft.previewResult.errors, errorFilter);
   }, [draft.previewResult, errorFilter]);
-  const previewRows = PREVIEW_ROWS_BY_MODE[draft.mode];
+  const previewRows =
+    draft.previewResult?.rowSummaries?.map((entry) => ({
+      rowNumber: entry.rowNumber,
+      name: `${entry.vendorName} -> ${entry.serviceName}`,
+      amount:
+        entry.expenseName ??
+        entry.contractNumber ??
+        `${entry.actions.vendor}/${entry.actions.service}/${entry.actions.contract}`,
+      status: "accepted" as const
+    })) ?? PREVIEW_ROWS_BY_MODE[draft.mode];
   const selectedSuggestionCount = tagSuggestions.filter((entry) => entry.selected).length;
   const currentStepIndex = IMPORT_WIZARD_STEPS.indexOf(currentStep);
 
@@ -315,6 +329,11 @@ export function ImportPage() {
           </li>
           <li>
             <Text>
+              <strong>Upsert</strong>: import updates an existing vendor, service, contract, or expense instead of creating a duplicate.
+            </Text>
+          </li>
+          <li>
+            <Text>
               <strong>Matched / Unmatched</strong>: actuals linked or pending reconciliation.
             </Text>
           </li>
@@ -374,19 +393,22 @@ export function ImportPage() {
                 onChange={(event) =>
                   setDraft((current) => ({
                     ...current,
-                    mode: event.target.value as "expenses" | "actuals",
+                    mode: event.target.value as "baseline" | "expenses" | "actuals",
                     previewResult: null,
                     commitResult: null
                   }))
                 }
               >
+                <option value="baseline">Baseline Inventory</option>
                 <option value="expenses">Expenses</option>
                 <option value="actuals">Actuals</option>
               </Select>
               <Text className="import-step-form__hint" size={100}>
-                {draft.mode === "expenses"
-                  ? "Use for planned/committed expense lines."
-                  : "Use for observed transactions matched against expenses."}
+                {draft.mode === "baseline"
+                  ? "Use for first-run or refresh intake of vendors, services, contracts, and linked expenses."
+                  : draft.mode === "expenses"
+                    ? "Use for planned/committed expense lines."
+                    : "Use for observed transactions matched against expenses."}
               </Text>
             </div>
           </div>
@@ -428,7 +450,7 @@ export function ImportPage() {
 
       {currentStep === "mapping" ? (
         <Card>
-          <Title3>Step 3: Mapping template</Title3>
+          <Title3>{draft.mode === "baseline" ? "Step 3: Baseline mapping" : "Step 3: Mapping template"}</Title3>
           <div className="import-step-form">
             <div className="import-step-form__field">
               <Text className="import-step-form__label" size={200} weight="medium">
@@ -443,9 +465,12 @@ export function ImportPage() {
                 placeholder="default-expense-import"
               />
               <Text className="import-step-form__hint" size={100}>
-                Keep a consistent name to reuse mapping profiles across imports.
+                {draft.mode === "baseline"
+                  ? "Baseline mode auto-detects vendor, service, contract, and expense columns from common headers."
+                  : "Keep a consistent name to reuse mapping profiles across imports."}
               </Text>
             </div>
+            {draft.mode !== "baseline" ? (
             <div className="import-step-form__field">
               <Text className="import-step-form__label" size={200} weight="medium">
                 Cloud template pack
@@ -470,6 +495,7 @@ export function ImportPage() {
                 <option value="gcp-billing">GCP billing export CSV</option>
               </Select>
             </div>
+            ) : null}
             <div className="import-flags">
               <Checkbox
                 label="Use Saved Template"
@@ -502,6 +528,7 @@ export function ImportPage() {
                 }
               />
             </div>
+            {draft.mode !== "baseline" ? (
             <Card>
               <Title3>Template library</Title3>
               <div className="import-step-form__field">
@@ -569,6 +596,14 @@ export function ImportPage() {
                 )}
               </div>
             </Card>
+            ) : (
+              <Card>
+                <Title3>Baseline intake behavior</Title3>
+                <Text>
+                  {"Baseline preview stages vendor -> service -> contract -> expense relationships, flags exact duplicate rows, and shows which entities will be created or updated before commit."}
+                </Text>
+              </Card>
+            )}
           </div>
         </Card>
       ) : null}
@@ -594,6 +629,9 @@ export function ImportPage() {
                 </Badge>
               </div>
               <Text>{`Dedupe policy: deterministic fingerprint keeps earliest row and skips subsequent duplicates.`}</Text>
+              {draft.previewResult.entityCounts ? (
+                <Text>{`Upsert plan: vendors ${draft.previewResult.entityCounts.vendors.created}/${draft.previewResult.entityCounts.vendors.updated}/${draft.previewResult.entityCounts.vendors.unchanged} create/update/noop, services ${draft.previewResult.entityCounts.services.created}/${draft.previewResult.entityCounts.services.updated}/${draft.previewResult.entityCounts.services.unchanged}.`}</Text>
+              ) : null}
 
               <Table aria-label="Import preview rows">
                 <TableHeader>
@@ -705,6 +743,13 @@ export function ImportPage() {
                       <Text>No unmatched rows.</Text>
                     )}
                   </Card>
+                </>
+              ) : draft.commitResult.entityCounts ? (
+                <>
+                  <Text>{`Vendors: ${draft.commitResult.entityCounts.vendors.created} created, ${draft.commitResult.entityCounts.vendors.updated} updated, ${draft.commitResult.entityCounts.vendors.unchanged} unchanged`}</Text>
+                  <Text>{`Services: ${draft.commitResult.entityCounts.services.created} created, ${draft.commitResult.entityCounts.services.updated} updated, ${draft.commitResult.entityCounts.services.unchanged} unchanged`}</Text>
+                  <Text>{`Contracts: ${draft.commitResult.entityCounts.contracts.created} created, ${draft.commitResult.entityCounts.contracts.updated} updated, ${draft.commitResult.entityCounts.contracts.unchanged} unchanged`}</Text>
+                  <Text>{`Expenses: ${draft.commitResult.entityCounts.expenses.created} created, ${draft.commitResult.entityCounts.expenses.updated} updated, ${draft.commitResult.entityCounts.expenses.unchanged} unchanged`}</Text>
                 </>
               ) : null}
             </div>
