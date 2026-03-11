@@ -72,6 +72,7 @@ import {
   serviceRiskTone
 } from "./service-lifecycle-model";
 import { useScenarioContext } from "../scenarios/ScenarioContext";
+import { buildReplacementRoute } from "../../app/entity-routes";
 import "./ServicesPage.css";
 
 type ServiceDetailTab =
@@ -446,7 +447,7 @@ export function ServicesPage() {
   }
 
   function openReplacement(serviceId: string): void {
-    navigate(`/reports?replacementServiceId=${serviceId}`);
+    navigate(buildReplacementRoute(serviceId));
   }
 
   function openRenewalReview(serviceId: string): void {

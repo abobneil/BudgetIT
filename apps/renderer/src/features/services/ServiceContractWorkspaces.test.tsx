@@ -16,6 +16,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   createExpenseFromUnmatchedActual,
   createOwner,
+  getReplacementPlan,
   createService,
   type ContractRecord,
   type ExpenseLineRecord,
@@ -40,7 +41,12 @@ import {
   queryReport,
   retireOwner,
   reviewUnmatchedActual,
+  setReplacementPlanSelection,
   type ServiceRecord,
+  type ReplacementPlanRecord,
+  transitionReplacementPlan,
+  upsertReplacementPlan,
+  upsertReplacementPlanCandidate,
   upsertRenewalDecision,
   updateContract,
   type VendorRecord,
@@ -56,6 +62,7 @@ vi.mock("../../lib/ipcClient", async (importOriginal) => {
     ...actual,
     createExpenseFromUnmatchedActual: vi.fn(),
     createOwner: vi.fn(),
+    getReplacementPlan: vi.fn(),
     createService: vi.fn(),
     exportReport: vi.fn(),
     exportShowbackStatement: vi.fn(),
@@ -77,6 +84,10 @@ vi.mock("../../lib/ipcClient", async (importOriginal) => {
     queryReport: vi.fn(),
     retireOwner: vi.fn(),
     reviewUnmatchedActual: vi.fn(),
+    setReplacementPlanSelection: vi.fn(),
+    transitionReplacementPlan: vi.fn(),
+    upsertReplacementPlan: vi.fn(),
+    upsertReplacementPlanCandidate: vi.fn(),
     upsertRenewalDecision: vi.fn(),
     updateContract: vi.fn(),
     updateService: vi.fn()
@@ -85,6 +96,7 @@ vi.mock("../../lib/ipcClient", async (importOriginal) => {
 
 const createExpenseFromUnmatchedActualMock = vi.mocked(createExpenseFromUnmatchedActual);
 const createOwnerMock = vi.mocked(createOwner);
+const getReplacementPlanMock = vi.mocked(getReplacementPlan);
 const createServiceMock = vi.mocked(createService);
 const exportReportMock = vi.mocked(exportReport);
 const exportShowbackStatementMock = vi.mocked(exportShowbackStatement);
@@ -106,6 +118,10 @@ const previewReportMock = vi.mocked(previewReport);
 const queryReportMock = vi.mocked(queryReport);
 const retireOwnerMock = vi.mocked(retireOwner);
 const reviewUnmatchedActualMock = vi.mocked(reviewUnmatchedActual);
+const setReplacementPlanSelectionMock = vi.mocked(setReplacementPlanSelection);
+const transitionReplacementPlanMock = vi.mocked(transitionReplacementPlan);
+const upsertReplacementPlanMock = vi.mocked(upsertReplacementPlan);
+const upsertReplacementPlanCandidateMock = vi.mocked(upsertReplacementPlanCandidate);
 const upsertRenewalDecisionMock = vi.mocked(upsertRenewalDecision);
 const updateContractMock = vi.mocked(updateContract);
 const updateServiceMock = vi.mocked(updateService);
@@ -308,6 +324,33 @@ function createBaseOwners(): OwnerOptionRecord[] {
   ];
 }
 
+function computeWeightedScore(plan: {
+  cost: number;
+  featureFit: number;
+  migrationRisk: number;
+  supportQuality: number;
+  weights?: {
+    cost?: number;
+    featureFit?: number;
+    migrationRisk?: number;
+    supportQuality?: number;
+  };
+}): number {
+  const weights = {
+    cost: plan.weights?.cost ?? 0.35,
+    featureFit: plan.weights?.featureFit ?? 0.3,
+    migrationRisk: plan.weights?.migrationRisk ?? 0.2,
+    supportQuality: plan.weights?.supportQuality ?? 0.15
+  };
+  return Math.round(
+    (plan.cost * weights.cost +
+      plan.featureFit * weights.featureFit +
+      plan.migrationRisk * weights.migrationRisk +
+      plan.supportQuality * weights.supportQuality) *
+      100
+  ) / 100;
+}
+
 function renderWorkspace(initialPath: string) {
   return render(
     <FluentProvider theme={budgetItLightTheme}>
@@ -344,11 +387,13 @@ describe("service and contract workspaces", () => {
   let services: ServiceRecord[] = createBaseServices();
   let contracts: ContractRecord[] = createBaseContracts();
   let owners: OwnerOptionRecord[] = createBaseOwners();
+  let replacementPlans: ReplacementPlanRecord[] = [];
 
   beforeEach(() => {
     services = createBaseServices();
     contracts = createBaseContracts();
     owners = createBaseOwners();
+    replacementPlans = [];
 
     isIpcAvailableMock.mockReturnValue(true);
     openHelpWindowMock.mockReset();
@@ -485,6 +530,143 @@ describe("service and contract workspaces", () => {
       ok: true,
       transactionId: "txn-1",
       expenseLineId: "exp-1"
+    });
+
+    getReplacementPlanMock.mockImplementation(async ({ scenarioId, serviceId }) => {
+      return (
+        replacementPlans.find(
+          (entry) =>
+            entry.servicePlan.scenarioId === scenarioId &&
+            entry.servicePlan.serviceId === serviceId
+        ) ?? null
+      );
+    });
+
+    upsertReplacementPlanMock.mockImplementation(async (payload) => {
+      const existing = replacementPlans.find(
+        (entry) =>
+          entry.servicePlan.scenarioId === payload.scenarioId &&
+          entry.servicePlan.serviceId === payload.serviceId
+      );
+      const next: ReplacementPlanRecord = existing
+        ? {
+            ...existing,
+            servicePlan: {
+              ...existing.servicePlan,
+              plannedAction: payload.plannedAction,
+              replacementRequired: payload.replacementRequired,
+              mustReplaceBy: payload.mustReplaceBy ?? null,
+              reasonCode: payload.reasonCode ?? null,
+              replacementSelectedServiceId:
+                payload.plannedAction === "replace" && payload.replacementRequired
+                  ? existing.servicePlan.replacementSelectedServiceId
+                  : null
+            }
+          }
+        : {
+            servicePlan: {
+              id: `plan-${payload.serviceId}`,
+              scenarioId: payload.scenarioId,
+              serviceId: payload.serviceId,
+              plannedAction: payload.plannedAction,
+              decisionStatus: "draft",
+              reasonCode: payload.reasonCode ?? null,
+              mustReplaceBy: payload.mustReplaceBy ?? null,
+              replacementRequired: payload.replacementRequired,
+              replacementSelectedServiceId: null
+            },
+            candidates: [],
+            aggregation: {
+              candidateCount: 0,
+              averageWeightedScore: 0,
+              bestCandidateId: null,
+              bestWeightedScore: null
+            }
+          };
+      replacementPlans = [
+        ...replacementPlans.filter(
+          (entry) => entry.servicePlan.id !== next.servicePlan.id
+        ),
+        next
+      ];
+      return next;
+    });
+
+    transitionReplacementPlanMock.mockImplementation(async ({ servicePlanId, nextStatus, reasonCode }) => {
+      const current = replacementPlans.find((entry) => entry.servicePlan.id === servicePlanId);
+      if (!current) {
+        throw new Error(`Plan not found: ${servicePlanId}`);
+      }
+      const next: ReplacementPlanRecord = {
+        ...current,
+        servicePlan: {
+          ...current.servicePlan,
+          decisionStatus: nextStatus,
+          reasonCode: reasonCode ?? current.servicePlan.reasonCode
+        }
+      };
+      replacementPlans = replacementPlans.map((entry) =>
+        entry.servicePlan.id === servicePlanId ? next : entry
+      );
+      return next;
+    });
+
+    setReplacementPlanSelectionMock.mockImplementation(async ({ servicePlanId, replacementSelectedServiceId }) => {
+      const current = replacementPlans.find((entry) => entry.servicePlan.id === servicePlanId);
+      if (!current) {
+        throw new Error(`Plan not found: ${servicePlanId}`);
+      }
+      const next: ReplacementPlanRecord = {
+        ...current,
+        servicePlan: {
+          ...current.servicePlan,
+          replacementSelectedServiceId
+        }
+      };
+      replacementPlans = replacementPlans.map((entry) =>
+        entry.servicePlan.id === servicePlanId ? next : entry
+      );
+      return next;
+    });
+
+    upsertReplacementPlanCandidateMock.mockImplementation(async (payload) => {
+      const current = replacementPlans.find((entry) => entry.servicePlan.id === payload.servicePlanId);
+      if (!current) {
+        throw new Error(`Plan not found: ${payload.servicePlanId}`);
+      }
+      const candidateId = payload.id ?? `candidate-${current.candidates.length + 1}`;
+      const candidateName =
+        payload.candidateName ??
+        services.find((entry) => entry.id === payload.candidateServiceId)?.name ??
+        "Candidate";
+      const candidate = {
+        id: candidateId,
+        servicePlanId: payload.servicePlanId,
+        candidateServiceId: payload.candidateServiceId ?? null,
+        candidateName,
+        weightedScore: computeWeightedScore(payload.scorecard),
+        scorecard: payload.scorecard
+      };
+      const candidates = [
+        ...current.candidates.filter((entry) => entry.id !== candidateId),
+        candidate
+      ].sort((left, right) => right.weightedScore - left.weightedScore);
+      const total = candidates.reduce((sum, entry) => sum + entry.weightedScore, 0);
+      const next: ReplacementPlanRecord = {
+        ...current,
+        candidates,
+        aggregation: {
+          candidateCount: candidates.length,
+          averageWeightedScore:
+            candidates.length === 0 ? 0 : Math.round((total / candidates.length) * 100) / 100,
+          bestCandidateId: candidates[0]?.id ?? null,
+          bestWeightedScore: candidates[0]?.weightedScore ?? null
+        }
+      };
+      replacementPlans = replacementPlans.map((entry) =>
+        entry.servicePlan.id === payload.servicePlanId ? next : entry
+      );
+      return next;
     });
 
     createOwnerMock.mockImplementation(async ({ name }) => {
@@ -651,9 +833,76 @@ describe("service and contract workspaces", () => {
     fireEvent.click(screen.getByRole("button", { name: "Open Replacement Workspace" }));
 
     await waitFor(() => {
-      expect(screen.getByTestId("page-title")).toHaveTextContent("Reports");
+      expect(screen.getByTestId("page-title")).toHaveTextContent("Replacement");
     });
-    expect(screen.getByTestId("reports-scenario-context")).toHaveTextContent("Baseline");
+    expect(screen.getByLabelText("Replacement service context")).toHaveValue(
+      "svc-cloud-platform"
+    );
+    expect(screen.getByLabelText("Replacement contract context")).toHaveValue(
+      "ctr-cloud-ops"
+    );
+  });
+
+  it("completes the replacement planning workflow from contract navigation", async () => {
+    renderWorkspace("/contracts?contract=ctr-sso-main");
+
+    await screen.findByText("Contract Detail");
+    fireEvent.click(screen.getByRole("button", { name: "Open Replacement Workspace" }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("page-title")).toHaveTextContent("Replacement");
+    });
+
+    fireEvent.change(screen.getByLabelText("Replacement planned action"), {
+      target: { value: "replace" }
+    });
+    fireEvent.change(screen.getByLabelText("Replacement deadline"), {
+      target: { value: "2026-10-31" }
+    });
+    fireEvent.change(screen.getByLabelText("Replacement reason"), {
+      target: { value: "security" }
+    });
+    fireEvent.change(screen.getByLabelText("Replacement decision status"), {
+      target: { value: "reviewed" }
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Create Replacement Plan" }));
+
+    await screen.findByText("Plan id: plan-svc-identity-sso");
+
+    fireEvent.change(screen.getByLabelText("Replacement candidate service"), {
+      target: { value: "svc-cloud-platform" }
+    });
+    fireEvent.change(screen.getByLabelText("Replacement candidate name"), {
+      target: { value: "Cloud Platform" }
+    });
+    fireEvent.change(screen.getByLabelText("Replacement candidate cost score"), {
+      target: { value: "88" }
+    });
+    fireEvent.change(screen.getByLabelText("Replacement candidate feature fit score"), {
+      target: { value: "92" }
+    });
+    fireEvent.change(screen.getByLabelText("Replacement candidate migration risk score"), {
+      target: { value: "74" }
+    });
+    fireEvent.change(screen.getByLabelText("Replacement candidate support quality score"), {
+      target: { value: "81" }
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Add Candidate" }));
+
+    await screen.findByRole("button", { name: "Select Replacement" });
+    expect(screen.getAllByText("Cloud Platform").length).toBeGreaterThan(0);
+
+    fireEvent.click(screen.getByRole("button", { name: "Select Replacement" }));
+    await screen.findByText("Selected replacement: Cloud Platform");
+
+    fireEvent.change(screen.getByLabelText("Replacement decision status"), {
+      target: { value: "approved" }
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save Replacement Plan" }));
+
+    await screen.findByText("Action: Replace");
+    expect(screen.getAllByText("Approved").length).toBeGreaterThan(0);
+    expect(screen.getByText("Candidates: 1")).toBeInTheDocument();
   });
 
   it("opens the renewal workbench from contracts workspace", async () => {

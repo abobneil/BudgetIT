@@ -13,6 +13,7 @@ describe("preload IPC bridge", () => {
     await expect(bridge.invoke("dialog.pickFile")).resolves.toBe("ok");
     await expect(bridge.invoke("dialog.pickDirectory")).resolves.toBe("ok");
     await expect(bridge.invoke("report.preview")).resolves.toBe("ok");
+    await expect(bridge.invoke("replacement.plan.get")).resolves.toBe("ok");
     await expect(bridge.invoke("db.reset")).resolves.toBe("ok");
     await expect(bridge.invoke("settings.deleteEverything")).rejects.toThrow(
       "Unauthorized IPC channel: settings.deleteEverything"

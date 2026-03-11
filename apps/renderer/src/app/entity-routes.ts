@@ -27,3 +27,13 @@ export function buildRenewalRoute(contractId: string, serviceId?: string): strin
   }
   return `/renewals?${params.toString()}`;
 }
+
+export function buildReplacementRoute(serviceId: string, contractId?: string): string {
+  const params = new URLSearchParams({
+    service: serviceId
+  });
+  if (contractId) {
+    params.set("contract", contractId);
+  }
+  return `/replacement?${params.toString()}`;
+}

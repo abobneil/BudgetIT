@@ -9,6 +9,7 @@ import {
   buildReportPresetDataset,
   buildMonthlyVarianceDataset,
   createEncryptedBackup,
+  findReplacementPlanByScenarioService,
   getReplacementPlanDetail,
   listRenewalWorkbenchItems,
   listUnmatchedActualTransactions,
@@ -18,13 +19,21 @@ import {
   rekeyEncryptedDatabase,
   restoreEncryptedBackup,
   runMigrations,
+  setReplacementSelection,
+  transitionServicePlan,
+  upsertReplacementCandidate,
   upsertRenewalDecision,
+  upsertServicePlan,
   type AlertEventRecord,
   type DatabaseResetResult,
   type FilterSpec,
   type ReportDatasetFilters,
   type ReportPresetQuery,
+  type ReplacementScorecardInput,
   type RenewalDecisionAction,
+  type ServicePlanAction,
+  type ServicePlanDecisionStatus,
+  type ServicePlanReasonCode,
   type RestoreEncryptedBackupResult
 } from "@budgetit/db";
 import {
@@ -177,6 +186,16 @@ const VENDOR_STATUSES = ["active", "watch", "archived"] as const;
 const RISK_LEVELS = ["low", "medium", "high"] as const;
 const SERVICE_STATUSES = ["active", "trial", "deprecated", "retiring", "retired"] as const;
 const REPLACEMENT_STATUSES = ["not-started", "candidate-review", "approved"] as const;
+const SERVICE_PLAN_ACTIONS = ["keep", "replace", "retire"] as const;
+const SERVICE_PLAN_DECISION_STATUSES = ["draft", "reviewed", "approved", "rejected"] as const;
+const SERVICE_PLAN_REASON_CODES = [
+  "cost",
+  "security",
+  "eol",
+  "consolidation",
+  "performance",
+  "other"
+] as const;
 const RENEWAL_TYPES = ["auto", "manual", "none"] as const;
 const CONTRACT_LIFECYCLE_STATUSES = ["active", "renewal-window", "notice-window", "expired"] as const;
 const RENEWAL_ACTIONS = ["auto-renew", "manual-review", "cancel-window"] as const;
@@ -1074,6 +1093,145 @@ function parseRenewalDecisionPayload(payload: unknown): {
     currency: getRequiredString(value, "currency", "renewals.decision.upsert requires currency."),
     notes: getOptionalNullableString(value, "notes"),
     assumptions: getOptionalNullableString(value, "assumptions")
+  };
+}
+
+function parseReplacementPlanGetPayload(payload: unknown): {
+  scenarioId: string;
+  serviceId: string;
+} {
+  const value = requireObjectPayload(payload, "replacement.plan.get requires payload.");
+  return {
+    scenarioId: getRequiredString(value, "scenarioId", "replacement.plan.get requires scenarioId."),
+    serviceId: getRequiredString(value, "serviceId", "replacement.plan.get requires serviceId.")
+  };
+}
+
+function parseReplacementPlanUpsertPayload(payload: unknown): {
+  scenarioId: string;
+  serviceId: string;
+  plannedAction: ServicePlanAction;
+  replacementRequired: boolean;
+  mustReplaceBy?: string | null;
+  reasonCode?: ServicePlanReasonCode | null;
+} {
+  const value = requireObjectPayload(payload, "replacement.plan.upsert requires payload.");
+  return {
+    scenarioId: getRequiredString(value, "scenarioId", "replacement.plan.upsert requires scenarioId."),
+    serviceId: getRequiredString(value, "serviceId", "replacement.plan.upsert requires serviceId."),
+    plannedAction: getRequiredEnumValue(
+      value,
+      "plannedAction",
+      SERVICE_PLAN_ACTIONS,
+      "replacement.plan.upsert requires a valid plannedAction."
+    ) as ServicePlanAction,
+    replacementRequired: getOptionalBoolean(value, "replacementRequired") ?? false,
+    mustReplaceBy: getOptionalNullableString(value, "mustReplaceBy"),
+    reasonCode: getOptionalNullableEnumValue(
+      value,
+      "reasonCode",
+      SERVICE_PLAN_REASON_CODES
+    ) as ServicePlanReasonCode | null | undefined
+  };
+}
+
+function parseReplacementPlanTransitionPayload(payload: unknown): {
+  servicePlanId: string;
+  nextStatus: ServicePlanDecisionStatus;
+  reasonCode?: ServicePlanReasonCode;
+} {
+  const value = requireObjectPayload(payload, "replacement.plan.transition requires payload.");
+  return {
+    servicePlanId: getRequiredString(
+      value,
+      "servicePlanId",
+      "replacement.plan.transition requires servicePlanId."
+    ),
+    nextStatus: getRequiredEnumValue(
+      value,
+      "nextStatus",
+      SERVICE_PLAN_DECISION_STATUSES,
+      "replacement.plan.transition requires a valid nextStatus."
+    ) as ServicePlanDecisionStatus,
+    reasonCode: getOptionalEnumValue(
+      value,
+      "reasonCode",
+      SERVICE_PLAN_REASON_CODES
+    ) as ServicePlanReasonCode | undefined
+  };
+}
+
+function parseReplacementSelectionPayload(payload: unknown): {
+  servicePlanId: string;
+  replacementSelectedServiceId: string | null;
+} {
+  const value = requireObjectPayload(payload, "replacement.selection.set requires payload.");
+  return {
+    servicePlanId: getRequiredString(
+      value,
+      "servicePlanId",
+      "replacement.selection.set requires servicePlanId."
+    ),
+    replacementSelectedServiceId:
+      getOptionalNullableString(value, "replacementSelectedServiceId") ?? null
+  };
+}
+
+function parseReplacementScorecardInput(
+  payload: unknown,
+  channelName: string
+): ReplacementScorecardInput {
+  const value = requireObjectPayload(payload, `${channelName} requires scorecard.`);
+  const fields = ["cost", "featureFit", "migrationRisk", "supportQuality"] as const;
+  const parsed = Object.fromEntries(
+    fields.map((field) => {
+      const fieldValue = getOptionalNumber(value, field);
+      if (fieldValue === undefined) {
+        throw new Error(`${channelName} requires scorecard.${field}.`);
+      }
+      return [field, fieldValue];
+    })
+  ) as Omit<ReplacementScorecardInput, "weights">;
+
+  const weightsPayload = value.weights;
+  let weights: ReplacementScorecardInput["weights"];
+  if (weightsPayload && typeof weightsPayload === "object") {
+    const weightValue = weightsPayload as Record<string, unknown>;
+    weights = {
+      cost: getOptionalNumber(weightValue, "cost"),
+      featureFit: getOptionalNumber(weightValue, "featureFit"),
+      migrationRisk: getOptionalNumber(weightValue, "migrationRisk"),
+      supportQuality: getOptionalNumber(weightValue, "supportQuality")
+    };
+  }
+
+  return {
+    ...parsed,
+    ...(weights ? { weights } : {})
+  };
+}
+
+function parseReplacementCandidatePayload(payload: unknown): {
+  id?: string;
+  servicePlanId: string;
+  candidateServiceId?: string;
+  candidateName?: string;
+  scorecard: ReplacementScorecardInput;
+} {
+  const value = requireObjectPayload(payload, "replacement.candidate.upsert requires payload.");
+  return {
+    id: getOptionalString(value, "id"),
+    servicePlanId: getRequiredString(
+      value,
+      "servicePlanId",
+      "replacement.candidate.upsert requires servicePlanId."
+    ),
+    candidateServiceId: getOptionalString(value, "candidateServiceId"),
+    candidateName: getOptionalString(value, "candidateName"),
+    scorecard: parseReplacementScorecardInput(
+      value.scorecard,
+      "replacement.candidate.upsert"
+    )
   };
 }
 
@@ -2189,6 +2347,62 @@ function setupIpcHandlers(requestExit: () => void): void {
       after: saved
     });
     return saved;
+  });
+  ipcMain.handle("replacement.plan.get", async (_event, payload: unknown) => {
+    const parsed = parseReplacementPlanGetPayload(payload);
+    return findReplacementPlanByScenarioService(requireDatabaseHandle().db, parsed);
+  });
+  ipcMain.handle("replacement.plan.upsert", async (_event, payload: unknown) => {
+    const parsed = parseReplacementPlanUpsertPayload(payload);
+    const handle = requireDatabaseHandle();
+    const servicePlanId = upsertServicePlan(handle.db, parsed);
+    const detail = getReplacementPlanDetail(handle.db, servicePlanId);
+    writeAuditLog({
+      action: "replacement.plan.upsert",
+      entityType: "service_plan",
+      entityId: servicePlanId,
+      after: detail
+    });
+    return detail;
+  });
+  ipcMain.handle("replacement.plan.transition", async (_event, payload: unknown) => {
+    const parsed = parseReplacementPlanTransitionPayload(payload);
+    const handle = requireDatabaseHandle();
+    transitionServicePlan(handle.db, parsed);
+    const detail = getReplacementPlanDetail(handle.db, parsed.servicePlanId);
+    writeAuditLog({
+      action: "replacement.plan.transition",
+      entityType: "service_plan",
+      entityId: parsed.servicePlanId,
+      after: detail
+    });
+    return detail;
+  });
+  ipcMain.handle("replacement.selection.set", async (_event, payload: unknown) => {
+    const parsed = parseReplacementSelectionPayload(payload);
+    const handle = requireDatabaseHandle();
+    setReplacementSelection(handle.db, parsed);
+    const detail = getReplacementPlanDetail(handle.db, parsed.servicePlanId);
+    writeAuditLog({
+      action: "replacement.selection.set",
+      entityType: "service_plan",
+      entityId: parsed.servicePlanId,
+      after: detail
+    });
+    return detail;
+  });
+  ipcMain.handle("replacement.candidate.upsert", async (_event, payload: unknown) => {
+    const parsed = parseReplacementCandidatePayload(payload);
+    const handle = requireDatabaseHandle();
+    const candidateId = upsertReplacementCandidate(handle.db, parsed);
+    const detail = getReplacementPlanDetail(handle.db, parsed.servicePlanId);
+    writeAuditLog({
+      action: "replacement.candidate.upsert",
+      entityType: "replacement_candidate",
+      entityId: candidateId,
+      after: detail
+    });
+    return detail;
   });
   ipcMain.handle("reports.query", async (_event, payload: unknown) => {
     const parsed = parseReportsQueryPayload(payload);

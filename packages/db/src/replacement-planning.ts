@@ -44,6 +44,7 @@ export type ReplacementPlanDetail = {
     plannedAction: ServicePlanAction;
     decisionStatus: ServicePlanDecisionStatus;
     reasonCode: string | null;
+    mustReplaceBy: string | null;
     replacementRequired: boolean;
     replacementSelectedServiceId: string | null;
   };
@@ -54,6 +55,18 @@ export type ReplacementPlanDetail = {
     bestCandidateId: string | null;
     bestWeightedScore: number | null;
   };
+};
+
+type ServicePlanRow = {
+  id: string;
+  scenario_id: string;
+  service_id: string;
+  planned_action: ServicePlanAction;
+  decision_status: ServicePlanDecisionStatus;
+  reason_code: string | null;
+  must_replace_by: string | null;
+  replacement_required: number;
+  replacement_selected_service_id: string | null;
 };
 
 const DEFAULT_WEIGHTS: ReplacementScorecardWeights = {
@@ -155,6 +168,125 @@ export function createServicePlan(
     input.replacementRequired ? 1 : 0
   );
   return id;
+}
+
+function getServicePlanRow(
+  db: Database.Database,
+  whereClause: string,
+  ...params: unknown[]
+): ServicePlanRow | undefined {
+  return db
+    .prepare(
+      `
+        SELECT
+          id,
+          scenario_id,
+          service_id,
+          planned_action,
+          decision_status,
+          reason_code,
+          must_replace_by,
+          replacement_required,
+          replacement_selected_service_id
+        FROM service_plan
+        WHERE ${whereClause}
+      `
+    )
+    .get(...params) as ServicePlanRow | undefined;
+}
+
+export function findReplacementPlanByScenarioService(
+  db: Database.Database,
+  input: {
+    scenarioId: string;
+    serviceId: string;
+  }
+): ReplacementPlanDetail | null {
+  const row = getServicePlanRow(
+    db,
+    "scenario_id = ? AND service_id = ? ORDER BY updated_at DESC, created_at DESC LIMIT 1",
+    input.scenarioId,
+    input.serviceId
+  );
+  if (!row) {
+    return null;
+  }
+  return getReplacementPlanDetail(db, row.id);
+}
+
+export function upsertServicePlan(
+  db: Database.Database,
+  input: {
+    scenarioId: string;
+    serviceId: string;
+    plannedAction: ServicePlanAction;
+    replacementRequired: boolean;
+    mustReplaceBy?: string | null;
+    reasonCode?: ServicePlanReasonCode | null;
+  }
+): string {
+  if (!SERVICE_PLAN_ACTION_SET.has(input.plannedAction)) {
+    throw new Error(`Invalid service plan action: ${input.plannedAction}`);
+  }
+  if (input.reasonCode && !SERVICE_PLAN_REASON_CODE_SET.has(input.reasonCode)) {
+    throw new Error(`Invalid reasonCode: ${input.reasonCode}`);
+  }
+
+  const existing = getServicePlanRow(
+    db,
+    "scenario_id = ? AND service_id = ? ORDER BY updated_at DESC, created_at DESC LIMIT 1",
+    input.scenarioId,
+    input.serviceId
+  );
+
+  if (!existing) {
+    const id = createServicePlan(db, {
+      scenarioId: input.scenarioId,
+      serviceId: input.serviceId,
+      plannedAction: input.plannedAction,
+      replacementRequired: input.replacementRequired,
+      mustReplaceBy: input.mustReplaceBy ?? undefined
+    });
+    if (input.reasonCode) {
+      db.prepare(
+        `
+          UPDATE service_plan
+          SET reason_code = ?,
+              updated_at = CURRENT_TIMESTAMP
+          WHERE id = ?
+        `
+      ).run(input.reasonCode, id);
+    }
+    return id;
+  }
+
+  const shouldClearSelection =
+    input.plannedAction !== "replace" || input.replacementRequired === false;
+
+  db.prepare(
+    `
+      UPDATE service_plan
+      SET planned_action = ?,
+          reason_code = ?,
+          must_replace_by = ?,
+          replacement_required = ?,
+          replacement_selected_service_id = CASE
+            WHEN ? = 1 THEN NULL
+            ELSE replacement_selected_service_id
+          END,
+          updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `
+  ).run(
+    input.plannedAction,
+    input.reasonCode ?? null,
+    input.mustReplaceBy ?? null,
+    input.replacementRequired ? 1 : 0,
+    shouldClearSelection ? 1 : 0,
+    existing.id
+  );
+
+  return existing.id;
 }
 
 export function setReplacementSelection(
@@ -334,34 +466,7 @@ export function getReplacementPlanDetail(
   db: Database.Database,
   servicePlanId: string
 ): ReplacementPlanDetail {
-  const servicePlan = db
-    .prepare(
-      `
-        SELECT
-          id,
-          scenario_id,
-          service_id,
-          planned_action,
-          decision_status,
-          reason_code,
-          replacement_required,
-          replacement_selected_service_id
-        FROM service_plan
-        WHERE id = ?
-      `
-    )
-    .get(servicePlanId) as
-    | {
-        id: string;
-        scenario_id: string;
-        service_id: string;
-        planned_action: ServicePlanAction;
-        decision_status: ServicePlanDecisionStatus;
-        reason_code: string | null;
-        replacement_required: number;
-        replacement_selected_service_id: string | null;
-      }
-    | undefined;
+  const servicePlan = getServicePlanRow(db, "id = ?", servicePlanId);
 
   if (!servicePlan) {
     throw new Error(`Service plan not found: ${servicePlanId}`);
@@ -412,6 +517,7 @@ export function getReplacementPlanDetail(
       plannedAction: servicePlan.planned_action,
       decisionStatus: servicePlan.decision_status,
       reasonCode: servicePlan.reason_code,
+      mustReplaceBy: servicePlan.must_replace_by,
       replacementRequired: servicePlan.replacement_required === 1,
       replacementSelectedServiceId: servicePlan.replacement_selected_service_id
     },

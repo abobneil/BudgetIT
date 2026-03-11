@@ -55,6 +55,7 @@ import {
   renewalWindowLabel
 } from "../services/service-lifecycle-model";
 import { useScenarioContext } from "../scenarios/ScenarioContext";
+import { buildReplacementRoute } from "../../app/entity-routes";
 import "./ContractsPage.css";
 
 type ServiceContext = {
@@ -385,7 +386,12 @@ export function ContractsPage() {
   }
 
   function openReplacement(contractId: string): void {
-    navigate(`/reports?replacementContractId=${contractId}`);
+    const serviceId =
+      contractRecords.find((entry) => entry.id === contractId)?.linkedServiceIds[0] ?? "";
+    if (!serviceId) {
+      return;
+    }
+    navigate(buildReplacementRoute(serviceId, contractId));
   }
 
   function openRenewalReview(contractId: string, serviceId: string): void {

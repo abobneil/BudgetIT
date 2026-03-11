@@ -348,6 +348,61 @@ export type ReplacementDetail = {
   };
 };
 
+export type ServicePlanDecisionStatus = "draft" | "reviewed" | "approved" | "rejected";
+export type ServicePlanAction = "keep" | "replace" | "retire";
+export type ServicePlanReasonCode =
+  | "cost"
+  | "security"
+  | "eol"
+  | "consolidation"
+  | "performance"
+  | "other";
+
+export type ReplacementScorecardWeights = {
+  cost: number;
+  featureFit: number;
+  migrationRisk: number;
+  supportQuality: number;
+};
+
+export type ReplacementScorecardInput = {
+  cost: number;
+  featureFit: number;
+  migrationRisk: number;
+  supportQuality: number;
+  weights?: Partial<ReplacementScorecardWeights>;
+};
+
+export type ReplacementCandidateRecord = {
+  id: string;
+  servicePlanId: string;
+  candidateServiceId: string | null;
+  candidateName: string | null;
+  weightedScore: number;
+  scorecard: ReplacementScorecardInput;
+};
+
+export type ReplacementPlanRecord = {
+  servicePlan: {
+    id: string;
+    scenarioId: string;
+    serviceId: string;
+    plannedAction: ServicePlanAction;
+    decisionStatus: ServicePlanDecisionStatus;
+    reasonCode: string | null;
+    mustReplaceBy: string | null;
+    replacementRequired: boolean;
+    replacementSelectedServiceId: string | null;
+  };
+  candidates: ReplacementCandidateRecord[];
+  aggregation: {
+    candidateCount: number;
+    averageWeightedScore: number;
+    bestCandidateId: string | null;
+    bestWeightedScore: number | null;
+  };
+};
+
 export type NlqParseResult = {
   filterSpec: Record<string, unknown>;
   explanation: string;
@@ -1095,6 +1150,49 @@ export async function upsertRenewalDecision(payload: {
   assumptions?: string | null;
 }): Promise<RenewalDecisionRecord> {
   return invokeIpc<RenewalDecisionRecord>("renewals.decision.upsert", payload);
+}
+
+export async function getReplacementPlan(payload: {
+  scenarioId: string;
+  serviceId: string;
+}): Promise<ReplacementPlanRecord | null> {
+  return invokeIpc<ReplacementPlanRecord | null>("replacement.plan.get", payload);
+}
+
+export async function upsertReplacementPlan(payload: {
+  scenarioId: string;
+  serviceId: string;
+  plannedAction: ServicePlanAction;
+  replacementRequired: boolean;
+  mustReplaceBy?: string | null;
+  reasonCode?: ServicePlanReasonCode | null;
+}): Promise<ReplacementPlanRecord> {
+  return invokeIpc<ReplacementPlanRecord>("replacement.plan.upsert", payload);
+}
+
+export async function transitionReplacementPlan(payload: {
+  servicePlanId: string;
+  nextStatus: ServicePlanDecisionStatus;
+  reasonCode?: ServicePlanReasonCode;
+}): Promise<ReplacementPlanRecord> {
+  return invokeIpc<ReplacementPlanRecord>("replacement.plan.transition", payload);
+}
+
+export async function setReplacementPlanSelection(payload: {
+  servicePlanId: string;
+  replacementSelectedServiceId: string | null;
+}): Promise<ReplacementPlanRecord> {
+  return invokeIpc<ReplacementPlanRecord>("replacement.selection.set", payload);
+}
+
+export async function upsertReplacementPlanCandidate(payload: {
+  id?: string;
+  servicePlanId: string;
+  candidateServiceId?: string;
+  candidateName?: string;
+  scorecard: ReplacementScorecardInput;
+}): Promise<ReplacementPlanRecord> {
+  return invokeIpc<ReplacementPlanRecord>("replacement.candidate.upsert", payload);
 }
 
 export async function createContract(payload: {

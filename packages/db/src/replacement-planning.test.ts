@@ -9,10 +9,12 @@ import { runMigrations } from "./migrations";
 import {
   createAttachmentReference,
   createServicePlan,
+  findReplacementPlanByScenarioService,
   getReplacementPlanDetail,
   listAttachmentReferences,
   setReplacementSelection,
   transitionServicePlan,
+  upsertServicePlan,
   upsertReplacementCandidate
 } from "./replacement-planning";
 import { BudgetCrudRepository } from "./repositories";
@@ -159,6 +161,69 @@ describe("replacement planning workflows", () => {
       expect(attachments).toHaveLength(1);
       expect(attachments[0].id).toBe(attachmentId);
       expect(attachments[0].fileName).toBe("comparison.pdf.enc");
+    } finally {
+      boot.db.close();
+    }
+  });
+
+  it("upserts plans by scenario and service without creating duplicates", () => {
+    const dataDir = createTempDir();
+    const boot = bootstrapEncryptedDatabase(dataDir);
+    try {
+      runMigrations(boot.db);
+      const repo = new BudgetCrudRepository(boot.db);
+      const vendorId = repo.createVendor({ name: "Vendor" });
+      const currentServiceId = repo.createService({
+        vendorId,
+        name: "Current Service",
+        status: "active"
+      });
+      const replacementServiceId = repo.createService({
+        vendorId,
+        name: "Replacement Service",
+        status: "active"
+      });
+
+      const firstId = upsertServicePlan(boot.db, {
+        scenarioId: "baseline",
+        serviceId: currentServiceId,
+        plannedAction: "replace",
+        replacementRequired: true,
+        mustReplaceBy: "2026-11-30",
+        reasonCode: "security"
+      });
+
+      setReplacementSelection(boot.db, {
+        servicePlanId: firstId,
+        replacementSelectedServiceId: replacementServiceId
+      });
+
+      const secondId = upsertServicePlan(boot.db, {
+        scenarioId: "baseline",
+        serviceId: currentServiceId,
+        plannedAction: "retire",
+        replacementRequired: false,
+        mustReplaceBy: "2026-12-31",
+        reasonCode: "cost"
+      });
+
+      expect(secondId).toBe(firstId);
+
+      const count = boot.db
+        .prepare("SELECT COUNT(*) AS count FROM service_plan WHERE scenario_id = ? AND service_id = ?")
+        .get("baseline", currentServiceId) as { count: number };
+      expect(count.count).toBe(1);
+
+      const detail = findReplacementPlanByScenarioService(boot.db, {
+        scenarioId: "baseline",
+        serviceId: currentServiceId
+      });
+      expect(detail).not.toBeNull();
+      expect(detail?.servicePlan.plannedAction).toBe("retire");
+      expect(detail?.servicePlan.reasonCode).toBe("cost");
+      expect(detail?.servicePlan.mustReplaceBy).toBe("2026-12-31");
+      expect(detail?.servicePlan.replacementRequired).toBe(false);
+      expect(detail?.servicePlan.replacementSelectedServiceId).toBeNull();
     } finally {
       boot.db.close();
     }

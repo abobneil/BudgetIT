@@ -10,6 +10,7 @@ describe("IPC channel allowlist", () => {
     expect(isAllowedInvokeChannel("dialog.pickFile")).toBe(true);
     expect(isAllowedInvokeChannel("dialog.pickDirectory")).toBe(true);
     expect(isAllowedInvokeChannel("report.preview")).toBe(true);
+    expect(isAllowedInvokeChannel("replacement.plan.get")).toBe(true);
     expect(() => assertAllowedInvokeChannel("settings.get")).not.toThrow();
   });
 

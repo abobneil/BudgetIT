@@ -1,0 +1,64 @@
+.replacement-toolbar {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 280px));
+  margin-bottom: 16px;
+}
+
+.replacement-toolbar__field {
+  display: grid;
+  gap: 6px;
+}
+
+.replacement-layout {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr);
+}
+
+.replacement-main,
+.replacement-side,
+.replacement-card,
+.replacement-card__header,
+.replacement-side__stack {
+  display: grid;
+  gap: 12px;
+}
+
+.replacement-summary {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.replacement-plan-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.replacement-plan-grid__full {
+  grid-column: 1 / -1;
+}
+
+.replacement-plan-grid__checkbox {
+  align-items: center;
+  display: flex;
+}
+
+.replacement-candidate__name,
+.replacement-candidate__actions,
+.replacement-candidate-form__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+@media (max-width: 960px) {
+  .replacement-toolbar,
+  .replacement-layout,
+  .replacement-summary,
+  .replacement-plan-grid {
+    grid-template-columns: 1fr;
+  }
+}

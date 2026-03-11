@@ -109,6 +109,9 @@ function resolveContextHelpPayload(pathname: string): ContextHelpPayload {
   if (pathname.startsWith("/reports")) {
     return { topic: "reports-workspace", anchor: "export-orchestration" };
   }
+  if (pathname.startsWith("/replacement")) {
+    return { topic: "services-workspace", anchor: "detail-tabs" };
+  }
   if (pathname.startsWith("/nlq")) {
     return { topic: "nlq-workspace", anchor: "overview" };
   }
