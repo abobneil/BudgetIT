@@ -195,6 +195,35 @@ export const replacementCandidate = sqliteTable("replacement_candidate", {
   candidateName: text("candidate_name"),
   score: integer("score"),
   scorecardJson: text("scorecard_json"),
+  annualCostMinor: integer("annual_cost_minor").notNull(),
+  currency: text("currency").notNull(),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull()
+});
+
+export const capability = sqliteTable("capability", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  category: text("category"),
+  description: text("description"),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull()
+});
+
+export const capabilityAssignment = sqliteTable("capability_assignment", {
+  id: text("id").primaryKey(),
+  capabilityId: text("capability_id").notNull(),
+  entityType: text("entity_type").notNull(),
+  entityId: text("entity_id").notNull(),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull()
+});
+
+export const servicePlanSourceItem = sqliteTable("service_plan_source_item", {
+  id: text("id").primaryKey(),
+  servicePlanId: text("service_plan_id").notNull(),
+  entityType: text("entity_type").notNull(),
+  entityId: text("entity_id").notNull(),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull()
 });

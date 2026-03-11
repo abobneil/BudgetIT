@@ -14,11 +14,14 @@ import { MemoryRouter, useLocation } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
+  assignCapabilities,
   createExpenseFromUnmatchedActual,
   createOwner,
   getReplacementPlan,
   createService,
+  listCapabilities,
   type ContractRecord,
+  type CapabilityRecord,
   type ExpenseLineRecord,
   exportReport,
   exportShowbackStatement,
@@ -41,10 +44,12 @@ import {
   queryReport,
   retireOwner,
   reviewUnmatchedActual,
+  setReplacementPlanScope,
   setReplacementPlanSelection,
   type ServiceRecord,
   type ReplacementPlanRecord,
   transitionReplacementPlan,
+  upsertCapability,
   upsertReplacementPlan,
   upsertReplacementPlanCandidate,
   upsertRenewalDecision,
@@ -62,8 +67,10 @@ vi.mock("../../lib/ipcClient", async (importOriginal) => {
     ...actual,
     createExpenseFromUnmatchedActual: vi.fn(),
     createOwner: vi.fn(),
+    assignCapabilities: vi.fn(),
     getReplacementPlan: vi.fn(),
     createService: vi.fn(),
+    listCapabilities: vi.fn(),
     exportReport: vi.fn(),
     exportShowbackStatement: vi.fn(),
     generateShowbackStatement: vi.fn(),
@@ -84,8 +91,10 @@ vi.mock("../../lib/ipcClient", async (importOriginal) => {
     queryReport: vi.fn(),
     retireOwner: vi.fn(),
     reviewUnmatchedActual: vi.fn(),
+    setReplacementPlanScope: vi.fn(),
     setReplacementPlanSelection: vi.fn(),
     transitionReplacementPlan: vi.fn(),
+    upsertCapability: vi.fn(),
     upsertReplacementPlan: vi.fn(),
     upsertReplacementPlanCandidate: vi.fn(),
     upsertRenewalDecision: vi.fn(),
@@ -96,8 +105,10 @@ vi.mock("../../lib/ipcClient", async (importOriginal) => {
 
 const createExpenseFromUnmatchedActualMock = vi.mocked(createExpenseFromUnmatchedActual);
 const createOwnerMock = vi.mocked(createOwner);
+const assignCapabilitiesMock = vi.mocked(assignCapabilities);
 const getReplacementPlanMock = vi.mocked(getReplacementPlan);
 const createServiceMock = vi.mocked(createService);
+const listCapabilitiesMock = vi.mocked(listCapabilities);
 const exportReportMock = vi.mocked(exportReport);
 const exportShowbackStatementMock = vi.mocked(exportShowbackStatement);
 const generateShowbackStatementMock = vi.mocked(generateShowbackStatement);
@@ -118,8 +129,10 @@ const previewReportMock = vi.mocked(previewReport);
 const queryReportMock = vi.mocked(queryReport);
 const retireOwnerMock = vi.mocked(retireOwner);
 const reviewUnmatchedActualMock = vi.mocked(reviewUnmatchedActual);
+const setReplacementPlanScopeMock = vi.mocked(setReplacementPlanScope);
 const setReplacementPlanSelectionMock = vi.mocked(setReplacementPlanSelection);
 const transitionReplacementPlanMock = vi.mocked(transitionReplacementPlan);
+const upsertCapabilityMock = vi.mocked(upsertCapability);
 const upsertReplacementPlanMock = vi.mocked(upsertReplacementPlan);
 const upsertReplacementPlanCandidateMock = vi.mocked(upsertReplacementPlanCandidate);
 const upsertRenewalDecisionMock = vi.mocked(upsertRenewalDecision);
@@ -388,12 +401,57 @@ describe("service and contract workspaces", () => {
   let contracts: ContractRecord[] = createBaseContracts();
   let owners: OwnerOptionRecord[] = createBaseOwners();
   let replacementPlans: ReplacementPlanRecord[] = [];
+  let capabilityCatalog: CapabilityRecord[] = [];
+
+  function enrichReplacementPlan(plan: ReplacementPlanRecord): ReplacementPlanRecord {
+    const currentService = services.find((entry) => entry.id === plan.servicePlan.serviceId);
+    const primarySourceItem = {
+      entityType: "service" as const,
+      entityId: plan.servicePlan.serviceId,
+      label: currentService?.name ?? plan.servicePlan.serviceId,
+      annualCostMinor: currentService?.annualSpendMinor ?? 0,
+      currency: "USD",
+      capabilities: [],
+      implicit: true
+    };
+    const explicitSourceItems = (plan.sourceItems ?? []).filter((item) => !item.implicit);
+    const sourceItems = [primarySourceItem, ...explicitSourceItems];
+    const currentAnnualCostMinor = sourceItems.reduce((sum, item) => sum + item.annualCostMinor, 0);
+
+    return {
+      ...plan,
+      sourceItems,
+      capabilityCatalog,
+      coverageSummary: {
+        currency: "USD",
+        currentAnnualCostMinor,
+        currentCapabilities: [],
+        currentItems: sourceItems,
+        candidateComparisons: plan.candidates.map((candidate) => ({
+          candidateId: candidate.id,
+          candidateName: candidate.candidateName,
+          currency: candidate.currency,
+          currentAnnualCostMinor,
+          proposedAnnualCostMinor: candidate.annualCostMinor,
+          netDeltaMinor: candidate.annualCostMinor - currentAnnualCostMinor,
+          coveragePct: 0,
+          overlapCount: 0,
+          gapCount: 0,
+          addedCount: 0,
+          overlapCapabilities: [],
+          gapCapabilities: [],
+          addedCapabilities: []
+        }))
+      }
+    };
+  }
 
   beforeEach(() => {
     services = createBaseServices();
     contracts = createBaseContracts();
     owners = createBaseOwners();
     replacementPlans = [];
+    capabilityCatalog = [];
 
     isIpcAvailableMock.mockReturnValue(true);
     openHelpWindowMock.mockReset();
@@ -403,6 +461,7 @@ describe("service and contract workspaces", () => {
     listServicesMock.mockImplementation(async () => services);
     listContractsMock.mockImplementation(async () => contracts);
     listExpensesMock.mockResolvedValue(BASE_EXPENSES);
+    listCapabilitiesMock.mockImplementation(async () => capabilityCatalog);
     listOwnersMock.mockImplementation(async () => owners);
     listRenewalWorkbenchMock.mockResolvedValue([
       {
@@ -539,13 +598,14 @@ describe("service and contract workspaces", () => {
     });
 
     getReplacementPlanMock.mockImplementation(async ({ scenarioId, serviceId }) => {
-      return (
+      const current = (
         replacementPlans.find(
           (entry) =>
             entry.servicePlan.scenarioId === scenarioId &&
             entry.servicePlan.serviceId === serviceId
         ) ?? null
       );
+      return current ? enrichReplacementPlan(current) : null;
     });
 
     upsertReplacementPlanMock.mockImplementation(async (payload) => {
@@ -582,6 +642,15 @@ describe("service and contract workspaces", () => {
               replacementSelectedServiceId: null
             },
             candidates: [],
+            sourceItems: [],
+            capabilityCatalog,
+            coverageSummary: {
+              currency: "USD",
+              currentAnnualCostMinor: 0,
+              currentCapabilities: [],
+              currentItems: [],
+              candidateComparisons: []
+            },
             aggregation: {
               candidateCount: 0,
               averageWeightedScore: 0,
@@ -595,7 +664,7 @@ describe("service and contract workspaces", () => {
         ),
         next
       ];
-      return next;
+      return enrichReplacementPlan(next);
     });
 
     transitionReplacementPlanMock.mockImplementation(async ({ servicePlanId, nextStatus, reasonCode }) => {
@@ -614,7 +683,7 @@ describe("service and contract workspaces", () => {
       replacementPlans = replacementPlans.map((entry) =>
         entry.servicePlan.id === servicePlanId ? next : entry
       );
-      return next;
+      return enrichReplacementPlan(next);
     });
 
     setReplacementPlanSelectionMock.mockImplementation(async ({ servicePlanId, replacementSelectedServiceId }) => {
@@ -632,7 +701,70 @@ describe("service and contract workspaces", () => {
       replacementPlans = replacementPlans.map((entry) =>
         entry.servicePlan.id === servicePlanId ? next : entry
       );
-      return next;
+      return enrichReplacementPlan(next);
+    });
+
+    setReplacementPlanScopeMock.mockImplementation(async ({ servicePlanId, items }) => {
+      const current = replacementPlans.find((entry) => entry.servicePlan.id === servicePlanId);
+      if (!current) {
+        throw new Error(`Plan not found: ${servicePlanId}`);
+      }
+
+      const next: ReplacementPlanRecord = {
+        ...current,
+        sourceItems: items.map((item) => {
+          if (item.entityType === "service") {
+            const service = services.find((entry) => entry.id === item.entityId);
+            return {
+              entityType: "service" as const,
+              entityId: item.entityId,
+              label: service?.name ?? item.entityId,
+              annualCostMinor: service?.annualSpendMinor ?? 0,
+              currency: "USD",
+              capabilities: [],
+              implicit: false
+            };
+          }
+          if (item.entityType === "contract") {
+            const contract = contracts.find((entry) => entry.id === item.entityId);
+            return {
+              entityType: "contract" as const,
+              entityId: item.entityId,
+              label: contract?.contractNumber ?? item.entityId,
+              annualCostMinor: 0,
+              currency: "USD",
+              capabilities: [],
+              implicit: false
+            };
+          }
+          if (item.entityType === "vendor") {
+            const vendor = BASE_VENDORS.find((entry) => entry.id === item.entityId);
+            return {
+              entityType: "vendor" as const,
+              entityId: item.entityId,
+              label: vendor?.name ?? item.entityId,
+              annualCostMinor: vendor?.annualSpendMinor ?? 0,
+              currency: "USD",
+              capabilities: [],
+              implicit: false
+            };
+          }
+          const expense = BASE_EXPENSES.find((entry) => entry.id === item.entityId);
+          return {
+            entityType: "expense_line" as const,
+            entityId: item.entityId,
+            label: expense?.name ?? item.entityId,
+            annualCostMinor: expense?.amountMinor ?? 0,
+            currency: expense?.currency ?? "USD",
+            capabilities: [],
+            implicit: false
+          };
+        })
+      };
+      replacementPlans = replacementPlans.map((entry) =>
+        entry.servicePlan.id === servicePlanId ? next : entry
+      );
+      return enrichReplacementPlan(next);
     });
 
     upsertReplacementPlanCandidateMock.mockImplementation(async (payload) => {
@@ -650,6 +782,9 @@ describe("service and contract workspaces", () => {
         servicePlanId: payload.servicePlanId,
         candidateServiceId: payload.candidateServiceId ?? null,
         candidateName,
+        annualCostMinor: payload.annualCostMinor ?? 0,
+        currency: payload.currency ?? "USD",
+        capabilities: [],
         weightedScore: computeWeightedScore(payload.scorecard),
         scorecard: payload.scorecard
       };
@@ -672,7 +807,25 @@ describe("service and contract workspaces", () => {
       replacementPlans = replacementPlans.map((entry) =>
         entry.servicePlan.id === payload.servicePlanId ? next : entry
       );
-      return next;
+      return enrichReplacementPlan(next);
+    });
+
+    upsertCapabilityMock.mockImplementation(async ({ id, name, category, description }) => {
+      const capability = {
+        id: id ?? `capability-${capabilityCatalog.length + 1}`,
+        name,
+        category: category ?? null,
+        description: description ?? null
+      };
+      capabilityCatalog = [
+        ...capabilityCatalog.filter((entry) => entry.id !== capability.id),
+        capability
+      ].sort((left, right) => left.name.localeCompare(right.name));
+      return capability;
+    });
+
+    assignCapabilitiesMock.mockImplementation(async ({ capabilityIds }) => {
+      return capabilityCatalog.filter((entry) => capabilityIds.includes(entry.id));
     });
 
     createOwnerMock.mockImplementation(async ({ name }) => {

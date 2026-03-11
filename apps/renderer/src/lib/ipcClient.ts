@@ -373,12 +373,55 @@ export type ReplacementScorecardInput = {
   weights?: Partial<ReplacementScorecardWeights>;
 };
 
+export type CapabilityEntityType =
+  | "vendor"
+  | "service"
+  | "contract"
+  | "expense_line"
+  | "replacement_candidate";
+
+export type CapabilityRecord = {
+  id: string;
+  name: string;
+  category: string | null;
+  description: string | null;
+};
+
+export type CoverageItemRecord = {
+  entityType: "vendor" | "service" | "contract" | "expense_line";
+  entityId: string;
+  label: string;
+  annualCostMinor: number;
+  currency: string;
+  capabilities: CapabilityRecord[];
+  implicit: boolean;
+};
+
+export type ReplacementCandidateCoverageComparison = {
+  candidateId: string;
+  candidateName: string | null;
+  currency: string;
+  currentAnnualCostMinor: number;
+  proposedAnnualCostMinor: number;
+  netDeltaMinor: number;
+  coveragePct: number;
+  overlapCount: number;
+  gapCount: number;
+  addedCount: number;
+  overlapCapabilities: CapabilityRecord[];
+  gapCapabilities: CapabilityRecord[];
+  addedCapabilities: CapabilityRecord[];
+};
+
 export type ReplacementCandidateRecord = {
   id: string;
   servicePlanId: string;
   candidateServiceId: string | null;
   candidateName: string | null;
   weightedScore: number;
+  annualCostMinor: number;
+  currency: string;
+  capabilities: CapabilityRecord[];
   scorecard: ReplacementScorecardInput;
 };
 
@@ -395,6 +438,15 @@ export type ReplacementPlanRecord = {
     replacementSelectedServiceId: string | null;
   };
   candidates: ReplacementCandidateRecord[];
+  sourceItems: CoverageItemRecord[];
+  capabilityCatalog: CapabilityRecord[];
+  coverageSummary: {
+    currency: string;
+    currentAnnualCostMinor: number;
+    currentCapabilities: CapabilityRecord[];
+    currentItems: CoverageItemRecord[];
+    candidateComparisons: ReplacementCandidateCoverageComparison[];
+  };
   aggregation: {
     candidateCount: number;
     averageWeightedScore: number;
@@ -1202,14 +1254,47 @@ export async function setReplacementPlanSelection(payload: {
   return invokeIpc<ReplacementPlanRecord>("replacement.selection.set", payload);
 }
 
+export async function setReplacementPlanScope(payload: {
+  servicePlanId: string;
+  items: Array<{
+    entityType: "vendor" | "service" | "contract" | "expense_line";
+    entityId: string;
+  }>;
+}): Promise<ReplacementPlanRecord> {
+  return invokeIpc<ReplacementPlanRecord>("replacement.scope.set", payload);
+}
+
 export async function upsertReplacementPlanCandidate(payload: {
   id?: string;
   servicePlanId: string;
   candidateServiceId?: string;
   candidateName?: string;
+  annualCostMinor?: number;
+  currency?: string;
   scorecard: ReplacementScorecardInput;
 }): Promise<ReplacementPlanRecord> {
   return invokeIpc<ReplacementPlanRecord>("replacement.candidate.upsert", payload);
+}
+
+export async function listCapabilities(): Promise<CapabilityRecord[]> {
+  return invokeIpc<CapabilityRecord[]>("capabilities.list");
+}
+
+export async function upsertCapability(payload: {
+  id?: string;
+  name: string;
+  category?: string | null;
+  description?: string | null;
+}): Promise<CapabilityRecord> {
+  return invokeIpc<CapabilityRecord>("capabilities.upsert", payload);
+}
+
+export async function assignCapabilities(payload: {
+  entityType: CapabilityEntityType;
+  entityId: string;
+  capabilityIds: string[];
+}): Promise<CapabilityRecord[]> {
+  return invokeIpc<CapabilityRecord[]>("capabilities.assign", payload);
 }
 
 export async function createContract(payload: {

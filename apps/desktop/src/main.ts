@@ -6,6 +6,10 @@ import path from "node:path";
 import {
   BudgetCrudRepository,
   bootstrapEncryptedDatabase,
+  listCapabilities,
+  replaceCapabilityAssignments,
+  setServicePlanSourceItems,
+  upsertCapability,
   buildReportPresetDataset,
   buildMonthlyVarianceDataset,
   createEncryptedBackup,
@@ -27,6 +31,7 @@ import {
   upsertRenewalDecision,
   upsertServicePlan,
   type AlertEventRecord,
+  type CapabilityEntityType,
   type DatabaseResetResult,
   type FilterSpec,
   type ReportDatasetFilters,
@@ -198,6 +203,14 @@ const SERVICE_PLAN_REASON_CODES = [
   "performance",
   "other"
 ] as const;
+const CAPABILITY_ENTITY_TYPES = [
+  "vendor",
+  "service",
+  "contract",
+  "expense_line",
+  "replacement_candidate"
+] as const;
+const REPLACEMENT_SCOPE_ENTITY_TYPES = ["vendor", "service", "contract", "expense_line"] as const;
 const RENEWAL_SAVINGS_CATEGORIES = [
   "retirement",
   "non_renewal",
@@ -1244,6 +1257,8 @@ function parseReplacementCandidatePayload(payload: unknown): {
   servicePlanId: string;
   candidateServiceId?: string;
   candidateName?: string;
+  annualCostMinor?: number;
+  currency?: string;
   scorecard: ReplacementScorecardInput;
 } {
   const value = requireObjectPayload(payload, "replacement.candidate.upsert requires payload.");
@@ -1256,10 +1271,91 @@ function parseReplacementCandidatePayload(payload: unknown): {
     ),
     candidateServiceId: getOptionalString(value, "candidateServiceId"),
     candidateName: getOptionalString(value, "candidateName"),
+    annualCostMinor: getOptionalNumber(value, "annualCostMinor"),
+    currency: getOptionalString(value, "currency"),
     scorecard: parseReplacementScorecardInput(
       value.scorecard,
       "replacement.candidate.upsert"
     )
+  };
+}
+
+function parseCapabilityUpsertPayload(payload: unknown): {
+  id?: string;
+  name: string;
+  category?: string | null;
+  description?: string | null;
+} {
+  const value = requireObjectPayload(payload, "capabilities.upsert requires payload.");
+  return {
+    id: getOptionalString(value, "id"),
+    name: getRequiredString(value, "name", "capabilities.upsert requires name."),
+    category: getOptionalNullableString(value, "category"),
+    description: getOptionalNullableString(value, "description")
+  };
+}
+
+function parseCapabilityAssignmentPayload(payload: unknown): {
+  entityType: CapabilityEntityType;
+  entityId: string;
+  capabilityIds: string[];
+} {
+  const value = requireObjectPayload(payload, "capabilities.assign requires payload.");
+  const capabilityIds = Array.isArray(value.capabilityIds)
+    ? value.capabilityIds
+        .filter((entry): entry is string => typeof entry === "string")
+        .map((entry) => entry.trim())
+        .filter((entry) => entry.length > 0)
+    : [];
+
+  return {
+    entityType: getRequiredEnumValue(
+      value,
+      "entityType",
+      CAPABILITY_ENTITY_TYPES,
+      "capabilities.assign requires a valid entityType."
+    ) as CapabilityEntityType,
+    entityId: getRequiredString(value, "entityId", "capabilities.assign requires entityId."),
+    capabilityIds
+  };
+}
+
+function parseReplacementScopePayload(payload: unknown): {
+  servicePlanId: string;
+  items: Array<{
+    entityType: "vendor" | "service" | "contract" | "expense_line";
+    entityId: string;
+  }>;
+} {
+  const value = requireObjectPayload(payload, "replacement.scope.set requires payload.");
+  const rawItems = Array.isArray(value.items) ? value.items : [];
+  const items = rawItems.map((entry) => {
+    const item = requireObjectPayload(
+      entry,
+      "replacement.scope.set requires each item to be an object."
+    );
+    return {
+      entityType: getRequiredEnumValue(
+        item,
+        "entityType",
+        REPLACEMENT_SCOPE_ENTITY_TYPES,
+        "replacement.scope.set requires a valid item.entityType."
+      ) as "vendor" | "service" | "contract" | "expense_line",
+      entityId: getRequiredString(
+        item,
+        "entityId",
+        "replacement.scope.set requires each item.entityId."
+      )
+    };
+  });
+
+  return {
+    servicePlanId: getRequiredString(
+      value,
+      "servicePlanId",
+      "replacement.scope.set requires servicePlanId."
+    ),
+    items
   };
 }
 
@@ -2431,6 +2527,51 @@ function setupIpcHandlers(requestExit: () => void): void {
       after: detail
     });
     return detail;
+  });
+  ipcMain.handle("replacement.scope.set", async (_event, payload: unknown) => {
+    const parsed = parseReplacementScopePayload(payload);
+    const handle = requireDatabaseHandle();
+    const after = setServicePlanSourceItems(handle.db, parsed);
+    const detail = getReplacementPlanDetail(handle.db, parsed.servicePlanId);
+    writeAuditLog({
+      action: "replacement.scope.set",
+      entityType: "service_plan",
+      entityId: parsed.servicePlanId,
+      after: {
+        sourceItems: after,
+        detail
+      }
+    });
+    return detail;
+  });
+  ipcMain.handle("capabilities.list", async () => {
+    return listCapabilities(requireDatabaseHandle().db);
+  });
+  ipcMain.handle("capabilities.upsert", async (_event, payload: unknown) => {
+    const parsed = parseCapabilityUpsertPayload(payload);
+    const handle = requireDatabaseHandle();
+    const after = upsertCapability(handle.db, parsed);
+    writeAuditLog({
+      action: "capabilities.upsert",
+      entityType: "capability",
+      entityId: after.id,
+      after
+    });
+    return after;
+  });
+  ipcMain.handle("capabilities.assign", async (_event, payload: unknown) => {
+    const parsed = parseCapabilityAssignmentPayload(payload);
+    const handle = requireDatabaseHandle();
+    const after = replaceCapabilityAssignments(handle.db, parsed);
+    writeAuditLog({
+      action: "capabilities.assign",
+      entityType: parsed.entityType,
+      entityId: parsed.entityId,
+      after: {
+        capabilityIds: after.map((capability) => capability.id)
+      }
+    });
+    return after;
   });
   ipcMain.handle("reports.query", async (_event, payload: unknown) => {
     const parsed = parseReportsQueryPayload(payload);

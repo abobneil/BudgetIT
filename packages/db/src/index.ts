@@ -67,6 +67,19 @@ export {
   type ScenarioSavingsSummary
 } from "./savings-attribution";
 export {
+  buildReplacementCoverageSummary,
+  listCapabilities,
+  listEntityCapabilities,
+  replaceCapabilityAssignments,
+  setServicePlanSourceItems,
+  upsertCapability,
+  type CapabilityEntityType,
+  type CapabilityRecord,
+  type CoverageItemRecord,
+  type ReplacementCandidateCoverageComparison,
+  type ReplacementCoverageSummary
+} from "./capability-coverage";
+export {
   computeWeightedScore,
   createAttachmentReference,
   createServicePlan,

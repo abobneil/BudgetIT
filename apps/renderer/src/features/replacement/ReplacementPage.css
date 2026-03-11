@@ -48,10 +48,22 @@
 
 .replacement-candidate__name,
 .replacement-candidate__actions,
-.replacement-candidate-form__actions {
+.replacement-candidate-form__actions,
+.replacement-card__actions {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+.replacement-capability-list {
+  display: grid;
+  gap: 10px;
+}
+
+.replacement-capability-option {
+  align-items: flex-start;
+  display: flex;
+  gap: 10px;
 }
 
 @media (max-width: 960px) {

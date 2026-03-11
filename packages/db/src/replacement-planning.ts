@@ -2,6 +2,15 @@ import crypto from "node:crypto";
 
 import type Database from "better-sqlite3-multiple-ciphers";
 
+import {
+  buildReplacementCoverageSummary,
+  listCapabilities,
+  listEntityCapabilities,
+  type CapabilityRecord,
+  type CoverageItemRecord,
+  type ReplacementCoverageSummary
+} from "./capability-coverage";
+
 export type ServicePlanDecisionStatus = "draft" | "reviewed" | "approved" | "rejected";
 export type ServicePlanAction = "keep" | "replace" | "retire";
 export type ServicePlanReasonCode =
@@ -33,6 +42,9 @@ export type ReplacementCandidateDetail = {
   candidateServiceId: string | null;
   candidateName: string | null;
   weightedScore: number;
+  annualCostMinor: number;
+  currency: string;
+  capabilities: CapabilityRecord[];
   scorecard: ReplacementScorecardInput;
 };
 
@@ -49,6 +61,9 @@ export type ReplacementPlanDetail = {
     replacementSelectedServiceId: string | null;
   };
   candidates: ReplacementCandidateDetail[];
+  sourceItems: CoverageItemRecord[];
+  capabilityCatalog: CapabilityRecord[];
+  coverageSummary: ReplacementCoverageSummary;
   aggregation: {
     candidateCount: number;
     averageWeightedScore: number;
@@ -383,12 +398,26 @@ export function upsertReplacementCandidate(
     servicePlanId: string;
     candidateServiceId?: string;
     candidateName?: string;
+    annualCostMinor?: number;
+    currency?: string;
     scorecard: ReplacementScorecardInput;
   }
 ): string {
+  if (
+    input.annualCostMinor !== undefined &&
+    (!Number.isFinite(input.annualCostMinor) || input.annualCostMinor < 0)
+  ) {
+    throw new Error("annualCostMinor must be a non-negative integer.");
+  }
+  if (input.currency !== undefined && !/^[A-Z]{3}$/.test(input.currency)) {
+    throw new Error("currency must be a valid ISO 4217 code.");
+  }
+
   const id = input.id ?? crypto.randomUUID();
   const weightedScore = computeWeightedScore(input.scorecard);
   const scorecardJson = JSON.stringify(input.scorecard);
+  const annualCostMinor = input.annualCostMinor ?? 0;
+  const currency = input.currency ?? "USD";
   const existing = db
     .prepare("SELECT id FROM replacement_candidate WHERE id = ?")
     .get(id) as { id: string } | undefined;
@@ -402,6 +431,8 @@ export function upsertReplacementCandidate(
             candidate_name = ?,
             score = ?,
             scorecard_json = ?,
+            annual_cost_minor = ?,
+            currency = ?,
             updated_at = CURRENT_TIMESTAMP
         WHERE id = ?
       `
@@ -411,6 +442,8 @@ export function upsertReplacementCandidate(
       input.candidateName ?? null,
       weightedScore,
       scorecardJson,
+      annualCostMinor,
+      currency,
       id
     );
     return id;
@@ -425,9 +458,11 @@ export function upsertReplacementCandidate(
         candidate_name,
         score,
         scorecard_json,
+        annual_cost_minor,
+        currency,
         created_at,
         updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
     `
   ).run(
     id,
@@ -435,7 +470,9 @@ export function upsertReplacementCandidate(
     input.candidateServiceId ?? null,
     input.candidateName ?? null,
     weightedScore,
-    scorecardJson
+    scorecardJson,
+    annualCostMinor,
+    currency
   );
   return id;
 }
@@ -481,7 +518,9 @@ export function getReplacementPlanDetail(
           candidate_service_id,
           candidate_name,
           score,
-          scorecard_json
+          scorecard_json,
+          annual_cost_minor,
+          currency
         FROM replacement_candidate
         WHERE service_plan_id = ?
         ORDER BY score DESC, candidate_name ASC
@@ -494,6 +533,8 @@ export function getReplacementPlanDetail(
     candidate_name: string | null;
     score: number | null;
     scorecard_json: string | null;
+    annual_cost_minor: number;
+    currency: string;
   }>;
 
   const candidates: ReplacementCandidateDetail[] = rows.map((row) => ({
@@ -502,12 +543,19 @@ export function getReplacementPlanDetail(
     candidateServiceId: row.candidate_service_id,
     candidateName: row.candidate_name,
     weightedScore: row.score ?? 0,
+    annualCostMinor: row.annual_cost_minor ?? 0,
+    currency: row.currency ?? "USD",
+    capabilities: listEntityCapabilities(db, {
+      entityType: "replacement_candidate",
+      entityId: row.id
+    }),
     scorecard: parseScorecardJson(row.scorecard_json)
   }));
 
   const candidateCount = candidates.length;
   const sum = candidates.reduce((acc, row) => acc + row.weightedScore, 0);
   const best = candidates[0];
+  const coverageSummary = buildReplacementCoverageSummary(db, servicePlanId);
 
   return {
     servicePlan: {
@@ -522,6 +570,9 @@ export function getReplacementPlanDetail(
       replacementSelectedServiceId: servicePlan.replacement_selected_service_id
     },
     candidates,
+    sourceItems: coverageSummary.currentItems,
+    capabilityCatalog: listCapabilities(db),
+    coverageSummary,
     aggregation: {
       candidateCount,
       averageWeightedScore: candidateCount > 0 ? Math.round((sum / candidateCount) * 100) / 100 : 0,

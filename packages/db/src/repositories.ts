@@ -1195,6 +1195,35 @@ export class BudgetCrudRepository {
       this.db
         .prepare(
           `
+            DELETE FROM capability_assignment
+            WHERE entity_type = 'replacement_candidate'
+              AND entity_id IN (
+                SELECT id
+                FROM replacement_candidate
+                WHERE service_plan_id IN (
+                  SELECT id
+                  FROM service_plan
+                  WHERE scenario_id = ?
+                )
+              )
+          `
+        )
+        .run(scenarioId);
+      this.db
+        .prepare(
+          `
+            DELETE FROM service_plan_source_item
+            WHERE service_plan_id IN (
+              SELECT id
+              FROM service_plan
+              WHERE scenario_id = ?
+            )
+          `
+        )
+        .run(scenarioId);
+      this.db
+        .prepare(
+          `
             DELETE FROM replacement_candidate
             WHERE service_plan_id IN (
               SELECT id
@@ -1235,6 +1264,19 @@ export class BudgetCrudRepository {
               FROM expense_line
               WHERE scenario_id = ?
             )
+          `
+        )
+        .run(scenarioId);
+      this.db
+        .prepare(
+          `
+            DELETE FROM capability_assignment
+            WHERE entity_type = 'expense_line'
+              AND entity_id IN (
+                SELECT id
+                FROM expense_line
+                WHERE scenario_id = ?
+              )
           `
         )
         .run(scenarioId);
@@ -1562,7 +1604,7 @@ export class BudgetCrudRepository {
             materialized_expense_line_id,
             created_at,
             updated_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
         `
       );
 
@@ -2297,8 +2339,11 @@ export class BudgetCrudRepository {
         cleared[tableName] = result.changes;
       };
 
+      deleteFromTable("capability_assignment");
+      deleteFromTable("service_plan_source_item");
       deleteFromTable("replacement_candidate");
       deleteFromTable("service_plan");
+      deleteFromTable("capability");
       deleteFromTable("renewal_decision");
       deleteFromTable("unmatched_actual_review");
       deleteFromTable("showback_line");
