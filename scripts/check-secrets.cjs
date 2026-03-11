@@ -2,7 +2,8 @@
 
 const fs = require("node:fs");
 const path = require("node:path");
-const { execFileSync } = require("node:child_process");
+const readline = require("node:readline");
+const { execFileSync, spawn } = require("node:child_process");
 
 const repoRoot = path.resolve(__dirname, "..");
 const args = new Set(process.argv.slice(2));
@@ -66,6 +67,43 @@ function runGit(argsToRun, options = {}) {
     stdio: ["ignore", "pipe", "pipe"]
   });
   return result;
+}
+
+function runGitStream(argsToRun, onLine) {
+  return new Promise((resolve, reject) => {
+    const child = spawn("git", argsToRun, {
+      cwd: repoRoot,
+      stdio: ["ignore", "pipe", "pipe"]
+    });
+    let stderr = "";
+
+    const lineReader = readline.createInterface({
+      input: child.stdout,
+      crlfDelay: Infinity
+    });
+
+    lineReader.on("line", onLine);
+    child.stderr.setEncoding("utf8");
+    child.stderr.on("data", (chunk) => {
+      stderr += chunk;
+    });
+
+    child.on("error", (error) => {
+      lineReader.close();
+      reject(error);
+    });
+
+    child.on("close", (code) => {
+      lineReader.close();
+      if (code === 0) {
+        resolve();
+        return;
+      }
+
+      const detail = stderr.trim();
+      reject(new Error(`git ${argsToRun.join(" ")} failed${detail ? `: ${detail}` : ""}`));
+    });
+  });
 }
 
 function isBinary(buffer) {
@@ -188,7 +226,34 @@ function resolveOutgoingRevisionRange() {
   }
 }
 
-function scanHistoryPatches(revisionArg) {
+function processHistoryLine(rawLine, state) {
+  if (rawLine.startsWith("commit:")) {
+    state.currentCommit = rawLine.slice("commit:".length);
+    state.currentFile = null;
+    return;
+  }
+
+  if (rawLine.startsWith("+++ b/")) {
+    state.currentFile = normalizePath(rawLine.slice(6));
+    scanPath(state.currentFile, `${state.currentCommit}:${state.currentFile}`);
+    return;
+  }
+
+  if (rawLine.startsWith("+++ /dev/null")) {
+    state.currentFile = null;
+    return;
+  }
+
+  if (!state.currentFile || shouldIgnorePath(state.currentFile)) {
+    return;
+  }
+
+  if (rawLine.startsWith("+") && !rawLine.startsWith("+++")) {
+    scanText(rawLine.slice(1), `${state.currentCommit}:${state.currentFile}`);
+  }
+}
+
+async function scanHistoryPatches(revisionArg) {
   const gitArgs = ["log", "--format=commit:%H", "--patch", "--unified=0", "--no-color"];
   if (revisionArg === "--all") {
     gitArgs.push("--all");
@@ -196,61 +261,46 @@ function scanHistoryPatches(revisionArg) {
     gitArgs.push(revisionArg);
   }
 
-  const patchLog = runGit(gitArgs);
-  let currentCommit = "unknown";
-  let currentFile = null;
+  const state = {
+    currentCommit: "unknown",
+    currentFile: null
+  };
 
-  for (const rawLine of patchLog.split(/\r?\n/)) {
-    if (rawLine.startsWith("commit:")) {
-      currentCommit = rawLine.slice("commit:".length);
-      currentFile = null;
-      continue;
-    }
+  await runGitStream(gitArgs, (rawLine) => {
+    processHistoryLine(rawLine, state);
+  });
+}
 
-    if (rawLine.startsWith("+++ b/")) {
-      currentFile = normalizePath(rawLine.slice(6));
-      scanPath(currentFile, `${currentCommit}:${currentFile}`);
-      continue;
-    }
-
-    if (rawLine.startsWith("+++ /dev/null")) {
-      currentFile = null;
-      continue;
-    }
-
-    if (!currentFile || shouldIgnorePath(currentFile)) {
-      continue;
-    }
-
-    if (rawLine.startsWith("+") && !rawLine.startsWith("+++")) {
-      scanText(rawLine.slice(1), `${currentCommit}:${currentFile}`);
-    }
+async function main() {
+  if (scanWorkingTree) {
+    scanTrackedWorkingTree();
   }
-}
 
-if (scanWorkingTree) {
-  scanTrackedWorkingTree();
-}
-
-if (scanStaged) {
-  scanStagedFiles();
-}
-
-if (scanOutgoing) {
-  scanHistoryPatches(resolveOutgoingRevisionRange());
-}
-
-if (scanAllHistory) {
-  scanHistoryPatches("--all");
-}
-
-if (findings.length > 0) {
-  console.error("Potential secrets detected:");
-  for (const finding of findings) {
-    const lineText = finding.lineNumber ? `:${finding.lineNumber}` : "";
-    console.error(`- ${finding.location}${lineText} [${finding.label}] ${finding.excerpt}`);
+  if (scanStaged) {
+    scanStagedFiles();
   }
+
+  if (scanOutgoing) {
+    await scanHistoryPatches(resolveOutgoingRevisionRange());
+  }
+
+  if (scanAllHistory) {
+    await scanHistoryPatches("--all");
+  }
+
+  if (findings.length > 0) {
+    console.error("Potential secrets detected:");
+    for (const finding of findings) {
+      const lineText = finding.lineNumber ? `:${finding.lineNumber}` : "";
+      console.error(`- ${finding.location}${lineText} [${finding.label}] ${finding.excerpt}`);
+    }
+    process.exit(1);
+  }
+
+  console.log("No secrets detected.");
+}
+
+main().catch((error) => {
+  console.error(error instanceof Error ? error.message : String(error));
   process.exit(1);
-}
-
-console.log("No secrets detected.");
+});

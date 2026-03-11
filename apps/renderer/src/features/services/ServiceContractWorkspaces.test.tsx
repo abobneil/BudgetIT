@@ -1061,7 +1061,7 @@ describe("service and contract workspaces", () => {
 
     await screen.findByText("Action: Replace");
     expect(screen.getAllByText("Approved").length).toBeGreaterThan(0);
-    expect(screen.getByText("Candidates: 1")).toBeInTheDocument();
+    expect(screen.getByText("Reason: security")).toBeInTheDocument();
   });
 
   it("opens the renewal workbench from contracts workspace", async () => {
